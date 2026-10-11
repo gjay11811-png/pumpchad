@@ -7,6 +7,8 @@ export function objectiveFor(save: SaveData) {
   const d = save.progress.discoveries
   if (!d.includes('talk_coach')) return 'Find Coach Gourdon outside Chad Gym'
   if (save.progress.gymRuns === 0) return 'Enter Chad Gym and finish a Chad Press set'
+  const seeds = d.filter((x) => x.startsWith('seed_')).length
+  if (seeds < 5) return `Explore Chad Square · Golden seeds ${seeds}/5`
   const got = save.progress.achievements.length
   const total = Object.keys(ACHIEVEMENTS).length
   if (got < total) return `Explore Chad Square — ${total - got} secret${total - got === 1 ? '' : 's'} left`
@@ -115,7 +117,7 @@ export function Hud({
   )
 }
 
-export type Toast = { id: string; title: string; desc: string }
+export type Toast = { id: string; title: string; desc: string; kind?: 'achievement' | 'collect' }
 export function Toasts({ toasts }: { toasts: Toast[] }) {
   return (
     <div className="pointer-events-none absolute inset-x-0 top-[calc(5.5rem+env(safe-area-inset-top))] z-30 flex flex-col items-center gap-2 px-3" aria-live="polite">
@@ -134,7 +136,7 @@ export function Toasts({ toasts }: { toasts: Toast[] }) {
               <Icon.trophy />
             </span>
             <span className="min-w-0">
-              <span className="block font-mono text-[10px] uppercase tracking-[0.22em] text-moon">Achievement unlocked</span>
+              <span className="block font-mono text-[10px] uppercase tracking-[0.22em] text-moon">{t.kind === 'collect' ? 'Collectible found' : 'Achievement unlocked'}</span>
               <span className="block truncate font-display text-lg uppercase leading-tight">{t.title}</span>
               <span className="block truncate text-[12px] text-bone/60">{t.desc}</span>
             </span>

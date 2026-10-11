@@ -147,9 +147,9 @@ export class Showroom implements GameScene {
     if (this.portrait) {
       // whole character inside the top ~45% of the screen; the options sheet covers the rest
       this.camera.fov = 30
-      this.camera.position.set(0, 2.2, 12)
+      this.camera.position.set(0, 2.25, 13.2)
       this.camera.lookAt(0, 1.15, 0)
-      this.camera.setViewOffset(w, h, 0, h * 0.26, w, h)
+      this.camera.setViewOffset(w, h, 0, h * 0.25, w, h)
     } else {
       this.camera.clearViewOffset()
       this.camera.fov = 26

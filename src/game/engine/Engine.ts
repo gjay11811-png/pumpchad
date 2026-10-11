@@ -55,6 +55,7 @@ export class Engine {
     this.renderer.outputColorSpace = THREE.SRGBColorSpace
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping
     this.renderer.toneMappingExposure = 1.05
+    this.renderer.info.autoReset = false
     this.renderer.shadowMap.type = THREE.PCFShadowMap
     const pmrem = new THREE.PMREMGenerator(this.renderer)
     const room = new RoomEnvironment()
@@ -146,6 +147,7 @@ export class Engine {
     const dt = Math.min(raw, 1 / 20) // clamp so a hitch never teleports the player through walls
     const t = this.timer.getElapsed()
     if (this.current) {
+      this.renderer.info.reset() // accumulate stats across all passes of this frame
       this.current.update(dt, t)
       if (this.composer) this.composer.render(dt)
       else this.renderer.render(this.current.scene, this.current.camera)

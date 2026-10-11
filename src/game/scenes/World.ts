@@ -6,49 +6,82 @@ import { audio } from '../audio'
 import { disposeObject, type Engine, type GameScene } from '../engine/Engine'
 import type { Input } from '../input'
 import type { Quality } from '../save'
-import { bannerTexture, cobbleTexture, signTexture, stoneTexture } from './textures'
+import { arcade, entranceArch, forge, fountain, hollowHouse, house, stall, stripeMats, tavern, type Collider, type Town } from './world/buildings'
+import { Leaves, Particles, type Fire, type Cloth } from './world/fx'
+import { StaticBatch, makePalette } from './world/kit'
+import { Crowd, RESIDENTS } from './world/npcs'
+import { CASTLE_Z, ROADS, buildGround, castle, clutter, fence, gym, lampPosts, poles, stringLights, townWall, vegetation } from './world/props'
+import * as TX from './world/textures'
 
-type Collider = { kind: 'circle'; x: number; z: number; r: number } | { kind: 'box'; minX: number; maxX: number; minZ: number; maxZ: number }
-export type Interactable = { id: string; label: string; pos: THREE.Vector3; radius: number }
+export type Interactable = { id: string; label: string; pos: THREE.Vector3; radius: number; kind: 'talk' | 'activity' | 'info' | 'collect' | 'secret' }
 export type WorldEvents = {
   onPrompt(p: Interactable | null): void
   onInteract(id: string): void
 }
 
-const BOUNDS = 36
+const BOUNDS = 34.5
 const WALK = 3.4
 const RUN = 6.2
 const PLAYER_R = 0.45
 
+/** Golden seed collectibles (5). Positions reward alleys, dead ends and the spooky corner. */
+export const SEEDS: [string, number, number][] = [
+  ['seed_1', -20.4, 24.8], // alley behind the tavern
+  ['seed_2', 26.6, -21.6], // among the Hollow House graves
+  ['seed_3', -30.4, -2.3], // behind the crates at the end of Market Row
+  ['seed_4', -14.5, -18.3], // behind the forge
+  ['seed_5', 18.6, 21.5], // round the back of the arcade
+]
+
+/** Walkable height: castle steps, tavern porch, fountain step. */
+export function groundHeight(x: number, z: number) {
+  if (x > -4.5 && x < 4.5 && z < -24.4 && z > -29.6) return Math.min(4, Math.floor((-24.4 - z) / 1.05) + 1) * 0.22
+  if (x > -8.5 && x < -5.5 && z > 13.8 && z < 24.2) return 0.3
+  if (x >= -5.5 && x < -4.9 && z > 17.6 && z < 20.4) return 0.15
+  const r = Math.hypot(x, z)
+  if (r < 6.45) return r < 5.9 ? 0.55 : 0.25
+  return 0
+}
+
 export class World implements GameScene {
   scene = new THREE.Scene()
-  camera = new THREE.PerspectiveCamera(55, 1, 0.1, 200)
+  camera = new THREE.PerspectiveCamera(55, 1, 0.1, 220)
   bloom = 0.6
   player: Character | null = null
-  private playerPos = new THREE.Vector3(0, 0, 13)
+  private playerPos = new THREE.Vector3(0, 0, 19.5)
   private playerVel = new THREE.Vector3()
   private playerYaw = Math.PI
   private camYaw = 0
-  private camPitch = 0.32
+  private camPitch = 0.3
   private camDist = 6.4
+  private camDistNow = 6.4
   private camTarget = new THREE.Vector3()
   private colliders: Collider[] = []
+  /** camera-only obstacles: things you can walk under but the lens must not pass through */
+  private camBlockers: Collider[] = [{ kind: 'box', minX: -4.4, maxX: 4.4, minZ: 27.05, maxZ: 27.95, h: 5.2 }]
   interactables: Interactable[] = []
   private prompt: Interactable | null = null
-  private npcs = new Map<string, { c: Character; home: THREE.Vector3; facing: number }>()
+  private crowd = new Crowd()
   private oddPumpkin!: THREE.Group
   private boingT = -1
   private stash!: THREE.Group
   private stashT = -1
-  private lanterns: THREE.PointLight[] = []
-  private flames: THREE.Mesh[] = []
-  private gymDoor!: THREE.Mesh
+  private seeds = new Map<string, THREE.Group>()
+  private markers = new Map<string, THREE.Mesh>()
+  private fires: Fire[] = []
+  private cloths: Cloth[] = []
+  private dynamic: { update(t: number, dt: number): void }[] = []
+  private smoke: Particles | null = null
+  private embers: Particles | null = null
+  private leaves: Leaves | null = null
+  private disposables: (THREE.Material | THREE.Texture | THREE.BufferGeometry)[] = []
   paused = false
   private actionCooldown = 0
   cameraSensitivity = 1
   private t = 0
   private disposed = false
   private walkedTime = 0
+  private quality: Quality
 
   constructor(
     private engine: Engine,
@@ -56,154 +89,44 @@ export class World implements GameScene {
     private events: WorldEvents,
     quality: Quality,
   ) {
+    this.quality = quality
     const s = this.scene
-    s.background = new THREE.Color('#0a0810')
-    s.fog = new THREE.FogExp2('#0d0a12', 0.022)
+    s.background = new THREE.Color('#0b0912')
+    s.fog = new THREE.FogExp2('#110c16', quality === 'low' ? 0.03 : 0.024)
     s.environment = engine.env
-    s.environmentIntensity = 0.18
-    this.buildSky()
-    this.buildGround()
-    this.buildLights(quality)
-    this.buildStatue()
-    this.buildCastle()
-    this.buildGym()
-    this.buildProps()
-    this.buildSecret()
+    s.environmentIntensity = 0.16
+    this.buildTown(quality)
     this.camYaw = this.playerYaw + Math.PI
   }
 
-  /* ───────── world building ───────── */
+  /* ───────────────────────── town assembly ───────────────────────── */
 
-  private buildSky() {
-    const s = this.scene
-    // moon + halo
-    const moon = new THREE.Mesh(new THREE.SphereGeometry(6, 32, 16), new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffd9a0').multiplyScalar(2.88), toneMapped: false, fog: false }))
-    moon.position.set(-40, 42, -110)
-    s.add(moon)
-    const halo = new THREE.Mesh(new THREE.CircleGeometry(16, 48), new THREE.MeshBasicMaterial({ color: '#ff9a3c', transparent: true, opacity: 0.08, fog: false, depthWrite: false }))
-    halo.position.copy(moon.position).add(new THREE.Vector3(0, 0, 1))
-    halo.lookAt(0, 0, 0)
-    s.add(halo)
-    // stars
-    const N = 900
-    const pos = new Float32Array(N * 3)
-    for (let i = 0; i < N; i++) {
-      const th = Math.random() * Math.PI * 2
-      const ph = Math.random() * 0.45 * Math.PI
-      const r = 140
-      pos.set([Math.cos(th) * Math.cos(ph) * r, Math.sin(ph) * r + 10, Math.sin(th) * Math.cos(ph) * r], i * 3)
+  private buildTown(q: Quality) {
+    const cob = TX.cobble()
+    const plz = TX.plaza()
+    const tex: Record<string, THREE.Texture> = {
+      cobble: cob.map,
+      cobbleBump: cob.bump,
+      plaza: plz.map,
+      plazaBump: plz.bump,
+      ground: TX.ground(),
+      plaster: TX.plaster(),
+      wood: TX.wood(),
+      roof: TX.roof(),
+      stone: stoneBlocks(),
     }
-    const g = new THREE.BufferGeometry()
-    g.setAttribute('position', new THREE.BufferAttribute(pos, 3))
-    s.add(new THREE.Points(g, new THREE.PointsMaterial({ color: '#f3ece2', size: 0.6, sizeAttenuation: true, fog: false, transparent: true, opacity: 0.8 })))
-    // distant silhouette hills (cheap ring of dark cones)
-    const hillMat = new THREE.MeshBasicMaterial({ color: '#0b0910' })
-    for (let i = 0; i < 18; i++) {
-      const a = (i / 18) * Math.PI * 2
-      const h = 10 + ((i * 37) % 11)
-      const hill = new THREE.Mesh(new THREE.ConeGeometry(14, h, 5), hillMat)
-      hill.position.set(Math.cos(a) * 75, h / 2 - 1, Math.sin(a) * 75)
-      s.add(hill)
-    }
-  }
+    const P = makePalette(tex)
+    Object.values(tex).forEach((t) => this.disposables.push(t))
+    Object.values(P).forEach((m) => this.disposables.push(m))
+    const T: Town = { batch: new StaticBatch(), P, scene: this.scene, colliders: this.colliders, smoke: [], embers: [], fires: [], cloths: [], lights: [], dynamic: [], disposables: this.disposables }
 
-  private buildGround() {
-    const tex = cobbleTexture()
-    tex.repeat.set(18, 18)
-    const ground = new THREE.Mesh(
-      new THREE.CircleGeometry(60, 64),
-      new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85, metalness: 0.05, color: '#bdb2aa' }),
-    )
-    ground.rotation.x = -Math.PI / 2
-    ground.receiveShadow = true
-    this.scene.add(ground)
-    // inner plaza ring inlay (gold hairlines)
-    for (const r of [7.5, 15.5]) {
-      const ring = new THREE.Mesh(new THREE.RingGeometry(r, r + 0.12, 96), new THREE.MeshStandardMaterial({ color: '#c89b3c', metalness: 1, roughness: 0.35 }))
-      ring.rotation.x = -Math.PI / 2
-      ring.position.y = 0.01
-      this.scene.add(ring)
-    }
-    // low boundary wall with gaps for flavour; actual limit is BOUNDS
-    const wallMat = new THREE.MeshStandardMaterial({ map: stoneTexture(), roughness: 0.9 })
-    for (let i = 0; i < 28; i++) {
-      const a = (i / 28) * Math.PI * 2
-      if (Math.abs(Math.sin(a)) < 0.25 && Math.cos(a) < 0) continue
-      const seg = new THREE.Mesh(new THREE.BoxGeometry(6.6, 1.1, 0.8), wallMat)
-      seg.position.set(Math.cos(a) * (BOUNDS + 1.2), 0.55, Math.sin(a) * (BOUNDS + 1.2))
-      seg.rotation.y = -a + Math.PI / 2
-      seg.castShadow = seg.receiveShadow = true
-      this.scene.add(seg)
-    }
-  }
+    this.buildSky()
+    buildGround(T, tex)
 
-  private buildLights(q: Quality) {
-    const s = this.scene
-    s.add(new THREE.HemisphereLight('#5a4a78', '#1a0e08', 0.55))
-    const moonLight = new THREE.DirectionalLight('#b9c6ff', 1.1)
-    moonLight.position.set(-14, 24, -10)
-    moonLight.castShadow = q !== 'low'
-    moonLight.shadow.mapSize.set(q === 'high' ? 2048 : 1024, q === 'high' ? 2048 : 1024)
-    const sc = moonLight.shadow.camera
-    sc.left = sc.bottom = -30
-    sc.right = sc.top = 30
-    sc.near = 1
-    sc.far = 70
-    moonLight.shadow.bias = -0.0008
-    moonLight.shadow.normalBias = 0.03
-    s.add(moonLight)
-    const warm = new THREE.DirectionalLight('#ff9a50', 0.35)
-    warm.position.set(10, 6, 14)
-    s.add(warm)
-
-    // lanterns around the plaza. Only a few carry real lights (cost), the rest are emissive.
-    const realLights = q === 'high' ? 4 : q === 'medium' ? 3 : 0
-    const postMat = new THREE.MeshStandardMaterial({ color: '#1a161c', metalness: 0.7, roughness: 0.4 })
-    const flameMat = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffa040').multiplyScalar(4.32), toneMapped: false })
-    for (let i = 0; i < 8; i++) {
-      const a = (i / 8) * Math.PI * 2 + Math.PI / 8
-      const x = Math.cos(a) * 12
-      const z = Math.sin(a) * 12
-      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, 3.2, 8), postMat)
-      post.position.set(x, 1.6, z)
-      post.castShadow = true
-      s.add(post)
-      const cage = new THREE.Mesh(new THREE.OctahedronGeometry(0.32, 0), new THREE.MeshStandardMaterial({ color: '#2a222a', metalness: 0.8, roughness: 0.3, wireframe: true }))
-      cage.position.set(x, 3.4, z)
-      s.add(cage)
-      const flame = new THREE.Mesh(new THREE.SphereGeometry(0.17, 12, 8), flameMat)
-      flame.position.set(x, 3.4, z)
-      s.add(flame)
-      this.flames.push(flame)
-      if (i < realLights) {
-        const L = new THREE.PointLight('#ff8a30', 14, 14, 1.6)
-        L.position.set(x, 3.3, z)
-        s.add(L)
-        this.lanterns.push(L)
-      }
-      this.colliders.push({ kind: 'circle', x, z, r: 0.35 })
-    }
-  }
-
-  private buildStatue() {
-    const s = this.scene
-    const stone = new THREE.MeshStandardMaterial({ color: '#1c1820', roughness: 0.55, metalness: 0.3 })
-    const base = new THREE.Mesh(new THREE.CylinderGeometry(3.4, 3.8, 0.6, 48), stone)
-    base.position.y = 0.3
-    base.receiveShadow = base.castShadow = true
-    s.add(base)
-    const ped = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.9, 1.6, 8), stone)
-    ped.position.y = 1.4
-    ped.castShadow = true
-    s.add(ped)
-    // glowing moat ring
-    const moat = new THREE.Mesh(new THREE.TorusGeometry(3.05, 0.09, 8, 96), new THREE.MeshBasicMaterial({ color: new THREE.Color('#ff7a1a').multiplyScalar(3.6), toneMapped: false }))
-    moat.rotation.x = Math.PI / 2
-    moat.position.y = 0.62
-    s.add(moat)
-    // the King, cast in gold, mid-flex
+    // ── central landmark: the Pump Fountain with the golden King ──
     const king = buildCharacter({ species: 'pumpkin', skin: '#e8741c', outfit: '#141216', glow: '#ffb347', top: 'shirtless', headwear: 'crown', eyewear: 'shades', chain: true })
     const gold = new THREE.MeshPhysicalMaterial({ color: '#e0a83e', metalness: 1, roughness: 0.25, clearcoat: 0.5 })
+    this.disposables.push(gold)
     king.root.traverse((o) => {
       const m = o as THREE.Mesh
       if (m.isMesh && !(m.material instanceof THREE.MeshBasicMaterial)) {
@@ -213,197 +136,166 @@ export class World implements GameScene {
     })
     king.pose = 'flex'
     for (let i = 0; i < 30; i++) king.update(0.1)
-    king.root.scale.setScalar(1.9)
-    king.root.position.y = 2.2
-    king.root.rotation.y = 0
-    s.add(king.root)
-    const spot = new THREE.SpotLight('#ffd08a', 60, 16, 0.42, 0.5, 1.4)
-    spot.position.set(0, 9, 5)
-    spot.target = king.root
-    s.add(spot)
-    this.colliders.push({ kind: 'circle', x: 0, z: 0, r: 3.9 })
-    this.interactables.push({ id: 'statue', label: 'Read the plaque', pos: new THREE.Vector3(0, 0, 4.2), radius: 1.8 })
+    const wn = TX.waterNormal()
+    this.disposables.push(wn)
+    fountain(T, king.root, wn)
+    king.root.traverse((o) => (o as THREE.Mesh).geometry?.dispose())
+
+    // ── districts ──
+    castle(T)
+    gym(T)
+    tavern(T, -12, 19, 'e')
+    forge(T, -16, -13, 's')
+    arcade(T, 13, 19, 'w')
+    hollowHouse(T, 21, -19.5, 'w')
+    entranceArch(T, 27.5)
+    house(T, { x: -9.5, z: -19, w: 6, d: 5, face: 'e', roof: P.roofSlate, seed: 3 })
+    house(T, { x: 9.5, z: -19.5, w: 6, d: 5, face: 'w', roof: P.roofRed, seed: 7 })
+    house(T, { x: -25, z: 13.5, w: 6, d: 5, face: 'n', roof: P.roofOrange, seed: 11 })
+    house(T, { x: -26, z: -9.5, w: 6, d: 5, face: 's', roof: P.roofRed, seed: 13 })
+    house(T, { x: 26, z: 10, w: 5, d: 6, face: 'w', roof: P.roofSlate, seed: 17 })
+    house(T, { x: -9, z: 29, w: 5, d: 4, floors: 1, face: 'e', roof: P.roofRed, seed: 19 })
+    house(T, { x: 9.5, z: 29, w: 5, d: 4, floors: 1, face: 'w', roof: P.roofOrange, seed: 23 })
+
+    // Market Row
+    const stripes = stripeMats(T)
+    stall(T, -15, -1.3, 's', stripes[0], 'pumpkins')
+    stall(T, -21, -1.3, 's', stripes[1], 'potions')
+    stall(T, -27, -1.3, 's', stripes[2], 'crates')
+    stall(T, -18, 6.4, 'n', stripes[3], 'cloth')
+    stall(T, -24, 6.4, 'n', stripes[0], 'pumpkins')
+    poles(T, [[-12.5, -0.4], [-18, -0.4], [-24, -0.4], [-29.5, -0.4], [-12.5, 5.5], [-21, 5.5], [-27, 5.5], [-29.5, 5.5]])
+    stringLights(T, [
+      [-12.5, -0.4, -21, 5.5],
+      [-21, 5.5, -29.5, -0.4],
+      [-12.5, 5.5, -18, -0.4],
+      [-18, -0.4, -27, 5.5],
+      [-24, -0.4, -29.5, 5.5],
+    ])
+
+    // lamps along the readable routes
+    const ring: [number, number][] = [30, 60, 120, 150, 210, 240, 300, 330].map((d) => [Math.cos((d * Math.PI) / 180) * 10.7, Math.sin((d * Math.PI) / 180) * 10.7])
+    lampPosts(T, [...ring, [-3, 12.4], [3, 24.2], [-3, 24.2], [3, -11.6], [-3, -22.8], [3, -22.8], [12.5, -1.7], [-11.6, -11.6], [5.6, 21.2], [-4.6, 16.4], [-29.8, 7.2], [11.8, -10.6]])
+
+    // fences: Hollow House front yard (broken), garden at the east house
+    fence(T, [[18, -23.6], [15.4, -23.6], [15.4, -21.1]], true)
+    fence(T, [[15.4, -17.9], [15.4, -15.6], [18, -15.6]], true)
+    fence(T, [[22.6, 6.8], [22.6, 4.5], [28.4, 4.5]])
+    fence(T, [[-22, 10.4], [-28.2, 10.4]])
+
+    clutter(T)
+    townWall(T, BOUNDS)
+
+    // vegetation avoids roads, plaza and buildings
+    const avoid = (x: number, z: number) => {
+      if (Math.hypot(x, z) < 12.8) return true
+      for (const r of ROADS) {
+        const dx = r.x1 - r.x0, dz = r.z1 - r.z0
+        const t = Math.max(0, Math.min(1, ((x - r.x0) * dx + (z - r.z0) * dz) / (dx * dx + dz * dz)))
+        if (Math.hypot(x - (r.x0 + dx * t), z - (r.z0 + dz * t)) < r.w / 2 + 0.7) return true
+      }
+      for (const c of this.colliders) {
+        if (c.kind === 'box' && x > c.minX - 0.8 && x < c.maxX + 0.8 && z > c.minZ - 0.8 && z < c.maxZ + 0.8) return true
+        if (c.kind === 'circle' && Math.hypot(x - c.x, z - c.z) < c.r + 0.5) return true
+      }
+      return z < CASTLE_Z + 2
+    }
+    vegetation(T, q, avoid)
+
+    // merge everything static into a few draw calls
+    T.batch.build(this.scene, q !== 'low')
+
+    // dynamic bits
+    this.fires = T.fires
+    this.cloths = T.cloths
+    this.dynamic = T.dynamic
+    const maxLights = q === 'high' ? 7 : q === 'medium' ? 4 : 1
+    T.lights
+      .sort((a, b) => a.priority - b.priority)
+      .slice(0, maxLights)
+      .forEach((L) => {
+        const pl = new THREE.PointLight(L.color, L.intensity, L.dist, 1.6)
+        pl.position.set(L.x, L.y, L.z)
+        this.scene.add(pl)
+        if (L.fire) {
+          L.fire.light = pl
+          L.fire.baseIntensity = L.intensity
+        }
+      })
+    if (q !== 'low') {
+      this.smoke = new Particles(T.smoke, q === 'high' ? 14 : 9, 'smoke', '#5a5260', false)
+      this.embers = new Particles(T.embers, q === 'high' ? 16 : 10, 'embers', '#ff8a30', true)
+      this.scene.add(this.smoke.points, this.embers.points)
+    }
+    this.leaves = new Leaves(q === 'high' ? 90 : q === 'medium' ? 55 : 25)
+    this.scene.add(this.leaves.mesh)
+
+    this.buildLightsAndSky(q)
+    this.buildInteractables(T)
   }
 
-  private buildCastle() {
+  private buildSky() {
     const s = this.scene
-    const stone = new THREE.MeshStandardMaterial({ map: stoneTexture(), roughness: 0.92, color: '#a59ca8' })
-    stone.map!.repeat.set(4, 2)
-    const roofMat = new THREE.MeshStandardMaterial({ color: '#1a1118', roughness: 0.7, metalness: 0.2 })
-    const Z = -31
-    // curtain wall with gate gap
-    for (const [x, w] of [[-13, 18], [13, 18]] as const) {
-      const wall = new THREE.Mesh(new THREE.BoxGeometry(w, 8, 2.4), stone)
-      wall.position.set(x, 4, Z)
-      wall.castShadow = wall.receiveShadow = true
-      s.add(wall)
-      this.colliders.push({ kind: 'box', minX: x - w / 2, maxX: x + w / 2, minZ: Z - 1.4, maxZ: Z + 1.4 })
-      // crenellations
-      for (let i = -w / 2 + 0.6; i < w / 2; i += 1.6) {
-        const c = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.9, 2.4), stone)
-        c.position.set(x + i, 8.45, Z)
-        c.castShadow = true
-        s.add(c)
-      }
+    const moon = new THREE.Mesh(new THREE.SphereGeometry(6, 32, 16), new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffd9a0').multiplyScalar(2.6), toneMapped: false, fog: false }))
+    moon.position.set(-40, 44, -110)
+    s.add(moon)
+    const halo = new THREE.Mesh(new THREE.CircleGeometry(18, 48), new THREE.MeshBasicMaterial({ color: '#ff9a3c', transparent: true, opacity: 0.07, fog: false, depthWrite: false }))
+    halo.position.copy(moon.position).add(new THREE.Vector3(0, 0, 1))
+    halo.lookAt(0, 0, 0)
+    s.add(halo)
+    const N = 900
+    const pos = new Float32Array(N * 3)
+    for (let i = 0; i < N; i++) {
+      const th = Math.random() * Math.PI * 2
+      const ph = Math.random() * 0.45 * Math.PI
+      pos.set([Math.cos(th) * Math.cos(ph) * 150, Math.sin(ph) * 150 + 10, Math.sin(th) * Math.cos(ph) * 150], i * 3)
     }
-    // gatehouse
-    const gh = new THREE.Mesh(new THREE.BoxGeometry(8, 11, 3.4), stone)
-    gh.position.set(0, 5.5, Z - 0.4)
-    gh.castShadow = true
-    s.add(gh)
-    const gate = new THREE.Mesh(new THREE.BoxGeometry(4, 5.4, 0.3), new THREE.MeshStandardMaterial({ color: '#0a0709', metalness: 0.6, roughness: 0.5 }))
-    gate.position.set(0, 2.7, Z + 1.35)
-    s.add(gate)
-    const gateGlow = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 0.08), new THREE.MeshBasicMaterial({ color: new THREE.Color('#ff7a1a').multiplyScalar(3.6), toneMapped: false }))
-    gateGlow.position.set(0, 0.2, Z + 1.52)
-    s.add(gateGlow)
-    this.colliders.push({ kind: 'box', minX: -4, maxX: 4, minZ: Z - 2.2, maxZ: Z + 1.6 })
-    this.interactables.push({ id: 'gate', label: 'Knock on the castle gate', pos: new THREE.Vector3(0, 0, Z + 3), radius: 2.2 })
-    // towers
-    for (const x of [-22, -4.8, 4.8, 22]) {
-      const r = Math.abs(x) > 10 ? 2.6 : 1.6
-      const h = Math.abs(x) > 10 ? 14 : 15
-      const tower = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 1.08, h, 16), stone)
-      tower.position.set(x, h / 2, Z)
-      tower.castShadow = true
-      s.add(tower)
-      const roof = new THREE.Mesh(new THREE.ConeGeometry(r * 1.25, r * 2.4, 16), roofMat)
-      roof.position.set(x, h + r * 1.2, Z)
-      roof.castShadow = true
-      s.add(roof)
-      const win = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 1), new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffb347').multiplyScalar(3.24), toneMapped: false }))
-      win.position.set(x, h * 0.7, Z + r + 0.02)
-      s.add(win)
-      this.colliders.push({ kind: 'circle', x, z: Z, r: r + 0.3 })
-    }
-    // banners
-    const bannerMat = new THREE.MeshStandardMaterial({ map: bannerTexture(), roughness: 0.8, side: THREE.DoubleSide })
-    for (const x of [-10, -16, 10, 16]) {
-      const b = new THREE.Mesh(new THREE.PlaneGeometry(2, 4, 1, 6), bannerMat)
-      b.position.set(x, 5, Z + 1.25)
-      s.add(b)
-    }
-  }
-
-  private buildGym() {
-    const s = this.scene
-    const X = 20
-    const Z = -4
-    const wall = new THREE.MeshStandardMaterial({ color: '#17131a', roughness: 0.6, metalness: 0.3 })
-    const body = new THREE.Mesh(new THREE.BoxGeometry(9, 6, 10), wall)
-    body.position.set(X, 3, Z)
-    body.castShadow = body.receiveShadow = true
-    s.add(body)
-    const roof = new THREE.Mesh(new THREE.BoxGeometry(9.6, 0.5, 10.6), new THREE.MeshStandardMaterial({ color: '#0d0b0f', metalness: 0.5, roughness: 0.4 }))
-    roof.position.set(X, 6.25, Z)
-    s.add(roof)
-    // neon trim
-    const trim = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ff7a1a').multiplyScalar(3.96), toneMapped: false })
-    for (const y of [0.15, 5.95]) {
-      const t = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 10), trim)
-      t.position.set(X - 4.53, y, Z)
-      s.add(t)
-    }
-    // sign
-    const sign = new THREE.Mesh(new THREE.PlaneGeometry(6, 1.5), new THREE.MeshBasicMaterial({ map: signTexture('CHAD GYM', { sub: 'NO PAIN · NO PUMP' }), toneMapped: false, color: new THREE.Color(2.8, 2.8, 2.8) }))
-    sign.position.set(X - 4.56, 4.6, Z)
-    sign.rotation.y = -Math.PI / 2
-    s.add(sign)
-    // door: recessed warm-lit doorway inside a steel frame
-    const frameMat = new THREE.MeshStandardMaterial({ color: '#2a262c', metalness: 0.85, roughness: 0.3 })
-    for (const dz of [-1.25, 1.25]) {
-      const jamb = new THREE.Mesh(new THREE.BoxGeometry(0.25, 3.5, 0.25), frameMat)
-      jamb.position.set(X - 4.6, 1.75, Z + dz)
-      s.add(jamb)
-    }
-    const lintel = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.25, 2.75), frameMat)
-    lintel.position.set(X - 4.6, 3.5, Z)
-    s.add(lintel)
-    this.gymDoor = new THREE.Mesh(new THREE.PlaneGeometry(2.25, 3.35), new THREE.MeshBasicMaterial({ color: '#ff8a30', toneMapped: false }))
-    this.gymDoor.position.set(X - 4.52, 1.68, Z)
-    this.gymDoor.rotation.y = -Math.PI / 2
-    s.add(this.gymDoor)
-    // silhouette of equipment inside the doorway, so it reads as a lit room rather than a panel
-    const inside = new THREE.MeshBasicMaterial({ color: '#2a1206' })
-    const rack = new THREE.Mesh(new THREE.BoxGeometry(0.02, 1.6, 0.08), inside)
-    rack.position.set(X - 4.5, 1.1, Z - 0.6)
-    s.add(rack)
-    const rack2 = rack.clone()
-    rack2.position.z = Z + 0.6
-    s.add(rack2)
-    const barSil = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.06, 1.6), inside)
-    barSil.position.set(X - 4.5, 1.7, Z)
-    s.add(barSil)
-    const doorLight = new THREE.PointLight('#ff7a1a', 10, 9, 1.8)
-    doorLight.position.set(X - 6, 2.2, Z)
-    s.add(doorLight)
-    this.colliders.push({ kind: 'box', minX: X - 4.7, maxX: X + 4.7, minZ: Z - 5.2, maxZ: Z + 5.2 })
-    this.interactables.push({ id: 'gym', label: 'Enter Chad Gym', pos: new THREE.Vector3(X - 5.6, 0, Z), radius: 2.2 })
-    // dumbbell rack outside (props)
-    const iron = new THREE.MeshStandardMaterial({ color: '#2a262c', metalness: 0.9, roughness: 0.35 })
-    for (let i = 0; i < 3; i++) {
-      const db = new THREE.Group()
-      const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.6, 8), iron)
-      bar.rotation.z = Math.PI / 2
-      db.add(bar)
-      for (const sx of [-0.28, 0.28]) {
-        const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.1, 14), iron)
-        plate.rotation.z = Math.PI / 2
-        plate.position.x = sx
-        db.add(plate)
-      }
-      db.position.set(X - 5.2, 0.17, Z + 3 + i * 0.5)
-      db.rotation.y = Math.PI / 2
-      db.castShadow = true
-      s.add(db)
+    const g = new THREE.BufferGeometry()
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3))
+    s.add(new THREE.Points(g, new THREE.PointsMaterial({ color: '#f3ece2', size: 0.6, fog: false, transparent: true, opacity: 0.8 })))
+    const hillMat = new THREE.MeshBasicMaterial({ color: '#0d0a12' })
+    for (let i = 0; i < 18; i++) {
+      const a = (i / 18) * Math.PI * 2
+      const h = 12 + ((i * 37) % 11)
+      const hill = new THREE.Mesh(new THREE.ConeGeometry(16, h, 5), hillMat)
+      hill.position.set(Math.cos(a) * 80, h / 2 - 1, Math.sin(a) * 80)
+      s.add(hill)
     }
   }
 
-  private buildProps() {
+  private buildLightsAndSky(q: Quality) {
     const s = this.scene
-    // scattered pumpkins: one instanced draw call
-    const pGeo = new THREE.SphereGeometry(0.35, 14, 10)
-    pGeo.scale(1.15, 0.8, 1.15)
-    const pMat = new THREE.MeshStandardMaterial({ color: '#d8661a', roughness: 0.6 })
-    const spots: [number, number][] = []
-    for (let i = 0; i < 46; i++) {
-      const a = i * 2.39996
-      const r = 17 + ((i * 53) % 17)
-      const x = Math.cos(a) * r
-      const z = Math.sin(a) * r
-      if (z < -26 || (x > 13 && x < 26 && z > -11 && z < 3)) continue
-      spots.push([x, z])
-    }
-    const inst = new THREE.InstancedMesh(pGeo, pMat, spots.length)
-    const m = new THREE.Matrix4()
-    spots.forEach(([x, z], i) => {
-      const sc = 0.7 + ((i * 7) % 5) * 0.15
-      m.compose(new THREE.Vector3(x, 0.25 * sc, z), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), i), new THREE.Vector3(sc, sc, sc))
-      inst.setMatrixAt(i, m)
-    })
-    inst.castShadow = true
-    s.add(inst)
+    s.add(new THREE.HemisphereLight('#6a5a88', '#22140c', 0.62))
+    const moonLight = new THREE.DirectionalLight('#b9c6ff', 1.15)
+    moonLight.position.set(-14, 26, -10)
+    moonLight.castShadow = q !== 'low'
+    const size = q === 'high' ? 2048 : 1024
+    moonLight.shadow.mapSize.set(size, size)
+    const sc = moonLight.shadow.camera
+    sc.left = sc.bottom = -36
+    sc.right = sc.top = 36
+    sc.near = 1
+    sc.far = 80
+    moonLight.shadow.bias = -0.0006
+    moonLight.shadow.normalBias = 0.04
+    s.add(moonLight)
+    const warm = new THREE.DirectionalLight('#ff9a50', 0.3)
+    warm.position.set(12, 7, 16)
+    s.add(warm)
+  }
 
-    // dead trees
-    const bark = new THREE.MeshStandardMaterial({ color: '#1b1416', roughness: 0.95 })
-    const trees: [number, number][] = [[-26, 8], [-22, 18], [-30, -6], [26, 16], [30, 6], [-14, 24], [12, 26], [-28, -18], [28, -18]]
-    for (const [x, z] of trees) {
-      const g = new THREE.Group()
-      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.4, 5, 7), bark)
-      trunk.position.y = 2.5
-      g.add(trunk)
-      for (let i = 0; i < 4; i++) {
-        const br = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.14, 2.4, 5), bark)
-        br.position.set(0, 3.2 + i * 0.5, 0)
-        br.rotation.set(0.9, i * 1.7 + x, 0)
-        br.translateY(1)
-        g.add(br)
-      }
-      g.position.set(x, 0, z)
-      g.traverse((o) => (o.castShadow = true))
-      s.add(g)
-      this.colliders.push({ kind: 'circle', x, z, r: 0.55 })
-    }
+  private buildInteractables(T: Town) {
+    const add = (id: string, label: string, x: number, z: number, radius: number, kind: Interactable['kind']) => this.interactables.push({ id, label, pos: new THREE.Vector3(x, 0, z), radius, kind })
+    add('statue', 'Read the fountain plaque', 0, 6.7, 1.6, 'info')
+    add('gate', 'Knock on the castle gate', 0, -28.2, 1.8, 'info')
+    add('gym', 'Enter Chad Gym', 14.4, -4, 2.2, 'activity')
+    add('board', 'Read the notice board', 5.7, 21.5, 1.7, 'info')
+    add('well', 'Toss a coin in the wishing well', -29.4, 2.5, 1.7, 'activity')
+    add('window', 'Peer through the window', 16.6, -19.5, 1.8, 'info')
+    add('arcade', 'Pump Arcade — opening soon', 7.8, 19, 1.9, 'info')
+    add('rune', 'Press the strange rune', -24.5, -27, 1.6, 'secret')
+    add('pumpkin', 'Poke the suspicious pumpkin', -9.6, 10.4, 2.1, 'info')
+    for (const r of RESIDENTS) if (r.talk) add(r.id, r.talk, r.talkAt?.[0] ?? r.x, r.talkAt?.[1] ?? r.z, r.talkAt ? 1.6 : 2.2, 'talk')
 
     // the suspicious pumpkin
     this.oddPumpkin = new THREE.Group()
@@ -412,74 +304,94 @@ export class World implements GameScene {
     odd.position.y = 0.6
     odd.castShadow = true
     this.oddPumpkin.add(odd)
-    const eyeMat = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffb347').multiplyScalar(4.5), toneMapped: false })
+    const eyeMat = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffb347').multiplyScalar(4), toneMapped: false })
     for (const sx of [-0.22, 0.22]) {
       const e = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), eyeMat)
       e.position.set(sx, 0.72, 0.68)
       e.scale.set(1, 0.6, 0.4)
       this.oddPumpkin.add(e)
     }
-    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.09, 0.3, 6), new THREE.MeshStandardMaterial({ color: '#3f5a2a' }))
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.09, 0.3, 6), T.P.foliage)
     stem.position.y = 1.25
     this.oddPumpkin.add(stem)
-    this.oddPumpkin.position.set(-13, 0, 7)
-    this.oddPumpkin.rotation.y = 0.8
-    s.add(this.oddPumpkin)
-    this.colliders.push({ kind: 'circle', x: -13, z: 7, r: 0.9 })
-    this.interactables.push({ id: 'pumpkin', label: 'Poke the suspicious pumpkin', pos: new THREE.Vector3(-13, 0, 7), radius: 2.2 })
-  }
+    this.oddPumpkin.position.set(-9.6, 0, 10.4)
+    this.oddPumpkin.rotation.y = 0.9
+    this.scene.add(this.oddPumpkin)
+    this.colliders.push({ kind: 'circle', x: -9.6, z: 10.4, r: 0.9, h: 1.2 })
 
-  private buildSecret() {
-    const s = this.scene
-    const rune = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, 0.25, 6), new THREE.MeshStandardMaterial({ color: '#1d1820', roughness: 0.8 }))
+    // rune + hidden stash
+    const rune = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, 0.25, 6), T.P.rock)
     rune.position.set(-24.5, 0.12, -27)
-    s.add(rune)
-    const glyph = new THREE.Mesh(new THREE.CircleGeometry(0.18, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color('#9b5cff').multiplyScalar(3.6), toneMapped: false }))
+    this.scene.add(rune)
+    const glyph = new THREE.Mesh(new THREE.CircleGeometry(0.18, 6), T.P.glowPurple)
     glyph.rotation.x = -Math.PI / 2
     glyph.position.set(-24.5, 0.26, -27)
-    s.add(glyph)
-    this.interactables.push({ id: 'rune', label: 'Press the strange rune', pos: new THREE.Vector3(-24.5, 0, -27), radius: 1.6 })
-    // stash (hidden until found)
+    this.scene.add(glyph)
     this.stash = new THREE.Group()
-    const gold = new THREE.MeshStandardMaterial({ color: '#e8b84a', metalness: 1, roughness: 0.25 })
     const coin = new THREE.CylinderGeometry(0.16, 0.16, 0.04, 16)
     for (let i = 0; i < 40; i++) {
-      const c = new THREE.Mesh(coin, gold)
+      const c = new THREE.Mesh(coin, T.P.gold)
       const a = i * 2.4
-      const r = Math.sqrt(i) * 0.14
-      c.position.set(Math.cos(a) * r, 0.03 + (40 - i) * 0.012, Math.sin(a) * r)
+      const rr = Math.sqrt(i) * 0.14
+      c.position.set(Math.cos(a) * rr, 0.03 + (40 - i) * 0.012, Math.sin(a) * rr)
       c.rotation.set((i % 3) * 0.3, 0, (i % 5) * 0.2)
       this.stash.add(c)
     }
     this.stash.position.set(-23, 0, -25.5)
     this.stash.scale.setScalar(0.001)
     this.stash.visible = false
-    s.add(this.stash)
+    this.scene.add(this.stash)
+
+    // golden seeds
+    const seedGeo = new THREE.SphereGeometry(0.16, 14, 10)
+    seedGeo.scale(0.8, 1.2, 0.8)
+    const seedMat = new THREE.MeshStandardMaterial({ color: '#ffd27a', emissive: '#ffb347', emissiveIntensity: 2.2, metalness: 0.8, roughness: 0.25 })
+    const sparkMat = new THREE.MeshBasicMaterial({ color: new THREE.Color('#fff0c0').multiplyScalar(3), toneMapped: false, transparent: true, opacity: 0.6, depthWrite: false })
+    this.disposables.push(seedGeo, seedMat, sparkMat)
+    for (const [id, x, z] of SEEDS) {
+      const g = new THREE.Group()
+      g.add(new THREE.Mesh(seedGeo, seedMat))
+      const spark = new THREE.Mesh(new THREE.OctahedronGeometry(0.32, 0), sparkMat)
+      spark.scale.set(0.15, 1, 0.15)
+      g.add(spark)
+      g.position.set(x, 0.55, z)
+      this.scene.add(g)
+      this.seeds.set(id, g)
+      add(id, 'Pick up the golden seed', x, z, 1.25, 'collect')
+    }
+
+    // floating markers on WORKING interactions only (talk NPCs + activities)
+    const markerGeo = new THREE.OctahedronGeometry(0.16, 0)
+    markerGeo.scale(1, 1.5, 1)
+    this.disposables.push(markerGeo)
+    for (const it of this.interactables) {
+      if (it.kind !== 'talk' && it.kind !== 'activity') continue
+      const m = new THREE.Mesh(markerGeo, it.kind === 'talk' ? T.P.glowGold : T.P.glowOrange)
+      const y = it.kind === 'talk' ? 2.55 : it.id === 'gym' ? 4 : 2.2
+      m.position.set(it.pos.x, y, it.pos.z)
+      if (it.id === 'gym') m.position.x = 15.6
+      if (it.id === 'well') m.position.x = -31
+      const res = RESIDENTS.find((r) => r.id === it.id)
+      if (res?.talkAt) m.position.set(res.x, y, res.z)
+      this.scene.add(m)
+      this.markers.set(it.id, m)
+    }
   }
 
-  /** Loads the player + NPC characters (async because GLB models may download). */
-  async populate(player: Appearance, spawn: 'start' | 'gym' = 'start') {
-    const npcDefs: { id: string; a: Appearance; x: number; z: number; face: number }[] = [
-      { id: 'coach', a: { species: 'skeleton', skin: '#e9e2d0', outfit: '#141216', glow: '#19f19a', top: 'shirtless', headwear: 'cap', eyewear: 'none', chain: true }, x: 13.4, z: 0.5, face: -2.2 },
-      { id: 'hodl', a: { species: 'demon', skin: '#7e1a1a', outfit: '#2a262c', glow: '#ff4d3d', top: 'armor', headwear: 'horns', eyewear: 'none', chain: false }, x: -4.8, z: 5.6, face: 2.4 },
-    ]
-    const [p, ...npcs] = await Promise.all([createCharacter(player), ...npcDefs.map((d) => createCharacter(d.a))])
+  /** Loads the player and townsfolk (async because GLB models may download). */
+  async populate(player: Appearance, spawn: 'start' | 'gym' = 'start', discoveries: string[] = []) {
+    const [p] = await Promise.all([createCharacter(player), this.crowd.load(this.scene, this.quality, groundHeight)])
     if (this.disposed) {
-      ;[p, ...npcs].forEach(disposeCharacter)
+      disposeCharacter(p)
       return
     }
     this.player = p
     p.onStep = () => audio.play('step')
     this.scene.add(p.root)
-    npcs.forEach((c, i) => {
-      const d = npcDefs[i]
-      c.root.position.set(d.x, 0, d.z)
-      c.root.rotation.y = d.face
-      this.scene.add(c.root)
-      this.npcs.set(d.id, { c, home: new THREE.Vector3(d.x, 0, d.z), facing: d.face })
-      this.colliders.push({ kind: 'circle', x: d.x, z: d.z, r: 0.6 })
-      this.interactables.push({ id: d.id, label: d.id === 'coach' ? 'Talk to Coach Gourdon' : 'Talk to Sir Hodl', pos: new THREE.Vector3(d.x, 0, d.z), radius: 2.3 })
-    })
+    for (const d of discoveries) {
+      if (d.startsWith('talk_')) this.markTalked(d.slice(5))
+      if (d.startsWith('seed_')) this.collect(d)
+    }
     this.spawn(spawn)
   }
 
@@ -488,7 +400,7 @@ export class World implements GameScene {
       this.playerPos.set(12.6, 0, -4)
       this.playerYaw = -Math.PI / 2
     } else {
-      this.playerPos.set(0, 0, 13)
+      this.playerPos.set(0, 0, 19.5)
       this.playerYaw = Math.PI
     }
     this.camYaw = this.playerYaw + Math.PI
@@ -496,29 +408,32 @@ export class World implements GameScene {
     this.snapCamera()
   }
 
-  /* ───────── gameplay hooks used by the UI ───────── */
+  /* ───────── hooks used by the UI ───────── */
 
   faceNpcToPlayer(id: string) {
-    const n = this.npcs.get(id)
-    if (!n) return
-    n.facing = Math.atan2(this.playerPos.x - n.home.x, this.playerPos.z - n.home.z)
+    const n = this.crowd.get(id)
+    if (n) n.facing = Math.atan2(this.playerPos.x - n.pos.x, this.playerPos.z - n.pos.z)
   }
-
-  /** ignore interact presses briefly (e.g. the key that closed a dialogue) */
+  markTalked(id: string) {
+    const m = this.markers.get(id)
+    if (m) m.visible = false
+  }
+  collect(id: string) {
+    const s = this.seeds.get(id)
+    if (s) s.visible = false
+    this.interactables = this.interactables.filter((i) => i.id !== id)
+  }
   cooldown(s = 0.4) {
     this.actionCooldown = s
   }
-
   boing() {
     this.boingT = 0
     audio.play('boing')
   }
-
   revealStash() {
     this.stash.visible = true
     this.stashT = 0
   }
-
   get stashFound() {
     return this.stash.visible
   }
@@ -547,7 +462,6 @@ export class World implements GameScene {
             p.x = cx + (dx / d) * r
             p.z = cz + (dz / d) * r
           } else {
-            // centre inside the box: push out along the shallowest axis
             const pen = [p.x - c.minX, c.maxX - p.x, p.z - c.minZ, c.maxZ - p.z]
             const i = pen.indexOf(Math.min(...pen))
             if (i === 0) p.x = c.minX - r
@@ -558,6 +472,17 @@ export class World implements GameScene {
         }
       }
     }
+    // residents with posts are solid; walkers too (so you can't ghost through a guard)
+    for (const l of this.crowd.live) {
+      const dx = p.x - l.pos.x
+      const dz = p.z - l.pos.z
+      const d = Math.hypot(dx, dz)
+      const min = 0.5 + r
+      if (d < min && d > 1e-6) {
+        p.x = l.pos.x + (dx / d) * min
+        p.z = l.pos.z + (dz / d) * min
+      }
+    }
     const d = Math.hypot(p.x, p.z)
     if (d > BOUNDS) {
       p.x *= BOUNDS / d
@@ -565,42 +490,126 @@ export class World implements GameScene {
     }
   }
 
+  /** Distance along target→camera at which a tall collider blocks the view (1 = clear). */
+  private occlusion(tx: number, tz: number, cx: number, cz: number, ty: number) {
+    let best = 1
+    const dx = cx - tx
+    const dz = cz - tz
+    for (const c of [...this.colliders, ...this.camBlockers]) {
+      if (!c.h || c.h < ty + 0.3) continue
+      if (c.kind === 'box') {
+        let t0 = 0
+        let t1 = 1
+        for (const [p, d, lo, hi] of [[tx, dx, c.minX, c.maxX], [tz, dz, c.minZ, c.maxZ]] as const) {
+          if (Math.abs(d) < 1e-6) {
+            if (p < lo || p > hi) {
+              t0 = 2
+              break
+            }
+          } else {
+            let a = (lo - p) / d
+            let b = (hi - p) / d
+            if (a > b) [a, b] = [b, a]
+            t0 = Math.max(t0, a)
+            t1 = Math.min(t1, b)
+          }
+        }
+        if (t0 <= t1 && t0 < best && t0 > 0) best = t0
+      } else if (c.r > 1) {
+        const fx = tx - c.x
+        const fz = tz - c.z
+        const a = dx * dx + dz * dz
+        const b = 2 * (fx * dx + fz * dz)
+        const cc = fx * fx + fz * fz - c.r * c.r
+        const disc = b * b - 4 * a * cc
+        if (disc > 0) {
+          const t = (-b - Math.sqrt(disc)) / (2 * a)
+          if (t > 0 && t < best) best = t
+        }
+      }
+    }
+    return best
+  }
+
   private snapCamera() {
-    this.camTarget.set(this.playerPos.x, (this.player?.headHeight ?? 1.9) * 0.82, this.playerPos.z)
+    this.camTarget.set(this.playerPos.x, this.playerPos.y + (this.player?.headHeight ?? 1.9) * 0.82, this.playerPos.z)
+    this.camDistNow = this.camDist
     this.placeCamera(1)
   }
 
   private placeCamera(k: number) {
-    const target = new THREE.Vector3(this.playerPos.x, (this.player?.headHeight ?? 1.9) * 0.82, this.playerPos.z)
+    const target = new THREE.Vector3(this.playerPos.x, this.playerPos.y + (this.player?.headHeight ?? 1.9) * 0.82, this.playerPos.z)
     this.camTarget.lerp(target, k)
     const cp = Math.cos(this.camPitch)
-    const want = new THREE.Vector3(
-      this.camTarget.x + Math.sin(this.camYaw) * cp * this.camDist,
-      this.camTarget.y + Math.sin(this.camPitch) * this.camDist,
-      this.camTarget.z + Math.cos(this.camYaw) * cp * this.camDist,
-    )
-    this.camera.position.lerp(want, k)
+    const dirX = Math.sin(this.camYaw) * cp
+    const dirZ = Math.cos(this.camYaw) * cp
+    const fullX = this.camTarget.x + dirX * this.camDist
+    const fullZ = this.camTarget.z + dirZ * this.camDist
+    const block = this.occlusion(this.camTarget.x, this.camTarget.z, fullX, fullZ, this.camTarget.y + Math.sin(this.camPitch) * this.camDist * 0.5)
+    const wantDist = block < 1 ? Math.max(0.55, this.camDist * block - 0.35) : this.camDist
+    // pull in fast, ease back out slowly
+    this.camDistNow += (wantDist - this.camDistNow) * (wantDist < this.camDistNow ? 0.5 : 1 - Math.exp(-0.05 * 60 * k))
+    const d = this.camDistNow
+    // when squeezed against a wall, rise into an over-the-shoulder view instead of clipping
+    const squeeze = Math.max(0, 1 - d / 2.2)
+    const want = new THREE.Vector3(this.camTarget.x + dirX * d, this.camTarget.y + Math.sin(this.camPitch) * d + squeeze * 0.6, this.camTarget.z + dirZ * d)
+    // keep the lens out of NPC bodies
+    for (const l of this.crowd.live) {
+      const ex = want.x - l.pos.x
+      const ez = want.z - l.pos.z
+      const ed = Math.hypot(ex, ez)
+      if (ed < 1.1 && ed > 1e-4 && want.y < l.pos.y + 2.3) {
+        want.x = l.pos.x + (ex / ed) * 1.1
+        want.z = l.pos.z + (ez / ed) * 1.1
+      }
+    }
+    // keep the lens out of posts, lanterns, trees and other small solid props
+    for (const c of this.colliders) {
+      if (c.kind !== 'circle' || !c.h || want.y > c.h + 0.6) continue
+      const ex = want.x - c.x
+      const ez = want.z - c.z
+      const ed = Math.hypot(ex, ez)
+      const min = c.r + 0.75
+      if (ed < min && ed > 1e-4) {
+        want.x = c.x + (ex / ed) * min
+        want.z = c.z + (ez / ed) * min
+      }
+    }
+    this.camera.position.lerp(want, Math.min(1, k * 1.4))
+    // hard guarantee: never leave the lens inside a building volume (smoothing can lag into corners)
+    const cam = this.camera.position
+    for (const c of [...this.colliders, ...this.camBlockers]) {
+      if (c.kind !== 'box' || !c.h || cam.y > c.h) continue
+      if (cam.x > c.minX - 0.15 && cam.x < c.maxX + 0.15 && cam.z > c.minZ - 0.15 && cam.z < c.maxZ + 0.15) {
+        const pen = [cam.x - c.minX + 0.15, c.maxX + 0.15 - cam.x, cam.z - c.minZ + 0.15, c.maxZ + 0.15 - cam.z]
+        const i = pen.indexOf(Math.min(...pen))
+        if (i === 0) cam.x = c.minX - 0.15
+        else if (i === 1) cam.x = c.maxX + 0.15
+        else if (i === 2) cam.z = c.minZ - 0.15
+        else cam.z = c.maxZ + 0.15
+      }
+    }
     this.camera.lookAt(this.camTarget)
   }
 
   resize(w: number, h: number) {
-    // portrait phones: pull back + widen so the world doesn't feel claustrophobic
     const portrait = h > w
-    this.camera.fov = portrait ? 68 : 55
-    this.camDist = portrait ? 7.2 : 6.4
+    this.camera.fov = portrait ? 66 : 55
+    this.camDist = portrait ? 7 : 6.4
     this.camera.updateProjectionMatrix()
+    const pr = this.engine.renderer.getPixelRatio()
+    this.smoke?.setPixelScale(h, pr)
+    this.embers?.setPixelScale(h, pr)
   }
 
   update(dt: number) {
     this.t += dt
     const p = this.player
 
-    // camera look (drag)
     const look = this.input.takeLook()
     this.camYaw -= look.x * 0.006 * this.cameraSensitivity
     this.camPitch = Math.max(0.08, Math.min(1.05, this.camPitch + look.y * 0.004 * this.cameraSensitivity))
 
-    // movement in camera space
     const mv = this.paused ? { x: 0, z: 0, run: false } : this.input.move()
     const fwd = new THREE.Vector3(-Math.sin(this.camYaw), 0, -Math.cos(this.camYaw))
     const right = new THREE.Vector3(-fwd.z, 0, fwd.x)
@@ -611,14 +620,15 @@ export class World implements GameScene {
     this.playerVel.lerp(targetVel, 1 - Math.exp(-dt * (mag > 0.01 ? 10 : 14)))
     this.playerPos.addScaledVector(this.playerVel, dt)
     this.resolve(this.playerPos, PLAYER_R)
+    const gy = groundHeight(this.playerPos.x, this.playerPos.z)
+    this.playerPos.y += (gy - this.playerPos.y) * (1 - Math.exp(-dt * 18))
 
-    const speed = this.playerVel.length()
+    const speed = Math.hypot(this.playerVel.x, this.playerVel.z)
     if (speed > 0.15) {
       const targetYaw = Math.atan2(this.playerVel.x, this.playerVel.z)
       let d = targetYaw - this.playerYaw
       d = Math.atan2(Math.sin(d), Math.cos(d))
       this.playerYaw += d * (1 - Math.exp(-dt * 12))
-      // gentle auto-follow so phone players rarely need to touch the camera
       if (!look.x && mv.z > 0.2) {
         let cd = this.playerYaw + Math.PI - this.camYaw
         cd = Math.atan2(Math.sin(cd), Math.cos(cd))
@@ -635,19 +645,9 @@ export class World implements GameScene {
     }
     this.placeCamera(1 - Math.exp(-dt * 9))
 
-    // NPCs: idle, wave when the player approaches, turn smoothly toward their facing
-    for (const [, n] of this.npcs) {
-      const d = n.home.distanceTo(this.playerPos)
-      if (d < 5 && !this.paused) n.facing = Math.atan2(this.playerPos.x - n.home.x, this.playerPos.z - n.home.z)
-      let dy = n.facing - n.c.root.rotation.y
-      dy = Math.atan2(Math.sin(dy), Math.cos(dy))
-      n.c.root.rotation.y += dy * (1 - Math.exp(-dt * 5))
-      n.c.pose = d < 4.2 && d > 2.4 ? 'wave' : 'idle'
-      n.c.speed = 0
-      n.c.update(dt)
-    }
+    this.crowd.update(dt, this.playerPos, this.camera.position, this.paused, groundHeight)
 
-    // interaction prompt: nearest interactable in range
+    // interaction prompt
     let best: Interactable | null = null
     let bestD = Infinity
     if (!this.paused)
@@ -668,10 +668,23 @@ export class World implements GameScene {
       this.events.onInteract(this.prompt.id)
     }
 
-    // ambient animation
-    this.flames.forEach((f, i) => f.scale.setScalar(1 + Math.sin(this.t * 9 + i * 1.7) * 0.12 + Math.sin(this.t * 23 + i) * 0.05))
-    this.lanterns.forEach((L, i) => (L.intensity = 13 + Math.sin(this.t * 11 + i * 2) * 1.6))
-    ;(this.gymDoor.material as THREE.MeshBasicMaterial).color.set('#ff8a30').multiplyScalar(1.1 + Math.sin(this.t * 2.5) * 0.15)
+    // ambience
+    const t = this.t
+    for (const f of this.fires) f.update(t)
+    for (const c of this.cloths) c.update(t)
+    for (const d of this.dynamic) d.update(t, dt)
+    this.smoke?.update(dt, t)
+    this.embers?.update(dt, t)
+    this.leaves?.update(dt, t, this.playerPos.x, this.playerPos.z)
+    let mi = 0
+    for (const [, m] of this.markers) {
+      m.position.y += Math.sin(t * 2.4 + mi++) * 0.004
+      m.rotation.y += dt * 1.6
+    }
+    for (const [, s] of this.seeds) {
+      s.rotation.y += dt * 2
+      s.position.y = 0.55 + Math.sin(t * 2 + s.position.x) * 0.1
+    }
     if (this.boingT >= 0) {
       this.boingT += dt
       const k = this.boingT
@@ -686,29 +699,82 @@ export class World implements GameScene {
     }
     if (this.stashT >= 0) {
       this.stashT = Math.min(1, this.stashT + dt * 1.5)
-      const e = 1 - Math.pow(1 - this.stashT, 3)
-      this.stash.scale.setScalar(Math.max(0.001, e))
-      this.stash.rotation.y += dt
+      this.stash.scale.setScalar(Math.max(0.001, 1 - Math.pow(1 - this.stashT, 3)))
       if (this.stashT >= 1) this.stashT = -1
     }
+    if (this.stash.visible) this.stash.rotation.y += dt * 0.3
   }
 
-  /** for automated tests */
+  /** for automated tests + the perf overlay */
   debug() {
-    return { x: +this.playerPos.x.toFixed(2), z: +this.playerPos.z.toFixed(2), yaw: +this.playerYaw.toFixed(2), prompt: this.prompt?.id ?? null, walked: +this.walkedTime.toFixed(2) }
+    const info = this.engine.renderer.info
+    return {
+      x: +this.playerPos.x.toFixed(2),
+      y: +this.playerPos.y.toFixed(2),
+      z: +this.playerPos.z.toFixed(2),
+      yaw: +this.playerYaw.toFixed(2),
+      prompt: this.prompt?.id ?? null,
+      walked: +this.walkedTime.toFixed(2),
+      camDist: +this.camDistNow.toFixed(2),
+      calls: info.render.calls,
+      triangles: info.render.triangles,
+      npcs: this.crowd.live.length,
+    }
   }
-  teleport(x: number, z: number) {
-    this.playerPos.set(x, 0, z)
+  /** QA: is the player or the camera inside any solid building volume right now? */
+  integrity() {
+    const inside = (x: number, z: number, y: number, pad: number) =>
+      this.colliders.some((c) => c.kind === 'box' && (c.h ?? 0) > y && x > c.minX + pad && x < c.maxX - pad && z > c.minZ + pad && z < c.maxZ - pad)
+    const cam = this.camera.position
+    return {
+      playerInside: inside(this.playerPos.x, this.playerPos.z, 0.5, 0.05),
+      cameraInside: inside(cam.x, cam.z, cam.y, 0.05),
+      finite: Number.isFinite(this.playerPos.x + this.playerPos.z + cam.x + cam.y + cam.z),
+      walkers: this.crowd.live.filter((l) => l.walker).map((l) => [+l.pos.x.toFixed(2), +l.pos.z.toFixed(2)]),
+    }
+  }
+  teleport(x: number, z: number, yaw?: number) {
+    this.playerPos.set(x, groundHeight(x, z), z)
     this.resolve(this.playerPos, PLAYER_R)
+    if (yaw !== undefined) {
+      this.playerYaw = yaw
+      this.camYaw = yaw + Math.PI
+    }
     this.snapCamera()
   }
 
   dispose() {
     this.disposed = true
     if (this.player) disposeCharacter(this.player)
-    this.npcs.forEach((n) => disposeCharacter(n.c))
+    this.crowd.dispose()
     disposeObject(this.scene)
+    this.disposables.forEach((d) => d.dispose())
+    ;(this.smoke?.points.material as THREE.ShaderMaterial | undefined)?.uniforms.uMap.value.dispose()
+    ;(this.embers?.points.material as THREE.ShaderMaterial | undefined)?.uniforms.uMap.value.dispose()
     this.events.onPrompt(null)
-    void this.engine
   }
+}
+
+/** Block-stone texture for castle / plinths (kept here: it's the only user). */
+function stoneBlocks(size = 256) {
+  const c = document.createElement('canvas')
+  c.width = c.height = size
+  const g = c.getContext('2d')!
+  g.fillStyle = '#121014'
+  g.fillRect(0, 0, size, size)
+  let seed = 13
+  const r = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646
+  const rows = 6
+  const h = size / rows
+  for (let y = 0; y < rows; y++)
+    for (let x = (y % 2) * -h * 0.8; x < size; x += h * 1.6) {
+      g.fillStyle = `hsl(${250 + r() * 30}, ${4 + r() * 6}%, ${14 + r() * 11}%)`
+      g.fillRect(x + 2, y * h + 2, h * 1.6 - 4, h - 4)
+      g.fillStyle = 'rgba(255,255,255,0.04)'
+      g.fillRect(x + 3, y * h + 3, h * 1.6 - 6, 3)
+    }
+  const t = new THREE.CanvasTexture(c)
+  t.wrapS = t.wrapT = THREE.RepeatWrapping
+  t.colorSpace = THREE.SRGBColorSpace
+  return t
 }

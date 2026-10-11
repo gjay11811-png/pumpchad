@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import type { Appearance } from './types'
 
 /**
@@ -10,7 +11,7 @@ import type { Appearance } from './types'
  *                       ├ armL/armR ─ elbow ─ forearm/fist
  *                       └ neck ─ head (species head, headwear, eyewear)
  */
-export type Pose = 'idle' | 'walk' | 'flex' | 'press' | 'wave'
+export type Pose = 'idle' | 'walk' | 'flex' | 'press' | 'wave' | 'hammer'
 
 export class CharacterRig {
   kind: 'procedural' | 'model' = 'procedural'
@@ -31,7 +32,7 @@ export class CharacterRig {
   headHeight = 1.95
   private phase = 0
   private t = 0
-  private blend = { flex: 0, press: 0, wave: 0 }
+  private blend = { flex: 0, press: 0, wave: 0, hammer: 0 }
   pose: Pose = 'idle'
   speed = 0
   /** 0 = bar at shoulders, 1 = locked out overhead (press pose) */
@@ -45,7 +46,7 @@ export class CharacterRig {
     const s = Math.min(this.speed, 1.6)
     const walking = s > 0.05
     const k = 1 - Math.exp(-dt * 10)
-    for (const p of ['flex', 'press', 'wave'] as const) this.blend[p] += ((this.pose === p ? 1 : 0) - this.blend[p]) * k
+    for (const p of ['flex', 'press', 'wave', 'hammer'] as const) this.blend[p] += ((this.pose === p ? 1 : 0) - this.blend[p]) * k
 
     // locomotion
     this.phase += dt * (walking ? 5.5 + s * 3.5 : 0)
@@ -93,6 +94,16 @@ export class CharacterRig {
     rez = lerp(rez, -0.5 + Math.sin(this.t * 9) * 0.45, w)
     rx = lerp(rx, 0, w)
 
+    // hammer (blacksmith) — right arm swings down onto the anvil, left steadies
+    const hm = this.blend.hammer
+    const swing = Math.max(0, Math.sin(this.t * 4.2))
+    rx = lerp(rx, -0.4 - swing * 1.5, hm)
+    rz = lerp(rz, -0.25, hm)
+    rex = lerp(rex, -0.9 + swing * 0.5, hm)
+    lx = lerp(lx, -0.9, hm)
+    lex = lerp(lex, -0.8, hm)
+    this.spine.rotation.x += 0.18 * hm
+
     this.armL.rotation.set(lx, 0, lz)
     this.armR.rotation.set(rx, 0, rz)
     this.elbowL.rotation.set(lex, 0, lez)
@@ -101,6 +112,46 @@ export class CharacterRig {
 }
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t
+
+/**
+ * Merge the meshes under each joint that share a material into one mesh. Joints still
+ * animate independently, but a character drops from ~45 draw calls to ~15.
+ */
+function optimizeRig(root: THREE.Object3D) {
+  const parents: THREE.Object3D[] = []
+  root.traverse((o) => parents.push(o))
+  for (const parent of parents) {
+    const groups = new Map<THREE.Material, THREE.Mesh[]>()
+    for (const c of parent.children) {
+      const m = c as THREE.Mesh
+      if (m.isMesh && m.children.length === 0 && !Array.isArray(m.material)) {
+        if (!groups.has(m.material)) groups.set(m.material, [])
+        groups.get(m.material)!.push(m)
+      }
+    }
+    for (const [mat, meshes] of groups) {
+      if (meshes.length < 2) continue
+      const geos = meshes.map((m) => {
+        m.updateMatrix()
+        let g = m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone()
+        for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k)
+        if (!g.attributes.uv) g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2))
+        g.applyMatrix4(m.matrix)
+        return g
+      })
+      const merged = mergeGeometries(geos, false)
+      geos.forEach((g) => g.dispose())
+      if (!merged) continue
+      meshes.forEach((m) => {
+        parent.remove(m)
+        m.geometry.dispose()
+      })
+      const mm = new THREE.Mesh(merged, mat)
+      mm.castShadow = true
+      parent.add(mm)
+    }
+  }
+}
 
 /* ─────────────── builders ─────────────── */
 
@@ -124,7 +175,7 @@ function makeMats(a: Appearance) {
   }
 }
 
-const cap = (r: number, len: number, seg = 8) => new THREE.CapsuleGeometry(r, len, 6, seg * 2)
+const cap = (r: number, len: number, seg = 6) => new THREE.CapsuleGeometry(r, len, 4, seg * 2)
 /** Smooth tapered limb along -y: radius r1 at the joint, bulge rm, r2 at the far end. */
 function limb(r1: number, rm: number, r2: number, len: number, bulgeAt = 0.4) {
   const pts: THREE.Vector2[] = []
@@ -143,7 +194,7 @@ function limb(r1: number, rm: number, r2: number, len: number, bulgeAt = 0.4) {
     const a = (i / 6) * (Math.PI / 2)
     pts.push(new THREE.Vector2(Math.cos(a) * r1, Math.sin(a) * r1))
   }
-  return new THREE.LatheGeometry(pts, 20)
+  return new THREE.LatheGeometry(pts, 12)
 }
 
 /** V-taper torso: profile of radius vs height, squashed front-to-back. */
@@ -152,7 +203,7 @@ function torsoGeo(scale = 1) {
     [0.001, -0.02], [0.17, -0.02], [0.2, 0.04], [0.205, 0.14], [0.215, 0.22], [0.25, 0.32],
     [0.3, 0.42], [0.325, 0.5], [0.315, 0.56], [0.26, 0.61], [0.16, 0.65], [0.08, 0.68], [0.001, 0.69],
   ]
-  const g = new THREE.LatheGeometry(prof.map(([r, y]) => new THREE.Vector2(r * scale, y)), 36)
+  const g = new THREE.LatheGeometry(prof.map(([r, y]) => new THREE.Vector2(r * scale, y)), 20)
   g.scale(1.38, 1, 0.7)
   g.computeVertexNormals()
   return g
@@ -209,13 +260,13 @@ export function buildCharacter(a: Appearance): CharacterRig {
   else {
     rig.spine.add(mesh(torsoGeo(), M.skin, 0, 0, 0))
     // trapezius + deltoids give the shoulder line its mass
-    const traps = mesh(new THREE.SphereGeometry(0.2, 20, 14), M.skin, 0, 0.6, -0.03)
+    const traps = mesh(new THREE.SphereGeometry(0.2, 12, 8), M.skin, 0, 0.6, -0.03)
     traps.scale.set(1.5, 0.55, 0.8)
     rig.spine.add(traps)
     rig.spine.add(mesh(new THREE.CylinderGeometry(0.1, 0.12, 0.16, 16), M.skin, 0, 0.7, 0))
     if (shirtless) {
       for (const s of [1, -1]) {
-        const pec = mesh(new THREE.SphereGeometry(0.17, 20, 14), M.skin, 0.13 * s, 0.47, 0.11)
+        const pec = mesh(new THREE.SphereGeometry(0.17, 12, 8), M.skin, 0.13 * s, 0.47, 0.11)
         pec.scale.set(1.15, 0.72, 0.62)
         rig.spine.add(pec)
       }
@@ -241,7 +292,7 @@ export function buildCharacter(a: Appearance): CharacterRig {
     const upperMat = sleeve ? M.outfit : skel ? M.bone : M.skin
     arm.add(mesh(limb(0.12 * bulk, (skel ? 0.08 : 0.15) * (sleeve ? 0.92 : 1), 0.085 * bulk, 0.38, 0.45), upperMat, 0, 0, 0))
     // deltoid cap
-    const delt = mesh(new THREE.SphereGeometry(0.14 * bulk, 18, 12), upperMat, 0, -0.02, 0)
+    const delt = mesh(new THREE.SphereGeometry(0.14 * bulk, 12, 8), upperMat, 0, -0.02, 0)
     delt.scale.set(1.05, 0.95, 1)
     arm.add(delt)
     if (a.top === 'armor') {
@@ -253,7 +304,7 @@ export function buildCharacter(a: Appearance): CharacterRig {
     arm.add(elbow)
     const foreMat = a.top === 'armor' ? M.metal : sleeve ? M.outfit : skel ? M.bone : M.skin
     elbow.add(mesh(limb(0.09 * bulk, 0.11 * bulk, 0.065 * bulk, 0.32, 0.3), foreMat, 0, 0, 0))
-    const fist = mesh(new THREE.SphereGeometry(0.085 * (skel ? 0.85 : 1), 16, 12), skel ? M.bone : M.skin, 0, -0.39, 0.01)
+    const fist = mesh(new THREE.SphereGeometry(0.085 * (skel ? 0.85 : 1), 12, 8), skel ? M.bone : M.skin, 0, -0.39, 0.01)
     fist.scale.set(0.9, 1.05, 1.1)
     elbow.add(fist)
     fistMarker.position.y = -0.38
@@ -270,10 +321,7 @@ export function buildCharacter(a: Appearance): CharacterRig {
   buildEyewear(head, M, a, faceZ)
   rig.headHeight = 0.95 + 0.04 + 0.66 + 0.3
 
-  rig.root.traverse((o) => {
-    const m = o as THREE.Mesh
-    if (m.isMesh) m.receiveShadow = false
-  })
+  optimizeRig(rig.root)
   return rig
 }
 
@@ -327,7 +375,7 @@ function buildChain(rig: CharacterRig, M: Mats) {
 function buildHead(head: THREE.Group, M: Mats, a: Appearance): number {
   if (a.species === 'pumpkin') {
     head.position.y = 0.28
-    const seg = new THREE.SphereGeometry(0.22, 24, 18)
+    const seg = new THREE.SphereGeometry(0.22, 14, 10)
     const N = 10
     for (let i = 0; i < N; i++) {
       const ang = (i / N) * Math.PI * 2
@@ -373,7 +421,7 @@ function buildHead(head: THREE.Group, M: Mats, a: Appearance): number {
   }
   if (a.species === 'skeleton') {
     head.position.y = 0.24
-    const skull = mesh(new THREE.SphereGeometry(0.24, 14, 12), M.skin, 0, 0.03, 0)
+    const skull = mesh(new THREE.SphereGeometry(0.24, 14, 10), M.skin, 0, 0.03, 0)
     skull.scale.set(1, 1.05, 1.08)
     head.add(skull)
     const jaw = mesh(new THREE.BoxGeometry(0.26, 0.1, 0.2, 2, 1, 2), M.skin, 0, -0.17, 0.06)

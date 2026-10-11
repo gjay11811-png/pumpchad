@@ -49,6 +49,18 @@ export function GameApp() {
   const [error, setError] = useState('')
   const [touch] = useState(() => window.matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window)
 
+  const pumpToasts = () => {
+    const t = toastQueue.current.shift()
+    if (!t) return void (toastBusy.current = false)
+    toastBusy.current = true
+    if (t.kind === 'achievement') audio.play('achievement')
+    setToasts([t])
+    setTimeout(() => {
+      setToasts([])
+      setTimeout(pumpToasts, 350)
+    }, 2600)
+  }
+
   /** Single write path: updates React state + localStorage together. */
   const setSave = useCallback((fn: (s: SaveData) => SaveData) => {
     const next = fn(saveRef.current)
@@ -104,19 +116,8 @@ export function GameApp() {
     (id: string) => {
       if (saveRef.current.progress.achievements.includes(id) || !ACHIEVEMENTS[id]) return
       setSave((s) => ({ ...s, progress: { ...s.progress, achievements: [...s.progress.achievements, id], xp: s.progress.xp + ACH_XP } }))
-      toastQueue.current.push({ id: `${id}-${Date.now()}`, title: ACHIEVEMENTS[id].name, desc: `${ACHIEVEMENTS[id].desc}  +${ACH_XP} XP` })
-      const next = () => {
-        const t = toastQueue.current.shift()
-        if (!t) return void (toastBusy.current = false)
-        toastBusy.current = true
-        audio.play('achievement')
-        setToasts([t])
-        setTimeout(() => {
-          setToasts([])
-          setTimeout(next, 350)
-        }, 2600)
-      }
-      if (!toastBusy.current) next()
+      toastQueue.current.push({ id: `${id}-${Date.now()}`, title: ACHIEVEMENTS[id].name, desc: `${ACHIEVEMENTS[id].desc}  +${ACH_XP} XP`, kind: 'achievement' })
+      if (!toastBusy.current) pumpToasts()
     },
     [setSave],
   )
@@ -129,6 +130,12 @@ export function GameApp() {
     },
     [setSave, unlock],
   )
+
+  /** Non-achievement toast (collectibles etc.), queued with achievements so they never stack. */
+  const notify = (title: string, desc: string) => {
+    toastQueue.current.push({ id: `n-${Date.now()}`, title, desc, kind: 'collect' })
+    if (!toastBusy.current) pumpToasts()
+  }
 
   /* ── world interactions ── */
   const handleInteractRef = useRef<(id: string) => void>(() => {})
@@ -157,7 +164,7 @@ export function GameApp() {
       const w = new World(e, input.current!, { onPrompt: setPrompt, onInteract: (id) => handleInteractRef.current(id) }, saveRef.current.settings.quality)
       w.cameraSensitivity = saveRef.current.settings.cameraSensitivity
       e.setScene(w)
-      await w.populate(app, opts.spawn ?? 'start')
+      await w.populate(app, opts.spawn ?? 'start', saveRef.current.progress.discoveries)
       if (saveRef.current.progress.discoveries.includes('stash')) w.revealStash()
       world.current = w
       audio.setAmbience('square')
@@ -180,14 +187,37 @@ export function GameApp() {
     switch (id) {
       case 'coach':
       case 'hodl':
-        discover(id === 'coach' ? 'talk_coach' : 'talk_hodl')
+      case 'barkeep':
+      case 'smith':
+      case 'potion':
+      case 'captain':
+        discover(`talk_${id}`)
         w.faceNpcToPlayer(id)
+        w.markTalked(id)
         setDialogue(DIALOGUE[id])
         break
       case 'statue':
       case 'gate':
+      case 'board':
+      case 'well':
+      case 'window':
+      case 'arcade':
+        if (id === 'well') discover('wish')
         setDialogue(DIALOGUE[id])
         break
+      case 'seed_1':
+      case 'seed_2':
+      case 'seed_3':
+      case 'seed_4':
+      case 'seed_5': {
+        w.collect(id)
+        discover(id)
+        audio.play('perfect')
+        const n = saveRef.current.progress.discoveries.filter((x) => x.startsWith('seed_')).length
+        notify(`Golden seed ${n}/5`, n === 5 ? 'The whole set. The King would be proud.' : 'Hidden around Chad Square.')
+        if (n >= 5) unlock('seed_collector')
+        break
+      }
       case 'pumpkin': {
         w.boing()
         pokes.current++
@@ -285,8 +315,9 @@ export function GameApp() {
       phase,
       save: () => saveRef.current,
       world: () => world.current?.debug() ?? null,
-      teleport: (x: number, z: number) => world.current?.teleport(x, z),
+      teleport: (x: number, z: number, yaw?: number) => world.current?.teleport(x, z, yaw),
       stats: () => engine.current?.stats,
+      integrity: () => world.current?.integrity() ?? null,
       character: () => (world.current?.player ?? null)?.kind ?? null,
       showroom: () => showroom.current,
     }
