@@ -40,8 +40,10 @@ for (const [w, h, tag, mobile] of [
   const p = await ctx.newPage()
   const errs = []
   p.on('pageerror', (e) => errs.push(e.message))
-  p.on('console', (m) => m.type() === 'error' && errs.push(m.text()))
+  p.on('console', (m) => m.type() === 'error' && errs.push(`[${phaseNow}] ` + m.text()))
   const cv = (fn) => p.evaluate(fn)
+  let phaseNow = 'start'
+  setInterval(async () => { try { phaseNow = await p.evaluate(() => window.__chadverse?.phase) } catch {} }, 300)
   await p.goto(base, { waitUntil: 'networkidle' })
   await p.evaluate(() => localStorage.clear())
   await p.reload({ waitUntil: 'networkidle' })
@@ -228,6 +230,7 @@ for (const [w, h, tag, mobile] of [
   await p.waitForFunction(() => window.__chadverse?.phase === 'world' && window.__chadverse.world(), null, { timeout: 15000 })
   const sv2 = await cv(() => window.__chadverse.save())
   check(sv2.progress.xp === xpBefore && sv2.character.appearance.species === 'skeleton', 'after reload: XP and character restored')
+  if (errs.length) (await import('node:fs')).writeFileSync(`${out}/e2e-errors-${tag}.txt`, errs.join(' ===== '))
   check(errs.length === 0, `no console errors${errs.length ? ': ' + errs.join(' | ') : ''}`)
   await ctx.close()
 }
