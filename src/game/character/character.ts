@@ -3,6 +3,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { disposeObject } from '../engine/Engine'
 import { buildCharacter, type Pose } from './build'
+import { PumpkinChad, loadChadAssets } from './chad'
 import { MODELS, TEST_MODEL, type ModelSpec } from './models'
 import type { Appearance } from './types'
 
@@ -36,6 +37,7 @@ function loadGLB(url: string) {
 
 /** Preload a species' model in the background (no-op for procedural species). */
 export function preloadModel(species: Appearance['species']) {
+  if (species === 'pumpkin') void loadChadAssets().catch(() => {})
   const spec = MODELS[species]
   if (spec) void loadGLB(spec.url).catch(() => {})
 }
@@ -127,7 +129,16 @@ class ModelCharacter implements Character {
  * pipeline test), otherwise the procedural stand-in. A failed download falls back too.
  */
 export async function createCharacter(a: Appearance): Promise<Character> {
-  const forceTest = typeof location !== 'undefined' && new URLSearchParams(location.search).get('model') === 'robot'
+  const params = typeof location !== 'undefined' ? new URLSearchParams(location.search) : new URLSearchParams()
+  const forceTest = params.get('model') === 'robot'
+  // Pumpkin Chad: real rigged body + library animations (falls back to the stand-in if loading fails)
+  if (a.species === 'pumpkin' && !forceTest && params.get('legacy') !== '1') {
+    try {
+      return new PumpkinChad(await loadChadAssets(), a)
+    } catch (err) {
+      console.warn('[chadverse] Pumpkin Chad model failed, using stand-in:', err)
+    }
+  }
   const spec = forceTest ? TEST_MODEL : MODELS[a.species]
   if (spec) {
     try {
@@ -143,5 +154,6 @@ export async function createCharacter(a: Appearance): Promise<Character> {
 /** Free a character. GLB clones share geometry with the cache, so only procedural meshes are disposed. */
 export function disposeCharacter(c: Character) {
   c.root.removeFromParent()
-  if (c.kind === 'procedural') disposeObject(c.root)
+  if (c instanceof PumpkinChad) c.dispose()
+  else if (c.kind === 'procedural') disposeObject(c.root)
 }

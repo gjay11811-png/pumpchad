@@ -309,6 +309,13 @@ export function GameApp() {
     void go('creator', { label: 'Starting over' })
   }
 
+  /* ── title screen framing: keep the character clear of the title panel ── */
+  useEffect(() => {
+    if (phase !== 'title' || !showroom.current) return
+    const desktop = window.matchMedia('(min-width: 768px)').matches
+    showroom.current.setInsets(desktop ? { left: 0, right: 470, bottom: 0, top: 0 } : { left: 0, right: 0, top: 40, bottom: window.innerHeight * 0.42 })
+  }, [phase])
+
   /* ── test hook (read-only info + teleport, used by automated QA) ── */
   useEffect(() => {
     ;(window as unknown as { __chadverse: unknown }).__chadverse = {

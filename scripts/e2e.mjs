@@ -66,7 +66,13 @@ for (const [w, h, tag, mobile] of [
   await p.getByRole('radio', { name: 'Crown' }).click()
   await sleep(400)
   const yaw0 = await cv(() => window.__chadverse.showroom().yaw)
-  await p.getByRole('button', { name: 'Rotate right' }).click()
+  if (mobile) {
+    // phones rotate by dragging the character
+    await p.mouse.move(w / 2, h * 0.3)
+    await p.mouse.down()
+    await p.mouse.move(w / 2 + 120, h * 0.3, { steps: 6 })
+    await p.mouse.up()
+  } else await p.getByRole('button', { name: 'Rotate right' }).click()
   await sleep(500)
   const yaw1 = await cv(() => window.__chadverse.showroom().yaw)
   check(Math.abs(yaw1 - yaw0) > 0.05, 'rotate control turns the character')

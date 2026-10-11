@@ -58,7 +58,10 @@ export class World implements GameScene {
   private camTarget = new THREE.Vector3()
   private colliders: Collider[] = []
   /** camera-only obstacles: things you can walk under but the lens must not pass through */
-  private camBlockers: Collider[] = [{ kind: 'box', minX: -4.4, maxX: 4.4, minZ: 27.05, maxZ: 27.95, h: 5.2 }]
+  private camBlockers: Collider[] = [
+    { kind: 'box', minX: -4.4, maxX: 4.4, minZ: 27.05, maxZ: 27.95, h: 5.2 }, // entrance arch
+    { kind: 'box', minX: -9, maxX: -5.1, minZ: 13.6, maxZ: 24.4, h: 3.7 }, // tavern porch roof
+  ]
   interactables: Interactable[] = []
   private prompt: Interactable | null = null
   private crowd = new Crowd()
