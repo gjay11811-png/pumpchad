@@ -325,6 +325,8 @@ export function GameApp() {
       teleport: (x: number, z: number, yaw?: number) => world.current?.teleport(x, z, yaw),
       stats: () => engine.current?.stats,
       integrity: () => world.current?.integrity() ?? null,
+      playerInspect: () => (world.current?.player as unknown as { inspect?: () => unknown } | null)?.inspect?.() ?? null,
+      gymInspect: () => (gym.current?.player as unknown as { inspect?: () => unknown } | null)?.inspect?.() ?? null,
       character: () => (world.current?.player ?? null)?.kind ?? null,
       showroom: () => showroom.current,
     }

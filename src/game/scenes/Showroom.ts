@@ -34,6 +34,12 @@ export class Showroom implements GameScene {
   private lastX = 0
   private flexUntil = 0
   previewPose: PreviewPose = 'idle'
+  /** turntable auto-spin (QA freezes it for measurements) */
+  autoRotate = true
+  /** QA: drive the character at a fixed speed (units of walk speed) */
+  forceSpeed: number | null = null
+  /** QA: pin animation playback rate */
+  forceTimeScale: number | null = null
   forcePose: Pose | null = null
   private t = 0
   private w = 1
@@ -242,7 +248,7 @@ export class Showroom implements GameScene {
     this.t += dt
     if (this.pointers.size === 0) {
       this.yawVel *= Math.exp(-dt * 3)
-      this.yaw += this.yawVel + dt * 0.14 * (Math.abs(this.yawVel) < 0.002 ? 1 : 0)
+      this.yaw += this.yawVel + (this.autoRotate ? dt * 0.14 * (Math.abs(this.yawVel) < 0.002 ? 1 : 0) : 0)
     }
     this.turntable.rotation.y = this.yaw
     this.zoomNow += (this.zoom - this.zoomNow) * (1 - Math.exp(-dt * 8))
@@ -250,7 +256,8 @@ export class Showroom implements GameScene {
     if (this.rig) {
       const p = this.t < this.flexUntil ? 'flex' : this.previewPose
       this.rig.pose = this.forcePose ?? p
-      this.rig.speed = p === 'walk' ? 0.42 : 0
+      this.rig.speed = this.forceSpeed ?? (p === 'walk' ? 0.42 : 0)
+      ;(this.rig as unknown as { forceTimeScale?: number | null }).forceTimeScale = this.forceTimeScale
       this.rig.update(dt)
     }
     const dp = this.dust.geometry.attributes.position as THREE.BufferAttribute

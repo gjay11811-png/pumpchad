@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js'
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import type { Pose } from './build'
 import type { Character } from './character'
 import type { Appearance } from './types'
@@ -32,7 +33,9 @@ export function loadChadAssets() {
 /* Clip names in the library, and the speed (m/s) each locomotion clip was authored at,
    so playback rate can match ground speed (no foot sliding). */
 const CLIPS = { idle: 'Idle_Loop', walk: 'Walk_Loop', jog: 'Jog_Fwd_Loop', sprint: 'Sprint_Loop', dance: 'Dance_Loop', interact: 'Interact', talk: 'Idle_Talking_Loop' }
-const CLIP_SPEED = { walk: 1.45, jog: 3.4, sprint: 6.2 }
+/* Measured with scripts/sweep-stride.mjs: zero-slip speeds are walk 0.91, jog 6.2, sprint 9.4 m/s.
+   Jog/sprint are set slightly lower (≈8% slip) for a livelier cadence at game speeds. */
+const CLIP_SPEED = { walk: 0.91, jog: 5.8, sprint: 8.8 }
 /** the mascot's identity is a BIG pumpkin head */
 const HEAD_SCALE = 1.32
 
@@ -57,6 +60,43 @@ function recolour(mat: THREE.MeshStandardMaterial, skin: THREE.Color, shorts: TH
       )
   }
   mat.customProgramCacheKey = () => 'chad-recolour'
+}
+
+/** Collapse a rigid accessory tree into one mesh per material (draw-call budget). */
+function mergeStatic(root: THREE.Object3D) {
+  root.updateMatrixWorld(true)
+  const inv = new THREE.Matrix4().copy(root.matrixWorld).invert()
+  const byMat = new Map<THREE.Material, THREE.BufferGeometry[]>()
+  const victims: THREE.Mesh[] = []
+  root.traverse((o) => {
+    const m = o as THREE.Mesh
+    if (!m.isMesh || Array.isArray(m.material)) return
+    let g = m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone()
+    for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k)
+    if (!g.attributes.uv) g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2))
+    g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, m.matrixWorld))
+    if (!byMat.has(m.material)) byMat.set(m.material, [])
+    byMat.get(m.material)!.push(g)
+    victims.push(m)
+  })
+  for (const v of victims) v.removeFromParent()
+  const names = new Set<string>()
+  root.traverse((o) => o.name.startsWith('acc:') && o !== root && names.add(o.name))
+  // drop now-empty groups but keep their names as tags on the root for QA
+  for (const c of [...root.children]) root.remove(c)
+  for (const [mat, geos] of byMat) {
+    const merged = mergeGeometries(geos)!
+    geos.forEach((g) => g.dispose())
+    const mesh = new THREE.Mesh(merged, mat)
+    mesh.castShadow = true
+    root.add(mesh)
+  }
+  for (const n of names) {
+    const tag = new THREE.Object3D()
+    tag.name = n
+    root.add(tag)
+  }
+  return root
 }
 
 /** Remove triangles driven mainly by the Head bone (the human head + face). */
@@ -151,6 +191,8 @@ export class PumpkinChad implements Character {
   fistL: THREE.Object3D
   fistR: THREE.Object3D
   onStep: (() => void) | null = null
+  /** QA hook: pin locomotion playback rate */
+  forceTimeScale: number | null = null
   private mixer: THREE.AnimationMixer
   private actions = new Map<string, THREE.AnimationAction>()
   private current: THREE.AnimationAction | null = null
@@ -159,6 +201,11 @@ export class PumpkinChad implements Character {
   private t = 0
   private lastPhase = 0
   private disposables: (THREE.Material | THREE.BufferGeometry | THREE.Texture)[] = []
+  private headObj: THREE.Object3D | null = null
+  private chainObj: THREE.Object3D | null = null
+  private skinColor = new THREE.Color()
+  private shortsColor = new THREE.Color()
+  private glowColor = new THREE.Color()
   /** character-space side sign of the left hand (+1 if left is +X) */
   private leftSign = 1
 
@@ -179,7 +226,10 @@ export class PumpkinChad implements Character {
     // skin + shorts recolour on a private material clone
     const skinMat = (B.material as THREE.MeshStandardMaterial).clone()
     skinMat.roughness = 0.62
-    recolour(skinMat, new THREE.Color(a.skin), new THREE.Color(a.top === 'armor' ? '#1a181c' : a.outfit))
+    this.skinColor.set(a.skin)
+    this.shortsColor.set(a.top === 'armor' ? '#1a181c' : a.outfit)
+    this.glowColor.set(a.glow)
+    recolour(skinMat, this.skinColor, this.shortsColor)
     B.material = skinMat
     this.disposables.push(skinMat, B.geometry)
 
@@ -202,17 +252,24 @@ export class PumpkinChad implements Character {
       col.set([c.r, c.g, c.b], i * 3)
     }
     shoes.geometry.setAttribute('color', new THREE.BufferAttribute(col, 3))
+    shoes.name = 'cloth:shoes'
     model.add(shoes)
+    shoes.geometry.computeBoundingBox()
+    const soleY = Math.min(shoes.geometry.boundingBox!.min.y, 0)
+    model.position.y = -soleY // trainer soles sit exactly on the ground
     this.disposables.push(shoes.geometry)
 
     if (a.top === 'hoodie') {
       const top = shell(B, ['spine_01', 'spine_02', 'spine_03', 'clavicle_l', 'clavicle_r', 'upperarm_l', 'upperarm_r', 'lowerarm_l', 'lowerarm_r', 'neck_01'], 0.018, fabric, { minY: 0.93 })
+      top.name = 'cloth:hoodie'
       model.add(top)
       this.disposables.push(top.geometry)
     } else if (a.top === 'armor') {
-      const plate = new THREE.MeshPhysicalMaterial({ color: a.outfit, metalness: 0.9, roughness: 0.3, clearcoat: 0.6 })
+      const plate = new THREE.MeshPhysicalMaterial({ color: a.outfit, metalness: 0.72, roughness: 0.42, clearcoat: 0.25 })
       this.disposables.push(plate)
-      const top = shell(B, ['spine_02', 'spine_03', 'clavicle_l', 'clavicle_r', 'upperarm_l', 'upperarm_r'], 0.026, plate, { minY: 1.08 })
+      // full cuirass: whole torso + shoulders/upper arms (not a crop top)
+      const top = shell(B, ['pelvis', 'spine_01', 'spine_02', 'spine_03', 'clavicle_l', 'clavicle_r', 'upperarm_l', 'upperarm_r', 'neck_01'], 0.026, plate, { minY: 0.98 })
+      top.name = 'cloth:armor'
       model.add(top)
       this.disposables.push(top.geometry)
     }
@@ -221,19 +278,30 @@ export class PumpkinChad implements Character {
     const head = this.bone('Head')
     const hp = head.getWorldPosition(new THREE.Vector3())
     const pumpkin = buildPumpkinHead(a, this.disposables)
+    pumpkin.name = 'acc:head'
+    this.headObj = pumpkin
     pumpkin.scale.setScalar(HEAD_SCALE)
     pumpkin.position.set(hp.x, hp.y + 0.165, hp.z - 0.01)
-    if (a.eyewear === 'shades') pumpkin.add(buildShades(this.disposables))
-    if (a.eyewear === 'visor') pumpkin.add(buildShades(this.disposables, a.glow))
+    if (a.eyewear !== 'none') {
+      const ew = buildShades(this.disposables, a.eyewear === 'visor' ? a.glow : undefined)
+      ew.name = `acc:${a.eyewear}`
+      pumpkin.add(ew)
+    }
     const hw = buildHeadwear(a, this.disposables)
-    if (hw) pumpkin.add(hw)
+    if (hw) {
+      hw.name = `acc:${a.headwear}`
+      pumpkin.add(hw)
+    }
     this.root.add(pumpkin)
     this.root.updateMatrixWorld(true)
+    mergeStatic(pumpkin)
     head.attach(pumpkin)
     if (a.chain) {
       const chest = this.bone('spine_03')
       const neck = this.bone('neck_01').getWorldPosition(new THREE.Vector3())
       const chain = buildChain(this.disposables)
+      chain.name = 'acc:chain'
+      this.chainObj = chain
       chain.position.set(neck.x, neck.y - 0.02, neck.z + 0.0)
       this.root.add(chain)
       this.root.updateMatrixWorld(true)
@@ -302,7 +370,7 @@ export class PumpkinChad implements Character {
       if (flex > 0.001) arm(side, new THREE.Vector3(s, 0.32 + pump, 0.12), new THREE.Vector3(s * 0.12, 1, 0.1), flex)
       if (press > 0.001) {
         const p = this.pressAmount
-        arm(side, new THREE.Vector3(s * (0.95 - p * 0.55), -0.2 + p * 1.25, 0.28 - p * 0.2), new THREE.Vector3(s * (0.08 + p * 0.12), 1, 0.12 - p * 0.1), press)
+        arm(side, new THREE.Vector3(s * (0.6 - p * 0.2), -0.75 + p * 1.8, 0.45 - p * 0.4), new THREE.Vector3(s * (0.05 + p * 0.15), 1, 0.12 - p * 0.12), press)
       }
     }
     if (wave > 0.001) arm('r', new THREE.Vector3(-L * 0.55, 0.85, 0.15), new THREE.Vector3(-L * (0.25 + Math.sin(this.t * 9) * 0.45), 1, 0.1), wave)
@@ -320,11 +388,12 @@ export class PumpkinChad implements Character {
     let name = 'idle'
     if (this.pose === 'hammer') name = 'interact'
     else if (this.pose === 'dance') name = 'dance'
-    else if (this.pose === 'idle' || this.pose === 'walk') name = ms < 0.15 ? 'idle' : ms < 2.2 ? 'walk' : ms < 4.6 ? 'jog' : 'sprint'
+    else if (this.pose === 'idle' || this.pose === 'walk') name = ms < 0.15 ? 'idle' : ms < 1.6 ? 'walk' : ms < 4.8 ? 'jog' : 'sprint'
     this.play(name)
     if (name === 'walk' || name === 'jog' || name === 'sprint') {
       const act = this.current!
-      act.timeScale = THREE.MathUtils.clamp(ms / CLIP_SPEED[name], 0.5, 1.6)
+      const qa = (globalThis as unknown as { __chadClipSpeed?: Record<string, number> }).__chadClipSpeed
+      act.timeScale = this.forceTimeScale ?? THREE.MathUtils.clamp(ms / (qa?.[name] ?? CLIP_SPEED[name]), 0.4, 2.4)
       const ph = (act.time / act.getClip().duration) % 1
       if ((this.lastPhase < 0.5 && ph >= 0.5) || ph < this.lastPhase) this.onStep?.()
       this.lastPhase = ph
@@ -332,6 +401,55 @@ export class PumpkinChad implements Character {
     this.mixer.update(dt)
     this.root.updateMatrixWorld(true)
     this.applyLayers()
+  }
+
+  /** QA: everything a test needs to verify the character, in world space. */
+  inspect() {
+    const wp = (o: THREE.Object3D) => o.getWorldPosition(new THREE.Vector3())
+    const rootY = this.root.getWorldPosition(new THREE.Vector3()).y
+    const parts: string[] = []
+    let tris = 0
+    let draws = 0
+    this.root.traverse((o) => {
+      if (o.name.startsWith('acc:') || o.name.startsWith('cloth:')) parts.push(o.name)
+      const m = o as THREE.Mesh
+      if (m.isMesh && m.visible) {
+        draws++
+        tris += (m.geometry.index ? m.geometry.index.count : m.geometry.attributes.position.count) / 3
+      }
+    })
+    const headBone = wp(this.bone('Head'))
+    const v = (p: THREE.Vector3) => [+p.x.toFixed(4), +(p.y - rootY).toFixed(4), +p.z.toFixed(4)]
+    let headGlow = ''
+    this.headObj?.traverse((o) => {
+      const mm = (o as THREE.Mesh).material as THREE.MeshPhysicalMaterial | undefined
+      if (mm?.emissiveMap) headGlow = '#' + mm.emissive.getHexString()
+    })
+    return {
+      parts: parts.sort(),
+      tris: Math.round(tris),
+      draws,
+      skin: '#' + this.skinColor.getHexString(),
+      shorts: '#' + this.shortsColor.getHexString(),
+      glow: headGlow,
+      clip: this.current?.getClip().name ?? null,
+      headBone: v(headBone),
+      headObj: this.headObj ? v(wp(this.headObj)) : null,
+      headAttach: this.headObj ? +wp(this.headObj).distanceTo(headBone).toFixed(4) : null,
+      chainAttach: this.chainObj ? +wp(this.chainObj).distanceTo(wp(this.bone('spine_03'))).toFixed(4) : null,
+      footL: v(wp(this.bone('foot_l'))),
+      footR: v(wp(this.bone('foot_r'))),
+      ballL: v(wp(this.bone('ball_l'))),
+      ballR: v(wp(this.bone('ball_r'))),
+      handL: v(wp(this.bone('hand_l'))),
+      handR: v(wp(this.bone('hand_r'))),
+      shoulderL: v(wp(this.bone('upperarm_l'))),
+      shoulderR: v(wp(this.bone('upperarm_r'))),
+      pelvis: v(wp(this.bone('pelvis'))),
+      leftSign: this.leftSign,
+      upperArmQ: this.bone('upperarm_r').quaternion.toArray().map((n) => +n.toFixed(4)),
+      thighQ: this.bone('thigh_l').quaternion.toArray().map((n) => +n.toFixed(4)),
+    }
   }
 
   dispose() {

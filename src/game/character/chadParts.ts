@@ -212,11 +212,12 @@ export function buildShades(D: D, visorColor?: string) {
     if (s < 0) lens.scale.x = -1
     g.add(lens)
     // arm running back along the side of the head
-    const armGeo = new THREE.BoxGeometry(0.006, 0.01, 0.16)
+    // arm runs from the lens's outer edge back along the head surface and disappears into it
+    const armGeo = new THREE.BoxGeometry(0.007, 0.011, 0.21)
     D.push(armGeo)
     const arm = new THREE.Mesh(armGeo, frameMat)
-    arm.position.set(s * 0.155, 0.06, z - 0.09)
-    arm.rotation.y = s * 0.55
+    arm.position.set(s * 0.1625, 0.058, 0.115)
+    arm.rotation.y = -s * 0.42
     g.add(arm)
   }
   const bridgeGeo = new THREE.TorusGeometry(0.014, 0.003, 6, 10, Math.PI)

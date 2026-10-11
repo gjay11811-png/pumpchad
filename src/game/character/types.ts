@@ -41,7 +41,7 @@ export const OUTFITS = ['#141216', '#2a262c', '#ff7a1a', '#c89b3c', '#4b2a7a', '
 export const GLOWS = ['#ffb347', '#19f19a', '#9b5cff', '#ff4d3d', '#7fd6ff']
 export const TOPS: { id: Top; name: string }[] = [
   { id: 'shirtless', name: 'Shirtless' },
-  { id: 'hoodie', name: 'Hoodie' },
+  { id: 'hoodie', name: 'Sleeved top' },
   { id: 'armor', name: 'Future armour' },
 ]
 export const HEADWEAR: { id: Headwear; name: string }[] = [
