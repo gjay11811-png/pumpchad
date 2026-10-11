@@ -1,6 +1,7 @@
 import { AnimatePresence, m } from 'framer-motion'
 import { useEffect, useState } from 'react'
 import { art, nav, site, social } from '../config'
+import { EnterChadverse, PlayIcon } from './EnterChadverse'
 import { TelegramIcon, XIcon, ease } from './ui'
 
 export function Header() {
@@ -53,6 +54,9 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-2">
+          <EnterChadverse className="group hidden h-11 items-center gap-2 rounded-full border border-moon/40 bg-[linear-gradient(180deg,rgba(246,200,112,0.14),rgba(246,200,112,0.04))] px-4 text-[12px] font-semibold uppercase tracking-[0.12em] text-moon transition-all duration-300 hover:-translate-y-0.5 hover:border-moon/70 xl:flex">
+            <PlayIcon className="h-4 w-4 transition-transform duration-300 group-hover:scale-110" /> Enter the Chadverse
+          </EnterChadverse>
           <SocialPill href={social.xUrl} label="Pumpchad on X">
             <XIcon className="h-4 w-4" />
           </SocialPill>
@@ -111,6 +115,9 @@ export function Header() {
               transition={{ delay: 0.5 }}
               className="relative mt-10 space-y-5"
             >
+              <EnterChadverse className="flex min-h-14 items-center justify-center gap-2.5 rounded-full border border-moon/40 bg-[linear-gradient(180deg,rgba(246,200,112,0.16),rgba(246,200,112,0.04))] font-semibold uppercase tracking-[0.12em] text-moon">
+                <PlayIcon className="h-5 w-5" /> Enter the Chadverse
+              </EnterChadverse>
               <p className="font-display text-2xl uppercase text-bone/80">{site.slogan}</p>
               <div className="flex gap-3">
                 <a href={social.telegramUrl} target="_blank" rel="noopener noreferrer" className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-full bg-pump font-semibold uppercase tracking-wider text-ink">

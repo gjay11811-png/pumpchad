@@ -1,0 +1,17 @@
+import { chromium } from 'playwright'
+const out = process.env.SHOTS
+const b = await chromium.launch({ executablePath: process.env.LOCALAPPDATA + '/ms-playwright/chromium-1228/chrome-win64/chrome.exe' })
+const p = await b.newPage({ viewport: { width: 700, height: 800 } })
+const logs = []; p.on('console', m => logs.push(m.type() + ': ' + m.text())); p.on('pageerror', e => logs.push('PAGEERROR ' + e.message))
+await p.goto('http://localhost:4318/chadverse/?model=robot', { waitUntil: 'networkidle' }); await p.click('[data-testid=enter-muted]')
+await p.waitForTimeout(2500)
+const kind = await p.evaluate(() => window.__chadverse.showroom()?.rig?.kind)
+console.log('character kind:', kind)
+await p.screenshot({ path: `${out}/glb-idle.jpg`, quality: 80 })
+await p.evaluate(() => { window.__chadverse.showroom().rig.speed = 0.8 })
+await p.waitForTimeout(900)
+await p.screenshot({ path: `${out}/glb-walk.jpg`, quality: 80 })
+await p.evaluate(() => { window.__chadverse.showroom().rig.speed = 0; window.__chadverse.showroom().flex() })
+await p.waitForTimeout(700)
+console.log('logs:', logs.filter(l => !l.includes('[vite]')))
+await b.close()

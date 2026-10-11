@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Expand, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { chadverse, type Artwork } from '../config'
+import { EnterChadverse, PlayIcon } from './EnterChadverse'
 import { Reveal, SectionLabel, ease } from './ui'
 
 const isLandscape = (a: Artwork) => a.width / a.height > 1.2
@@ -42,6 +43,11 @@ export function Chadverse() {
             <p className="mt-3 font-mono text-[11px] uppercase tracking-[0.22em] text-moon/70">
               Collection 01 · {String(chadverse.length).padStart(2, '0')} originals
             </p>
+            <EnterChadverse className="btn-chadverse group mt-6 inline-flex min-h-13 items-center gap-3 rounded-full bg-[linear-gradient(180deg,#ff9a3c,#ff7a1a_55%,#e5630c)] px-7 text-[15px] font-semibold uppercase tracking-[0.08em] text-ink shadow-[0_10px_40px_-10px_rgba(255,122,26,0.7)] transition-transform duration-300 hover:-translate-y-0.5 active:scale-[0.97]">
+              <PlayIcon className="h-5 w-5 transition-transform duration-300 group-hover:rotate-[-8deg]" />
+              Enter the Chadverse
+              <span className="rounded-full bg-ink/15 px-2 py-0.5 font-mono text-[10px] tracking-[0.15em]">Play free</span>
+            </EnterChadverse>
           </div>
         </div>
 
