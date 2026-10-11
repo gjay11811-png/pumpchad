@@ -11,6 +11,13 @@ export function Chadverse() {
   const [open, setOpen] = useState<number | null>(null)
   const squares = chadverse.filter((a) => !isLandscape(a))
   const lastSquare = squares.length % 2 === 1 ? squares[squares.length - 1] : null
+  // Desktop: pieces sit in pairs, each width proportional to its aspect ratio,
+  // so both images in a row render at the same height without cropping.
+  const ratio = (a: Artwork) => a.width / a.height
+  const deskWidth = chadverse.map((a, i) => {
+    const mate = chadverse[i % 2 === 0 ? i + 1 : i - 1]
+    return mate ? ratio(a) / (ratio(a) + ratio(mate)) : 1
+  })
 
   return (
     <section id="chadverse" aria-labelledby="chadverse-title" className="relative isolate overflow-hidden py-24 md:py-36">
@@ -38,14 +45,10 @@ export function Chadverse() {
           </div>
         </div>
 
-        <ul className="mt-12 grid grid-flow-dense grid-cols-1 gap-3 min-[360px]:grid-cols-2 sm:gap-4 md:mt-20 md:grid-cols-12 md:gap-5">
+        <ul className="mt-12 grid grid-flow-dense grid-cols-1 gap-3 min-[360px]:grid-cols-2 sm:gap-4 md:mt-20 md:flex md:flex-wrap md:gap-5">
           {chadverse.map((art, i) => {
             const wide = isLandscape(art)
-            const span = wide
-              ? 'min-[360px]:col-span-2 md:col-span-6'
-              : art === lastSquare
-                ? 'min-[360px]:col-span-2 md:col-span-4'
-                : 'md:col-span-4'
+            const span = wide || art === lastSquare ? 'min-[360px]:col-span-2' : ''
             return (
               <m.li
                 key={art.id}
@@ -53,7 +56,8 @@ export function Chadverse() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: '0px 0px -8% 0px' }}
                 transition={{ duration: 0.7, ease, delay: (i % 3) * 0.07 }}
-                className={span}
+                className={`${span} md:w-[calc(var(--w)*(100%-1.25rem))]`}
+                style={{ ['--w' as string]: deskWidth[i] }}
               >
                 <ArtCard art={art} compact={!wide && art !== lastSquare} onOpen={() => setOpen(i)} />
               </m.li>

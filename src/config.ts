@@ -85,6 +85,13 @@ export const art = {
     srcSmall: asset('/art/pumpchad-hero-760.webp'),
     alt: 'Pumpchad — a jacked jack-o-lantern in sunglasses and a PUMP CHAD chain, flexing under a full moon',
   },
+  /** About section artwork (uncropped). Shown only in About, not in the Chadverse gallery. */
+  about: {
+    src: asset('/art/chadverse/01-pumpchad-throne.webp'),
+    width: 767,
+    height: 497,
+    alt: 'Pumpchad in a gold crown and fur coat on a golden throne, holding a goblet, beside a Doberman and stacks of cash',
+  },
   logo: { src: asset('/art/pumpchad-logo.webp'), alt: 'Pumpchad logo' },
   /** Background silhouette. Ideally a transparent PNG/WebP cut-out of Pumpchad. */
   silhouette: { src: asset('/art/pumpchad-hero-760.webp'), alt: '' },
@@ -108,15 +115,6 @@ export type Artwork = {
 export const chadverse: Artwork[] = [
   {
     id: '01',
-    title: 'The Throne',
-    caption: 'Same plan. Same discipline. Bigger pumps.',
-    src: asset('/art/chadverse/01-pumpchad-throne.webp'),
-    width: 767,
-    height: 497,
-    alt: 'Pumpchad in a gold crown and fur coat on a golden throne, holding a goblet, beside a Doberman and stacks of cash',
-  },
-  {
-    id: '02',
     title: 'The Trading Room',
     caption: 'Discipline. Execution. Patience. Freedom.',
     src: asset('/art/chadverse/02-pumpchad-trading-room.webp'),
@@ -125,7 +123,7 @@ export const chadverse: Artwork[] = [
     alt: 'Crowned Pumpchad in a PUMP CHAD chair, watching a wall of green charts over a night skyline with a coffee mug',
   },
   {
-    id: '03',
+    id: '02',
     title: 'Bears Get Buried',
     caption: 'Red candles build character.',
     src: asset('/art/chadverse/03-pumpchad-bears-buried.webp'),
@@ -134,7 +132,7 @@ export const chadverse: Artwork[] = [
     alt: 'Pumpchad smashing through a wall of red candles with the words Bears Get Buried',
   },
   {
-    id: '04',
+    id: '03',
     title: 'Charts to Cars',
     caption: 'Manifesting. Not financial advice.',
     src: asset('/art/chadverse/04-pumpchad-charts-to-cars.webp'),
@@ -143,7 +141,7 @@ export const chadverse: Artwork[] = [
     alt: 'Pumpchad sitting on a black supercar in front of a private jet at sunset, with the words From Charts to Cars',
   },
   {
-    id: '05',
+    id: '04',
     title: 'The Army',
     caption: 'Not just a coin. A movement.',
     src: asset('/art/chadverse/05-pumpchad-army.webp'),

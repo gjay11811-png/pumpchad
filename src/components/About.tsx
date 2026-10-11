@@ -1,9 +1,9 @@
 import { m, useReducedMotion, useScroll, useTransform } from 'framer-motion'
 import { useRef } from 'react'
-import { chadverse } from '../config'
+import { art } from '../config'
 import { Reveal, SectionLabel } from './ui'
 
-const throne = chadverse[0]
+const throne = art.about
 
 export function About() {
   const ref = useRef<HTMLElement>(null)
