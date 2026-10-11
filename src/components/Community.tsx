@@ -2,7 +2,6 @@ import { m, useReducedMotion, useScroll, useTransform } from 'framer-motion'
 import { ArrowUpRight } from 'lucide-react'
 import { useRef } from 'react'
 import { art, social } from '../config'
-import { Seal } from './Commandments'
 import { TelegramIcon, XIcon } from './ui'
 
 export function Community() {
@@ -48,7 +47,6 @@ export function Community() {
               <img src={art.hero.srcSmall} alt="" loading="lazy" className="h-full w-full scale-[1.15] object-cover object-top" />
             </div>
           </m.div>
-          <Seal className="absolute -bottom-4 -left-2 w-28 rounded-full bg-ink p-1 sm:w-36" />
         </div>
       </div>
     </section>

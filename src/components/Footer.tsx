@@ -19,7 +19,7 @@ export function Footer() {
 
         <div className="grid grid-cols-2 gap-8 sm:grid-cols-3 md:col-span-7">
           <div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-ash">Explore</p>
+            <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-ash">Explore</p>
             <ul className="mt-4 space-y-2.5">
               {nav.map((n) => (
                 <li key={n.href}>
@@ -31,7 +31,7 @@ export function Footer() {
             </ul>
           </div>
           <div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-ash">Official links</p>
+            <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-ash">Official links</p>
             <ul className="mt-4 space-y-2.5">
               <li>
                 <a href={social.xUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-[15px] text-bone/75 transition-colors hover:text-pump">
@@ -47,11 +47,11 @@ export function Footer() {
           </div>
           <dl className="col-span-2 grid grid-cols-2 gap-8 sm:col-span-1 sm:grid-cols-1 sm:gap-4">
             <div>
-              <dt className="font-mono text-[10px] uppercase tracking-[0.3em] text-ash">Ticker</dt>
+              <dt className="font-mono text-[11px] uppercase tracking-[0.3em] text-ash">Ticker</dt>
               <dd className="mt-2 font-display text-2xl text-chain">{site.ticker}</dd>
             </div>
             <div>
-              <dt className="font-mono text-[10px] uppercase tracking-[0.3em] text-ash">Network</dt>
+              <dt className="font-mono text-[11px] uppercase tracking-[0.3em] text-ash">Network</dt>
               <dd className="mt-2 font-display text-2xl">{site.network}</dd>
             </div>
           </dl>

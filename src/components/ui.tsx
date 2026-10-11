@@ -130,7 +130,7 @@ export function ArtSlot({
       ) : (
         <div className="metal flex h-full w-full flex-col items-center justify-center gap-3 text-ash">
           <PumpkinMark className="h-12 w-12 text-pump/60" />
-          <span className="font-mono text-[10px] uppercase tracking-[0.3em]">Pumpchad art — {slot}</span>
+          <span className="font-mono text-[11px] uppercase tracking-[0.3em]">Pumpchad art — {slot}</span>
         </div>
       )}
     </div>

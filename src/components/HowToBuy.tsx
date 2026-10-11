@@ -80,7 +80,7 @@ export function HowToBuy() {
                 {i + 1}
               </span>
               <div className="pt-1 md:pt-3">
-                <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-ash">Step 0{i + 1}</p>
+                <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-ash">Step 0{i + 1}</p>
                 <h3 className="mt-2 font-display text-[clamp(2rem,8vw,4rem)] uppercase leading-[0.92]">{s.title}</h3>
                 <p className="mt-3 max-w-md text-[16px] leading-relaxed text-bone/65 md:text-lg">{s.body}</p>
               </div>

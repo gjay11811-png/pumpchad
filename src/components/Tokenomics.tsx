@@ -50,11 +50,11 @@ export function Tokenomics() {
               transition={{ duration: 0.7, ease, delay: i * 0.08 }}
               className="group relative border-b border-r border-bone/10 p-5 transition-colors duration-500 hover:bg-bone/[0.03] md:p-8"
             >
-              <dt className="font-mono text-[10px] uppercase tracking-[0.3em] text-ash">{s.k}</dt>
+              <dt className="font-mono text-[11px] uppercase tracking-[0.3em] text-ash">{s.k}</dt>
               <dd className={`mt-3 font-display uppercase leading-none ${s.k === 'Tax' ? 'text-molten text-[clamp(3rem,10vw,5.5rem)]' : 'text-[clamp(1.6rem,6vw,3rem)]'}`}>
                 {s.v}
               </dd>
-              {s.note && <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.2em] text-bone/45">{s.note}</p>}
+              {s.note && <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.2em] text-bone/45">{s.note}</p>}
             </m.div>
           ))}
         </dl>
@@ -65,7 +65,7 @@ export function Tokenomics() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="font-display text-3xl uppercase">Allocation</p>
-                <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.25em] text-ash">
+                <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.25em] text-ash">
                   {final ? 'Published allocation' : 'Placeholder — segments are not to scale'}
                 </p>
               </div>
@@ -108,7 +108,7 @@ export function Tokenomics() {
             <dl className="flex flex-1 flex-col divide-y divide-bone/10">
               {status.map((s) => (
                 <div key={s.label} className="flex flex-1 flex-col justify-center gap-1 px-6 py-5 sm:px-8">
-                  <dt className="font-mono text-[10px] uppercase tracking-[0.3em] text-ash">{s.label}</dt>
+                  <dt className="font-mono text-[11px] uppercase tracking-[0.3em] text-ash">{s.label}</dt>
                   <dd className="text-lg font-semibold text-bone">{s.value}</dd>
                 </div>
               ))}

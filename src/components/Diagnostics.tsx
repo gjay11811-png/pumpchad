@@ -1,6 +1,5 @@
 import { AnimatePresence, m, useMotionValueEvent, useReducedMotion, useScroll, useSpring, useTransform } from 'framer-motion'
 import { useRef, useState } from 'react'
-import { art } from '../config'
 import { Reveal, SectionLabel, ease } from './ui'
 
 const STAGES = [
@@ -52,7 +51,7 @@ export function Diagnostics() {
 
             {/* gauge device */}
             <div ref={deviceRef} className="metal relative mt-8 rounded-[28px] p-5 sm:p-7 lg:mt-6">
-              <div className="mb-4 flex items-center justify-between gap-3 whitespace-nowrap font-mono text-[9px] uppercase tracking-[0.2em] text-ash sm:text-[10px]">
+              <div className="mb-4 flex items-center justify-between gap-3 whitespace-nowrap font-mono text-[10px] uppercase tracking-[0.2em] text-ash sm:text-[11px]">
                 <span className="hidden sm:inline">Unit PCHAD-01</span>
                 <span className="flex items-center gap-2">
                   <span className="h-1.5 w-1.5 rounded-full" style={{ background: STAGES[stage].color }} />
@@ -71,25 +70,10 @@ export function Diagnostics() {
                   <div className="mx-auto h-full w-full rounded-full bg-gradient-to-t from-bone via-bone to-pump shadow-[0_0_20px_rgba(255,122,26,0.6)] [clip-path:polygon(50%_0,100%_100%,0_100%)]" />
                 </m.div>
                 <div aria-hidden="true" className="metal absolute bottom-[3%] left-1/2 h-[12%] w-[7%] -translate-x-1/2 rounded-full ring-2 ring-pump/50" />
-
-                {/* reaction pop at chad mode */}
-                <AnimatePresence>
-                  {stage === 3 && (
-                    <m.div
-                      initial={{ scale: 0.4, opacity: 0, rotate: -12 }}
-                      animate={{ scale: 1, opacity: 1, rotate: 6 }}
-                      exit={{ scale: 0.6, opacity: 0 }}
-                      transition={{ type: 'spring', stiffness: 260, damping: 14 }}
-                      className="absolute -right-2 -top-4 w-[30%] sm:-right-4"
-                    >
-                      <img src={art.reaction.src} alt={art.reaction.alt} data-art-slot="reaction" loading="lazy" className="aspect-[4/3] w-full rounded-xl object-cover ring-2 ring-pump shadow-[0_10px_40px_rgba(255,122,26,0.5)]" />
-                    </m.div>
-                  )}
-                </AnimatePresence>
               </div>
 
               <div className="mt-4 flex flex-col items-center text-center" aria-live="polite">
-                <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-ash">Current reading</p>
+                <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-ash">Current reading</p>
                 <AnimatePresence mode="wait">
                   <m.p
                     key={stage}
@@ -205,7 +189,7 @@ export function StatusPanel() {
         <div className="flex items-center justify-between border-b border-bone/[0.07] px-5 py-4 sm:px-6">
           <div>
             <p className="font-display text-2xl uppercase tracking-wide">Chad status</p>
-            <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-ash">Chad OS v1.0 · all systems unbothered</p>
+            <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-ash">Chad OS v1.0 · all systems unbothered</p>
           </div>
           <span className="flex gap-1.5" aria-hidden="true">
             <span className="h-2.5 w-2.5 rounded-full bg-alarm/70" />
@@ -233,7 +217,7 @@ export function StatusPanel() {
             </m.div>
           ))}
         </dl>
-        <p className="border-t border-bone/[0.07] px-5 py-3 font-mono text-[10px] uppercase tracking-[0.2em] text-bone/35 sm:px-6">
+        <p className="border-t border-bone/[0.07] px-5 py-3 font-mono text-[11px] uppercase tracking-[0.2em] text-bone/35 sm:px-6">
           Readings are vibes. None of this is market data.
         </p>
       </div>

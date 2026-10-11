@@ -1,6 +1,6 @@
 import { LazyMotion, MotionConfig, domAnimation } from 'framer-motion'
 import { About } from './components/About'
-import { Archives } from './components/Archives'
+import { Chadverse } from './components/Chadverse'
 import { Commandments } from './components/Commandments'
 import { Community } from './components/Community'
 import { Cursor } from './components/Cursor'
@@ -33,7 +33,7 @@ export default function App() {
             <Tokenomics />
             <HowToBuy />
             <Lore />
-            <Archives />
+            <Chadverse />
             <Community />
             <Faq />
           </main>

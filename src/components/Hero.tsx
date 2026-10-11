@@ -127,7 +127,7 @@ export function Hero() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 1.8 }}
-        className="absolute bottom-[calc(min(21.8vw,22rem)*0.86)] right-10 z-20 hidden items-center gap-3 font-mono text-[10px] uppercase tracking-[0.35em] text-bone/40 transition-colors hover:text-bone lg:flex"
+        className="absolute bottom-[calc(min(21.8vw,22rem)*0.86)] right-10 z-20 hidden items-center gap-3 font-mono text-[11px] uppercase tracking-[0.35em] text-bone/40 transition-colors hover:text-bone lg:flex"
       >
         Scroll
         <span className="relative block h-10 w-px overflow-hidden bg-bone/15">
@@ -144,7 +144,7 @@ export function Hero() {
 
 function StatusBadge() {
   return (
-    <span className="inline-flex items-center gap-2.5 rounded-full py-1.5 pl-2.5 pr-3.5 font-mono text-[10.5px] uppercase tracking-[0.2em] text-bone/85 backdrop-blur [background-image:linear-gradient(#0b0a0e,#0b0a0e),linear-gradient(90deg,rgba(155,92,255,0.6),rgba(25,241,154,0.6))] [background-clip:padding-box,border-box] [border:1px_solid_transparent]">
+    <span className="inline-flex items-center gap-2.5 rounded-full py-1.5 pl-2.5 pr-3.5 font-mono text-[11px] uppercase tracking-[0.2em] text-bone/85 backdrop-blur [background-image:linear-gradient(#0b0a0e,#0b0a0e),linear-gradient(90deg,rgba(155,92,255,0.6),rgba(25,241,154,0.6))] [background-clip:padding-box,border-box] [border:1px_solid_transparent]">
       <span className="relative flex h-2 w-2">
         <span className="absolute inset-0 animate-ping rounded-full bg-sol-green/70 motion-reduce:animate-none" />
         <span className="relative h-2 w-2 rounded-full bg-sol-green" />

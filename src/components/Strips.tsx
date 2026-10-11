@@ -32,7 +32,7 @@ export function MoodStrip() {
   return (
     <div role="region" aria-label="Pumpchad mood strip (for fun, not market data)" className="relative z-10 border-y border-bone/[0.08] bg-coal/90">
       <div className="mx-auto flex max-w-[1440px] flex-col gap-3 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:gap-8 lg:px-10">
-        <div className="flex shrink-0 items-center gap-3 whitespace-nowrap font-mono text-[9px] uppercase tracking-[0.22em] text-ash sm:text-[10px]">
+        <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-ash sm:text-[11px]">
           <span className="rounded-sm bg-bone/[0.06] px-2 py-1 text-bone/80">Chad mood index</span>
           <span>Vibes only · Not market data</span>
         </div>

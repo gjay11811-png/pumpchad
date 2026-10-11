@@ -24,7 +24,7 @@ export function Header() {
   return (
     <>
     <header
-      className={`fixed inset-x-0 top-0 z-50 transition-[background-color,border-color,backdrop-filter] duration-500 ${
+      className={`fixed inset-x-0 top-0 z-50 pt-[env(safe-area-inset-top)] transition-[background-color,border-color,backdrop-filter] duration-500 ${
         scrolled || open ? 'border-b border-bone/[0.07] bg-ink/70 backdrop-blur-xl' : 'border-b border-transparent'
       }`}
     >
@@ -83,7 +83,7 @@ export function Header() {
             animate={{ clipPath: 'inset(0 0 0% 0)' }}
             exit={{ clipPath: 'inset(0 0 100% 0)' }}
             transition={{ duration: 0.6, ease }}
-            className="fixed inset-x-0 z-40 top-16 bottom-0 flex flex-col justify-between overflow-y-auto bg-ink px-4 pb-10 pt-8 sm:px-6 md:top-20 lg:hidden"
+            className="fixed inset-x-0 z-40 top-[calc(4rem+env(safe-area-inset-top))] bottom-0 pb-[calc(2.5rem+env(safe-area-inset-bottom))] flex flex-col justify-between overflow-y-auto bg-ink px-4 pt-8 sm:px-6 md:top-[calc(5rem+env(safe-area-inset-top))] lg:hidden"
           >
             <div aria-hidden="true" className="pointer-events-none absolute -right-24 bottom-10 h-80 w-80 rounded-full bg-pump/20 blur-[90px]" />
             <nav aria-label="Mobile">

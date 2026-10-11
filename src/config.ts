@@ -86,57 +86,70 @@ export const art = {
     alt: 'Pumpchad — a jacked jack-o-lantern in sunglasses and a PUMP CHAD chain, flexing under a full moon',
   },
   logo: { src: asset('/art/pumpchad-logo.webp'), alt: 'Pumpchad logo' },
-  standing: { src: asset('/art/pumpchad-standing.webp'), alt: 'Pumpchad standing, flexing both arms' },
-  reaction: { src: asset('/art/pumpchad-reaction.webp'), alt: 'Pumpchad reaction — sunglasses, unbothered grin' },
   /** Background silhouette. Ideally a transparent PNG/WebP cut-out of Pumpchad. */
   silhouette: { src: asset('/art/pumpchad-hero-760.webp'), alt: '' },
 }
 
-export type Meme = {
+export type Artwork = {
   id: string
+  title: string
   caption: string
   src: string
+  /** Intrinsic pixel size — keeps the card at the artwork's real proportions (no cropping). */
+  width: number
+  height: number
   alt: string
-  /** Visual size in the archive grid. */
-  size: 'tall' | 'wide' | 'square'
 }
 
-/** The Chad Archives. Add, remove or reorder memes here. */
-export const memes: Meme[] = [
+/**
+ * THE CHADVERSE — website-exclusive artwork (not the memes posted on X).
+ * Add a piece: drop the file in /public/art/chadverse and add an entry with its real width/height.
+ */
+export const chadverse: Artwork[] = [
   {
-    id: '001',
-    caption: 'When October finally starts pumping',
-    src: asset('/art/meme-october.webp'),
-    alt: 'Pumpchad flexing under a full October moon',
-    size: 'wide',
+    id: '01',
+    title: 'The Throne',
+    caption: 'Same plan. Same discipline. Bigger pumps.',
+    src: asset('/art/chadverse/01-pumpchad-throne.webp'),
+    width: 767,
+    height: 497,
+    alt: 'Pumpchad in a gold crown and fur coat on a golden throne, holding a goblet, beside a Doberman and stacks of cash',
   },
   {
-    id: '002',
-    caption: 'Me checking my portfolio after one green candle',
-    src: asset('/art/meme-portfolio.webp'),
-    alt: 'Pumpchad grinning in sunglasses',
-    size: 'square',
+    id: '02',
+    title: 'The Trading Room',
+    caption: 'Discipline. Execution. Patience. Freedom.',
+    src: asset('/art/chadverse/02-pumpchad-trading-room.webp'),
+    width: 765,
+    height: 497,
+    alt: 'Crowned Pumpchad in a PUMP CHAD chair, watching a wall of green charts over a night skyline with a coffee mug',
   },
   {
-    id: '003',
-    caption: '“I’m done overtrading.” Five minutes later:',
-    src: asset('/art/meme-overtrading.webp'),
-    alt: 'Close-up of Pumpchad’s flexed bicep',
-    size: 'tall',
+    id: '03',
+    title: 'Bears Get Buried',
+    caption: 'Red candles build character.',
+    src: asset('/art/chadverse/03-pumpchad-bears-buried.webp'),
+    width: 513,
+    height: 523,
+    alt: 'Pumpchad smashing through a wall of red candles with the words Bears Get Buried',
   },
   {
-    id: '004',
-    caption: 'Traders in September vs Traders in October',
-    src: asset('/art/meme-sept-oct.webp'),
-    alt: 'Split image: grey, deflated Pumpchad on the left, glowing Pumpchad on the right',
-    size: 'square',
+    id: '04',
+    title: 'Charts to Cars',
+    caption: 'Manifesting. Not financial advice.',
+    src: asset('/art/chadverse/04-pumpchad-charts-to-cars.webp'),
+    width: 497,
+    height: 523,
+    alt: 'Pumpchad sitting on a black supercar in front of a private jet at sunset, with the words From Charts to Cars',
   },
   {
-    id: '005',
-    caption: 'Pump season has entered the chat',
-    src: asset('/art/meme-season.webp'),
-    alt: 'Pumpchad’s gold PUMP CHAD chain over his abs',
-    size: 'wide',
+    id: '05',
+    title: 'The Army',
+    caption: 'Not just a coin. A movement.',
+    src: asset('/art/chadverse/05-pumpchad-army.webp'),
+    width: 519,
+    height: 523,
+    alt: 'Pumpchad holding a giant PUMP CHAD flag in front of an army of pumpkin-headed chads under a full moon',
   },
 ]
 
@@ -176,7 +189,7 @@ export const nav = [
   { label: 'About', href: '#about' },
   { label: 'Tokenomics', href: '#tokenomics' },
   { label: 'How to Buy', href: '#how-to-buy' },
-  { label: 'Memes', href: '#memes' },
+  { label: 'Chadverse', href: '#chadverse' },
   { label: 'FAQ', href: '#faq' },
 ]
 
