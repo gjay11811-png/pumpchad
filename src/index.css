@@ -1,0 +1,173 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-ink: #07060a;
+  --color-coal: #100e12;
+  --color-char: #17141a;
+  --color-steel: #2a262c;
+  --color-bone: #f3ece2;
+  --color-ash: #a39a92;
+  --color-pump: #ff7a1a;
+  --color-ember: #ffa940;
+  --color-moon: #f6c870;
+  --color-sol-purple: #9b5cff;
+  --color-sol-green: #19f19a;
+  --color-alarm: #ff4d3d;
+
+  --font-display: 'Anton', 'Impact', 'Arial Narrow', sans-serif;
+  --font-sans: 'Inter Tight', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --font-serif: 'Instrument Serif', Georgia, serif;
+
+  --ease-chad: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@layer base {
+  html {
+    overflow-x: clip;
+    scroll-behavior: smooth;
+    scroll-padding-top: 5rem;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    background: var(--color-ink);
+    color: var(--color-bone);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    overflow-x: clip;
+  }
+  ::selection {
+    background: var(--color-pump);
+    color: var(--color-ink);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-ember);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+  img {
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+}
+
+/* ───── Texture ───── */
+.grain::after {
+  content: '';
+  position: fixed;
+  inset: -50%;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0.07;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .9 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: grain 1.2s steps(6) infinite;
+}
+@keyframes grain {
+  0% { transform: translate(0, 0); }
+  20% { transform: translate(-4%, 3%); }
+  40% { transform: translate(3%, -5%); }
+  60% { transform: translate(-6%, -2%); }
+  80% { transform: translate(5%, 4%); }
+  100% { transform: translate(0, 0); }
+}
+
+.grid-faint {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+  background-size: 64px 64px;
+}
+
+/* Brushed dark metal */
+.metal {
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 3px),
+    linear-gradient(160deg, #26222a 0%, #141216 42%, #1d1a20 60%, #0e0c10 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.6),
+    0 30px 80px -30px rgba(0, 0, 0, 0.9);
+}
+
+/* Gold chain metallic text (from the PUMP CHAD chain) */
+.text-chain {
+  background: linear-gradient(180deg, #fff3cf 0%, #f6c870 38%, #b97a2a 62%, #ffe2a0 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Molten orange text (jack-o-lantern glow) */
+.text-molten {
+  background: linear-gradient(180deg, #ffd27a 0%, #ff9a2e 45%, #ff6a10 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.text-outline {
+  color: transparent;
+  -webkit-text-stroke: 1px rgba(243, 236, 226, 0.22);
+}
+.text-outline-pump {
+  color: transparent;
+  -webkit-text-stroke: 1.5px var(--color-pump);
+}
+
+.glow-pump {
+  filter: drop-shadow(0 0 28px rgba(255, 122, 26, 0.4));
+}
+
+/* Hazard stripes for unfinished / TBC data */
+.hatch {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(255, 169, 64, 0.16) 0 6px,
+    transparent 6px 14px
+  );
+}
+
+/* ───── Marquee ───── */
+.marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee var(--marquee-duration, 40s) linear infinite;
+}
+.marquee-reverse {
+  animation-direction: reverse;
+}
+@keyframes marquee {
+  to { transform: translateX(-50%); }
+}
+
+.glow-breathe {
+  animation: breathe 7s ease-in-out infinite;
+}
+@keyframes breathe {
+  0%, 100% { opacity: 0.75; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.06); }
+}
+
+.blink {
+  animation: blink 1.6s steps(2, start) infinite;
+}
+@keyframes blink {
+  to { visibility: hidden; }
+}
+
+/* Custom cursor only for fine pointers */
+@media (hover: hover) and (pointer: fine) {
+  .has-chad-cursor,
+  .has-chad-cursor a,
+  .has-chad-cursor button {
+    cursor: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .marquee, .grain::after, .glow-breathe, .blink { animation: none !important; }
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+  }
+}

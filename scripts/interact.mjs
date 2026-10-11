@@ -1,0 +1,56 @@
+import { chromium } from 'playwright'
+const out = process.env.SHOTS
+const exe = process.env.LOCALAPPDATA + '/ms-playwright/chromium-1228/chrome-win64/chrome.exe'
+const browser = await chromium.launch({ executablePath: exe })
+const errors = []
+const top = (page, s) => page.evaluate((s) => document.querySelector(s).getBoundingClientRect().top | 0, s)
+
+// mobile: menu + anchor + lightbox
+let page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })
+page.on('pageerror', (e) => errors.push(e.message))
+await page.goto('http://localhost:4317/', { waitUntil: 'networkidle' })
+await page.click('button[aria-controls="mobile-menu"]')
+await page.waitForTimeout(1200)
+await page.screenshot({ path: `${out}/i-menu.jpg`, quality: 70 })
+await page.click('#mobile-menu a[href="#tokenomics"]')
+await page.waitForTimeout(1800)
+console.log('mobile menu -> #tokenomics top', await top(page, '#tokenomics'), 'menu open?', await page.locator('#mobile-menu').count())
+await page.evaluate(() => document.querySelector('#memes').scrollIntoView())
+await page.waitForTimeout(1500)
+await page.click('#memes li:nth-child(4) button')
+await page.waitForTimeout(900)
+await page.screenshot({ path: `${out}/i-lightbox-m.jpg`, quality: 70 })
+await page.keyboard.press('Escape')
+await page.waitForTimeout(500)
+console.log('dialog after esc', await page.locator('[role=dialog]').count())
+await page.close()
+
+// desktop: anchors, faq, hover, lightbox
+page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
+page.on('pageerror', (e) => errors.push(e.message))
+await page.goto('http://localhost:4317/', { waitUntil: 'networkidle' })
+for (const h of ['#about', '#tokenomics', '#how-to-buy', '#memes', '#faq']) {
+  await page.click(`nav[aria-label=Primary] a[href="${h}"]`)
+  await page.waitForTimeout(1800)
+  console.log(h, 'top', await top(page, h))
+}
+await page.click('#faq li:nth-child(5) button')
+await page.waitForTimeout(700)
+console.log('faq expanded count', await page.locator('#faq button[aria-expanded=true]').count())
+await page.screenshot({ path: `${out}/i-faq.jpg`, quality: 70 })
+await page.evaluate(() => document.querySelector('#laws-title').scrollIntoView())
+await page.waitForTimeout(1500)
+await page.evaluate(() => scrollBy(0, 350))
+await page.waitForTimeout(900)
+await page.hover('section[aria-labelledby=laws-title] ol li:nth-child(2)')
+await page.waitForTimeout(900)
+await page.screenshot({ path: `${out}/i-hover.jpg`, quality: 70 })
+await page.evaluate(() => document.querySelector('#memes').scrollIntoView())
+await page.waitForTimeout(1200)
+await page.click('#memes li:nth-child(1) button')
+await page.waitForTimeout(900)
+await page.keyboard.press('ArrowRight')
+await page.waitForTimeout(700)
+await page.screenshot({ path: `${out}/i-lightbox-d.jpg`, quality: 70 })
+console.log('errors', errors)
+await browser.close()
