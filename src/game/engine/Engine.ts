@@ -16,16 +16,19 @@ export interface GameScene {
   dispose(): void
 }
 
-/** Frees GPU memory for everything under an object (geometries, materials, textures). */
+/** Frees GPU memory for everything under an object (geometries, materials, textures).
+ *  Resources flagged `userData.shared` belong to a module-level cache that outlives any one scene
+ *  (the next scene may already be rendering them), so they are left alone. */
 export function disposeObject(root: THREE.Object3D) {
   const mats = new Set<THREE.Material>()
   root.traverse((o) => {
+    if ((o as THREE.Light).isLight) (o as THREE.Light).dispose() // frees its shadow map render target
     const m = o as THREE.Mesh
-    if (m.geometry) m.geometry.dispose()
-    if (m.material) (Array.isArray(m.material) ? m.material : [m.material]).forEach((x) => mats.add(x))
+    if (m.geometry && !m.geometry.userData.shared) m.geometry.dispose()
+    if (m.material) (Array.isArray(m.material) ? m.material : [m.material]).forEach((x) => !x.userData.shared && mats.add(x))
   })
   mats.forEach((mat) => {
-    for (const v of Object.values(mat)) if (v instanceof THREE.Texture) v.dispose()
+    for (const v of Object.values(mat)) if (v instanceof THREE.Texture && !v.userData.shared) v.dispose()
     mat.dispose()
   })
 }
@@ -45,7 +48,7 @@ export class Engine {
   private composer: EffectComposer | null = null
   private bloomPass: UnrealBloomPass | null = null
   /** rolling frame-time stats, read by the debug overlay / tests */
-  stats = { fps: 0, frameMs: 0, worstMs: 0, geometries: 0, textures: 0 }
+  stats = { fps: 0, frameMs: 0, worstMs: 0, geometries: 0, textures: 0, programs: 0 }
   private frames = 0
   private acc = 0
   private worst = 0
@@ -56,6 +59,29 @@ export class Engine {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping
     this.renderer.toneMappingExposure = 1.05
     this.renderer.info.autoReset = false
+    // Shader failures are always reported. In development the report includes the evidence needed to
+    // diagnose them (compile states, logs, feature defines, GPU context state).
+    if (import.meta.env.DEV)
+      this.renderer.debug.onShaderError = (gl, program, vs, fs) => {
+        const defines = (gl.getShaderSource(vs) ?? '').split(String.fromCharCode(10)).filter((l) => l.startsWith('#define')).map((l) => l.slice(8)).join(',')
+        console.error('THREE.WebGLProgram: link failed', JSON.stringify({
+          linked: gl.getProgramParameter(program, gl.LINK_STATUS),
+          vsCompiled: gl.getShaderParameter(vs, gl.COMPILE_STATUS),
+          fsCompiled: gl.getShaderParameter(fs, gl.COMPILE_STATUS),
+          programLog: gl.getProgramInfoLog(program),
+          vsLog: gl.getShaderInfoLog(vs),
+          fsLog: gl.getShaderInfoLog(fs),
+          isProgram: gl.isProgram(program),
+          isVs: gl.isShader(vs),
+          isFs: gl.isShader(fs),
+          vsSourceLen: (gl.getShaderSource(vs) ?? '').length,
+          programsAlive: this.renderer.info.programs?.length,
+          glError: gl.getError(),
+          contextLost: gl.isContextLost(),
+          renderer: gl.getParameter(gl.RENDERER),
+          defines,
+        }))
+      }
     this.renderer.shadowMap.type = THREE.PCFShadowMap
     const pmrem = new THREE.PMREMGenerator(this.renderer)
     const room = new RoomEnvironment()
@@ -68,7 +94,10 @@ export class Engine {
     document.addEventListener('visibilitychange', this.onVis)
   }
 
-  private onLost = (e: Event) => e.preventDefault()
+  private onLost = (e: Event) => {
+    e.preventDefault()
+    console.error('[chadverse] WebGL context lost') // always visible: a real failure, not a warning
+  }
   private onVis = () => (document.hidden ? this.stop() : this.start())
 
   setQuality(q: Quality, reducedEffects = this.reducedEffects) {
@@ -81,9 +110,15 @@ export class Engine {
     this.resize()
   }
 
+  /** EffectComposer.dispose() frees only its own two buffers; each pass (bloom keeps ~11 render targets) must be freed too. */
+  private disposeComposer() {
+    this.composer?.passes.forEach((p) => p.dispose())
+    this.composer?.dispose()
+  }
+
   /** Bloom only on medium/high and when the player hasn't asked for reduced effects. */
   private buildComposer() {
-    this.composer?.dispose()
+    this.disposeComposer()
     this.composer = null
     this.bloomPass = null
     const s = this.current
@@ -157,7 +192,7 @@ export class Engine {
     this.worst = Math.max(this.worst, raw)
     if (this.acc >= 1) {
       const mem = this.renderer.info.memory
-      this.stats = { fps: Math.round(this.frames / this.acc), frameMs: +((this.acc / this.frames) * 1000).toFixed(1), worstMs: +(this.worst * 1000).toFixed(1), geometries: mem.geometries, textures: mem.textures }
+      this.stats = { fps: Math.round(this.frames / this.acc), frameMs: +((this.acc / this.frames) * 1000).toFixed(1), worstMs: +(this.worst * 1000).toFixed(1), geometries: mem.geometries, textures: mem.textures, programs: this.renderer.info.programs?.length ?? 0 }
       this.frames = 0
       this.acc = 0
       this.worst = 0
@@ -168,7 +203,7 @@ export class Engine {
     this.stop()
     this.current?.dispose()
     this.current = null
-    this.composer?.dispose()
+    this.disposeComposer()
     this.env.dispose()
     this.ro.disconnect()
     this.canvas.removeEventListener('webglcontextlost', this.onLost)

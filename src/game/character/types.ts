@@ -33,7 +33,7 @@ export const SPECIES: { id: Species; name: string; tagline: string; skins: strin
     id: 'demon',
     name: 'Demon',
     tagline: 'Horns, heat and zero chill. Born in the red candle.',
-    skins: ['#b3261e', '#7e1a1a', '#5b2a86', '#2f2f3a', '#1f6b5a'],
+    skins: ['#8e1f18', '#b3261e', '#5b2a86', '#2f2f3a', '#1f6b5a'],
   },
 ]
 
@@ -59,8 +59,8 @@ export const EYEWEAR: { id: Eyewear; name: string }[] = [
 export const defaultAppearance = (species: Species = 'pumpkin'): Appearance => {
   const base: Record<Species, Partial<Appearance>> = {
     pumpkin: { top: 'shirtless', headwear: 'none', eyewear: 'shades', chain: true, outfit: '#141216', glow: '#ffb347' },
-    skeleton: { top: 'armor', headwear: 'none', eyewear: 'visor', chain: false, outfit: '#2a262c', glow: '#7fd6ff' },
-    demon: { top: 'hoodie', headwear: 'horns', eyewear: 'none', chain: true, outfit: '#141216', glow: '#ff4d3d' },
+    skeleton: { top: 'armor', headwear: 'none', eyewear: 'none', chain: true, outfit: '#2a262c', glow: '#7fd6ff' },
+    demon: { top: 'shirtless', headwear: 'none', eyewear: 'none', chain: true, outfit: '#141216', glow: '#ff6a2a' },
   }
   return {
     species,
@@ -78,7 +78,7 @@ export const defaultAppearance = (species: Species = 'pumpkin'): Appearance => {
 export const randomAppearance = (): Appearance => {
   const pick = <T,>(a: readonly T[]) => a[Math.floor(Math.random() * a.length)]
   const sp = pick(SPECIES)
-  return {
+  return normaliseForSpecies({
     species: sp.id,
     skin: pick(sp.skins),
     outfit: pick(OUTFITS),
@@ -87,5 +87,52 @@ export const randomAppearance = (): Appearance => {
     headwear: pick(HEADWEAR).id,
     eyewear: pick(EYEWEAR).id,
     chain: Math.random() > 0.35,
-  }
+  })
+}
+
+/**
+ * What each species can actually wear. The creator only shows these, so no option is ever
+ * a dead control. Labels fit the species (the Skeleton's "Hood" is headwear 'none').
+ */
+export const SPECIES_OPTIONS: Record<Species, { tops: { id: Top; name: string }[]; headwear: { id: Headwear; name: string }[]; eyewear: { id: Eyewear; name: string }[] }> = {
+  pumpkin: { tops: TOPS, headwear: HEADWEAR, eyewear: EYEWEAR },
+  skeleton: {
+    tops: [
+      { id: 'armor', name: 'Ranger armour' },
+      { id: 'hoodie', name: 'Ranger light' },
+    ],
+    headwear: [
+      { id: 'none', name: 'Hood' },
+      { id: 'crown', name: 'Hood + crown' },
+      { id: 'horns', name: 'Hood + horns' },
+    ],
+    eyewear: [
+      { id: 'none', name: 'Glowing eyes' },
+      { id: 'shades', name: 'Shades' },
+      { id: 'visor', name: 'Visor' },
+    ],
+  },
+  demon: {
+    tops: [
+      { id: 'shirtless', name: 'Bare chest' },
+      { id: 'hoodie', name: 'Sleeved top' },
+      { id: 'armor', name: 'Battle armour' },
+    ],
+    headwear: [
+      { id: 'none', name: 'Horns only' },
+      { id: 'crown', name: 'Crown' },
+    ],
+    eyewear: [
+      { id: 'none', name: 'Glowing eyes' },
+      { id: 'shades', name: 'Shades' },
+      { id: 'visor', name: 'Visor' },
+    ],
+  },
+}
+
+/** Clamp an appearance to what its species supports (keeps older saves valid). */
+export function normaliseForSpecies(a: Appearance): Appearance {
+  const o = SPECIES_OPTIONS[a.species]
+  const pick = <T extends string>(v: T, list: { id: T }[]) => (list.some((x) => x.id === v) ? v : list[0].id)
+  return { ...a, top: pick(a.top, o.tops), headwear: pick(a.headwear, o.headwear), eyewear: pick(a.eyewear, o.eyewear) }
 }

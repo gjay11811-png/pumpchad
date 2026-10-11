@@ -112,10 +112,13 @@ export class Particles {
 /* ───────── Fire ───────── */
 const flameGeo = new THREE.ConeGeometry(0.22, 0.7, 7, 1, true)
 flameGeo.translate(0, 0.35, 0)
+flameGeo.userData.shared = true // module-level: reused by every scene and by demon horns, never disposed by scene teardown
 export const flameMats = {
   outer: new THREE.MeshBasicMaterial({ color: new THREE.Color('#ff6a10').multiplyScalar(3), transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }),
   inner: new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffd27a').multiplyScalar(3.2), transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }),
 }
+
+flameMats.outer.userData.shared = flameMats.inner.userData.shared = true
 
 export class Fire {
   group = new THREE.Group()

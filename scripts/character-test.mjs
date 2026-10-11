@@ -26,7 +26,7 @@ await p.reload({ waitUntil: 'networkidle' })
 await p.waitForSelector('[data-testid=enter-muted]', { timeout: 20000 })
 await p.click('[data-testid=enter-muted]')
 await p.waitForSelector('[role=tablist]')
-await p.waitForFunction(() => window.__chadverse.showroom()?.rig?.kind === 'model', null, { timeout: 20000 })
+await p.waitForFunction(() => window.__chadverse.showroom()?.rig?.species === 'pumpkin', null, { timeout: 20000 })
 await sleep(600)
 const ins = () => p.evaluate(() => window.__chadverse.showroom().rig.inspect())
 const rigId = () => p.evaluate(() => window.__chadverse.showroom().rig?.root.uuid)
@@ -276,7 +276,7 @@ await sleep(380)
 await p.reload({ waitUntil: 'networkidle' })
 await p.waitForSelector('[data-testid=enter-muted]', { timeout: 20000 })
 await p.getByRole('button', { name: /wardrobe/i }).click()
-await p.waitForFunction(() => window.__chadverse.showroom()?.rig?.kind === 'model', null, { timeout: 20000 })
+await p.waitForFunction(() => window.__chadverse.showroom()?.rig?.species === 'pumpkin', null, { timeout: 20000 })
 await sleep(1500)
 const mem0 = await p.evaluate(() => window.__chadverse.stats())
 const times = await p.evaluate(async () => {
@@ -301,15 +301,15 @@ console.log(`  info  rebuild time avg ${avg.toFixed(0)} ms (max ${Math.max(...ti
 console.log(`  info  GPU memory: geometries ${mem0.geometries}→${mem1.geometries}, textures ${mem0.textures}→${mem1.textures}`)
 check('integ', mem1.geometries <= mem0.geometries + 4 && mem1.textures <= mem0.textures + 2, 'no memory leak across 25 character rebuilds')
 
-// prototype species still work
+// the other species still build (since the overhaul they use the real rigged model, not the procedural prototype)
 for (const sp of ['Skeleton', 'Demon']) {
   await p.getByRole('radio', { name: sp }).click()
-  await sleep(900)
-  const kind = await p.evaluate(() => window.__chadverse.showroom().rig?.kind)
-  check('integ', kind === 'procedural', `${sp} (prototype) still builds and displays`)
+  await p.waitForFunction((s) => window.__chadverse.showroom().rig?.species === s, sp.toLowerCase(), { timeout: 30000 }).catch(() => {})
+  const r = await p.evaluate(() => { const rig = window.__chadverse.showroom().rig; return { kind: rig?.kind, species: rig?.species } })
+  check('integ', r.kind === 'model' && r.species === sp.toLowerCase(), `${sp} builds the real rigged model and displays (kind ${r.kind})`)
 }
 await p.getByRole('radio', { name: 'Pumpkin' }).click()
-await p.waitForFunction(() => window.__chadverse.showroom()?.rig?.kind === 'model', null, { timeout: 20000 })
+await p.waitForFunction(() => window.__chadverse.showroom()?.rig?.species === 'pumpkin', null, { timeout: 20000 })
 
 /* ════════════ GATE 1 — VISUAL (screenshots for review) ════════════ */
 console.log('\n=== Gate 1: visual captures ===')

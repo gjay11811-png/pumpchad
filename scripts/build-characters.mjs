@@ -6,7 +6,8 @@ import { ALL_EXTENSIONS } from '@gltf-transform/extensions'
 import { dedup, meshopt, prune, resample, textureCompress, weld } from '@gltf-transform/functions'
 import { MeshoptEncoder } from 'meshoptimizer'
 import sharp from 'sharp'
-import { mkdirSync, statSync } from 'node:fs'
+import { mkdirSync, statSync, writeFileSync } from 'node:fs'
+import obj2gltf from 'obj2gltf'
 import { join } from 'node:path'
 
 const RAW = process.argv[2] || '../pumpchad-assets/raw'
@@ -21,12 +22,15 @@ const kb = (p) => `${(statSync(p).size / 1024).toFixed(0)} KB`
   const src = join(RAW, 'Universal Base Characters[Standard]/Base Characters/Godot - UE/Superhero_Male_FullBody.gltf')
   const doc = await io.read(src)
   const root = doc.getRoot()
+  // keep eyes + brows (Demon uses the real face; Pumpkin hides them at runtime)
   for (const node of root.listNodes()) {
     const mesh = node.getMesh()
-    if (mesh && /^Face/.test(mesh.getName())) {
-      node.setMesh(null)
-      console.log('removed face mesh', mesh.getName())
-    }
+    if (mesh?.getName() === 'Face') mesh.setName('Eyebrows')
+    if (mesh?.getName() === 'Face.001') mesh.setName('Eyes')
+  }
+  for (const mat of root.listMaterials()) {
+    if (mat.getName() === 'MI_Hair_1') mat.setName('Brows')
+    if (mat.getName() === 'MI_Eyes') mat.setName('EyeMat')
   }
   for (const mesh of root.listMeshes()) if (/Retopology/.test(mesh.getName())) mesh.setName('Body')
   for (const mat of root.listMaterials()) if (mat.getName() === 'MI_Superhero_Male') mat.setName('Skin')
@@ -85,4 +89,37 @@ const kb = (p) => `${(statSync(p).size / 1024).toFixed(0)} KB`
   const out = join(OUT, 'chad_anims.glb')
   await io.write(out, doc)
   console.log('anims →', out, kb(out), root.listAnimations().map((a) => a.getName()))
+}
+
+/* ── Ranger outfit (Quaternius Modular Character Outfits – Fantasy, CC0): rigged to the same 65-bone skeleton ── */
+{
+  const src = join(RAW, 'Modular Character Outfits - Fantasy[Standard]/Exports/glTF (Godot-Unreal)/Outfits/Male_Ranger.gltf')
+  const doc = await io.read(src)
+  const root = doc.getRoot()
+  for (const mat of root.listMaterials()) {
+    if (mat.getName() === 'MI_Ranger') mat.setName('Ranger')
+    if (mat.getName() === 'MI_Regular_Male') mat.setName('Hands')
+  }
+  await doc.transform(prune(), dedup(), weld(), textureCompress({ encoder: sharp, targetFormat: 'webp', resize: [1024, 1024], quality: 86 }))
+  const out = join(OUT, 'chad_ranger.glb')
+  await io.write(out, doc)
+  const tris = root.listMeshes().reduce((n, m) => n + m.listPrimitives().reduce((a, p) => a + (p.getIndices()?.getCount() ?? 0) / 3, 0), 0)
+  console.log('ranger →', out, kb(out), `${tris} tris`, root.listMeshes().map((m) => m.getName()))
+}
+
+/* ── Skull (OpenGameArt "Human Skull" by CDmir, CC0) ── */
+{
+  const src = join(RAW, 'skull/skull-obj/skull-Low4K.obj')
+  const glb = await obj2gltf(src, { binary: true })
+  const tmp = join(OUT, '_skull_tmp.glb')
+  writeFileSync(tmp, glb)
+  const doc = await io.read(tmp)
+  const root = doc.getRoot()
+  for (const mat of root.listMaterials()) mat.setName('Bone')
+  await doc.transform(prune(), dedup(), weld(), textureCompress({ encoder: sharp, targetFormat: 'webp', resize: [1024, 1024], quality: 86 }))
+  const out = join(OUT, 'chad_skull.glb')
+  await io.write(out, doc)
+  ;(await import('node:fs')).unlinkSync(tmp)
+  const tris = root.listMeshes().reduce((n, m) => n + m.listPrimitives().reduce((a, p) => a + (p.getIndices()?.getCount() ?? 0) / 3, 0), 0)
+  console.log('skull →', out, kb(out), `${tris} tris`, 'textures', root.listTextures().map((t) => t.getName() || t.getURI()))
 }

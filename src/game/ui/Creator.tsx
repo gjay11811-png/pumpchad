@@ -1,6 +1,6 @@
 import { m } from 'framer-motion'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { EYEWEAR, GLOWS, HEADWEAR, OUTFITS, SPECIES, TOPS, defaultAppearance, randomAppearance, type Appearance, type Species } from '../character/types'
+import { GLOWS, OUTFITS, SPECIES, SPECIES_OPTIONS, defaultAppearance, normaliseForSpecies, randomAppearance, type Appearance, type Species } from '../character/types'
 import { validateName } from '../save'
 import type { PreviewPose, Showroom } from '../scenes/Showroom'
 import { audio } from '../audio'
@@ -21,7 +21,7 @@ const POSES: { id: PreviewPose; name: string }[] = [
   { id: 'wave', name: 'Wave' },
 ]
 /** Upgraded species use real rigged models; the rest are clearly labelled prototypes. */
-const MODEL_STATUS: Record<Species, 'new' | 'prototype'> = { pumpkin: 'new', skeleton: 'prototype', demon: 'prototype' }
+const MODEL_STATUS: Record<Species, 'new' | 'prototype'> = { pumpkin: 'new', skeleton: 'new', demon: 'new' }
 const COMING = ['Bear', 'Wolf', 'Alien', 'Cyborg', 'Ghost']
 
 function useIsDesktop() {
@@ -49,7 +49,7 @@ export function Creator({
   editing: boolean
   onConfirm: (name: string, a: Appearance) => void
 }) {
-  const [a, setA] = useState<Appearance>(initial ?? defaultAppearance('pumpkin'))
+  const [a, setA] = useState<Appearance>(() => normaliseForSpecies(initial ?? defaultAppearance('pumpkin')))
   const [name, setName] = useState(initialName)
   const [tab, setTab] = useState<Tab>('look')
   const [pose, setPose] = useState<PreviewPose>('idle')
@@ -86,6 +86,7 @@ export function Creator({
     showroom.flex()
   }
   const sp = SPECIES.find((s) => s.id === a.species)!
+  const opts = SPECIES_OPTIONS[a.species]
 
   const confirm = () => {
     setTouched(true)
@@ -100,9 +101,9 @@ export function Creator({
   }
 
   const equipped = [
-    TOPS.find((t) => t.id === a.top)?.name,
-    a.headwear !== 'none' ? HEADWEAR.find((t) => t.id === a.headwear)?.name : null,
-    a.eyewear !== 'none' ? EYEWEAR.find((t) => t.id === a.eyewear)?.name : null,
+    opts.tops.find((t) => t.id === a.top)?.name,
+    a.headwear !== 'none' || a.species === 'skeleton' ? opts.headwear.find((t) => t.id === a.headwear)?.name : null,
+    a.eyewear !== 'none' ? opts.eyewear.find((t) => t.id === a.eyewear)?.name : null,
     a.chain ? 'Gold chain' : null,
   ].filter(Boolean) as string[]
 
@@ -111,19 +112,19 @@ export function Creator({
       {tab === 'look' && (
         <div className="space-y-6">
           <Swatches label={a.species === 'skeleton' ? 'Bone' : a.species === 'pumpkin' ? 'Pumpkin skin' : 'Skin'} colors={sp.skins} value={a.skin} onPick={(c) => update({ skin: c })} />
-          <Swatches label="Glow" hint="Carved face, eyes and visor" colors={GLOWS} value={a.glow} onPick={(c) => update({ glow: c })} glow />
+          <Swatches label="Glow" hint={({ pumpkin: 'Carved face, eyes and visor', skeleton: 'Eye sockets and visor', demon: 'Eyes, skin veins and visor' } as Record<string, string>)[a.species] ?? 'Eyes and visor'} colors={GLOWS} value={a.glow} onPick={(c) => update({ glow: c })} glow />
         </div>
       )}
       {tab === 'outfit' && (
         <div className="space-y-6">
-          <Segmented label="Top" value={a.top} options={TOPS} onChange={(v) => update({ top: v })} />
-          <Swatches label={a.top === 'shirtless' ? 'Shorts colour' : 'Outfit colour'} colors={OUTFITS} value={a.outfit} onPick={(c) => update({ outfit: c })} />
+          <Segmented label="Top" value={a.top} options={opts.tops} onChange={(v) => update({ top: v })} />
+          <Swatches label={a.top === 'shirtless' ? 'Shorts colour' : a.species === 'skeleton' ? 'Gear colour' : 'Outfit colour'} colors={OUTFITS} value={a.outfit} onPick={(c) => update({ outfit: c })} />
         </div>
       )}
       {tab === 'gear' && (
         <div className="space-y-5">
-          <Segmented label="Headwear" value={a.headwear} options={HEADWEAR} onChange={(v) => update({ headwear: v })} />
-          <Segmented label="Eyewear" value={a.eyewear} options={EYEWEAR} onChange={(v) => update({ eyewear: v })} />
+          <Segmented label="Headwear" value={a.headwear} options={opts.headwear} onChange={(v) => update({ headwear: v })} />
+          <Segmented label="Eyewear" value={a.eyewear} options={opts.eyewear} onChange={(v) => update({ eyewear: v })} />
           <Toggle label="Gold chain" hint="The signature PUMP CHAD piece" checked={a.chain} onChange={(v) => update({ chain: v })} />
         </div>
       )}
@@ -285,7 +286,6 @@ export function Creator({
               </li>
             ))}
           </ul>
-          <p className="mt-auto pt-4 text-[11px] leading-relaxed text-bone/40">Prototype species use placeholder models while their upgraded versions are built.</p>
         </m.aside>
 
         <div className="absolute bottom-6 left-[300px] right-[430px] flex justify-center">{poseBar}</div>

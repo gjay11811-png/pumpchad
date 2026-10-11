@@ -5,8 +5,9 @@ import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import type { Pose } from './build'
 import type { Character } from './character'
-import type { Appearance } from './types'
+import { normaliseForSpecies, type Appearance } from './types'
 import { buildChain, buildPumpkinHead, buildShades, buildHeadwear } from './chadParts'
+import { Fire } from '../scenes/world/fx'
 
 /**
  * Pumpkin Chad on a real rigged body.
@@ -18,16 +19,25 @@ import { buildChain, buildPumpkinHead, buildShades, buildHeadwear } from './chad
 
 const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder)
 const base = () => import.meta.env.BASE_URL
-let assets: Promise<{ body: THREE.Group; clips: Map<string, THREE.AnimationClip> }> | null = null
-export function loadChadAssets() {
-  if (!assets) {
-    assets = Promise.all([
-      loader.loadAsync(`${base()}chadverse/models/chad_body.glb`),
-      loader.loadAsync(`${base()}chadverse/models/chad_anims.glb`),
-    ]).then(([b, a]) => ({ body: b.scene, clips: new Map(a.animations.map((c) => [c.name, c])) }))
-    assets.catch(() => (assets = null))
+export type ChadAssets = { body: THREE.Group; clips: Map<string, THREE.AnimationClip>; ranger?: THREE.Group; skull?: THREE.Group }
+const files = new Map<string, Promise<{ scene: THREE.Group; animations: THREE.AnimationClip[] }>>()
+function file(name: string) {
+  if (!files.has(name)) {
+    const pr = loader.loadAsync(`${base()}chadverse/models/${name}`).then((g) => ({ scene: g.scene, animations: g.animations }))
+    pr.catch(() => files.delete(name))
+    files.set(name, pr)
   }
-  return assets
+  return files.get(name)!
+}
+/** Loads only what a species needs (Pumpkin never downloads the Ranger outfit or skull). */
+export async function loadChadAssets(species: Appearance['species'] = 'pumpkin'): Promise<ChadAssets> {
+  const [body, anims, ranger, skull] = await Promise.all([
+    file('chad_body.glb'),
+    file('chad_anims.glb'),
+    species === 'pumpkin' ? null : file('chad_ranger.glb'),
+    species === 'skeleton' ? file('chad_skull.glb') : null,
+  ])
+  return { body: body.scene, clips: new Map(anims.animations.map((c) => [c.name, c])), ranger: ranger?.scene, skull: skull?.scene }
 }
 
 /* Clip names in the library, and the speed (m/s) each locomotion clip was authored at,
@@ -63,7 +73,7 @@ function recolour(mat: THREE.MeshStandardMaterial, skin: THREE.Color, shorts: TH
 }
 
 /** Collapse a rigid accessory tree into one mesh per material (draw-call budget). */
-function mergeStatic(root: THREE.Object3D) {
+function mergeStatic(root: THREE.Object3D, D: (THREE.Material | THREE.BufferGeometry | THREE.Texture)[]) {
   root.updateMatrixWorld(true)
   const inv = new THREE.Matrix4().copy(root.matrixWorld).invert()
   const byMat = new Map<THREE.Material, THREE.BufferGeometry[]>()
@@ -87,6 +97,7 @@ function mergeStatic(root: THREE.Object3D) {
   for (const [mat, geos] of byMat) {
     const merged = mergeGeometries(geos)!
     geos.forEach((g) => g.dispose())
+    D.push(merged)
     const mesh = new THREE.Mesh(merged, mat)
     mesh.castShadow = true
     root.add(mesh)
@@ -209,18 +220,53 @@ export class PumpkinChad implements Character {
   /** character-space side sign of the left hand (+1 if left is +X) */
   private leftSign = 1
 
-  constructor(src: { body: THREE.Group; clips: Map<string, THREE.AnimationClip> }, a: Appearance) {
-    const model = SkeletonUtils.clone(src.body) as THREE.Group
+  readonly species: Appearance['species']
+  private fires: Fire[] = []
+
+  constructor(src: ChadAssets, a0: Appearance) {
+    const a = normaliseForSpecies(a0)
+    this.species = a.species
+    const source = a.species === 'skeleton' ? src.ranger : src.body
+    if (!source) throw new Error(`assets for ${a.species} not loaded`)
+    const model = SkeletonUtils.clone(source) as THREE.Group
     this.root.add(model)
-    let body: THREE.SkinnedMesh | null = null
+    const meshes: THREE.SkinnedMesh[] = []
     model.traverse((o) => {
       if ((o as THREE.Bone).isBone) this.bones.set(o.name, o as THREE.Bone)
-      if ((o as THREE.SkinnedMesh).isSkinnedMesh) body = o as THREE.SkinnedMesh
+      if ((o as THREE.SkinnedMesh).isSkinnedMesh) {
+        const m = o as THREE.SkinnedMesh
+        m.castShadow = true
+        m.frustumCulled = false
+        meshes.push(m)
+      }
     })
-    if (!body) throw new Error('chad body missing skinned mesh')
-    const B = body as THREE.SkinnedMesh
-    B.castShadow = true
-    B.frustumCulled = false
+    model.updateMatrixWorld(true)
+    const hl = this.bone('hand_l').getWorldPosition(new THREE.Vector3())
+    this.leftSign = Math.sign(hl.x) || 1
+    this.skinColor.set(a.skin)
+    this.glowColor.set(a.glow)
+
+    if (a.species === 'pumpkin') this.buildPumpkin(model, meshes, a)
+    else if (a.species === 'demon') this.buildDemon(model, meshes, a, src)
+    else this.buildSkeleton(model, meshes, a, src)
+
+    this.fistL = this.bone('hand_l')
+    this.fistR = this.bone('hand_r')
+    const box = new THREE.Box3().setFromObject(this.headObj ?? model)
+    this.headHeight = box.max.y - 0.1
+
+    this.mixer = new THREE.AnimationMixer(model)
+    for (const [k, name] of Object.entries(CLIPS)) {
+      const clip = src.clips.get(name)
+      if (clip) this.actions.set(k, this.mixer.clipAction(clip))
+    }
+    this.play('idle', 0)
+  }
+
+  /* ═════════ PUMPKIN CHAD (approved — unchanged look) ═════════ */
+  private buildPumpkin(model: THREE.Group, meshes: THREE.SkinnedMesh[], a: Appearance) {
+    const B = meshes.find((m) => (m.material as THREE.Material).name === 'Skin')!
+    for (const m of meshes) if (m !== B) m.visible = false // no human eyes / brows under the pumpkin
     removeHead(B)
 
     // skin + shorts recolour on a private material clone
@@ -228,14 +274,9 @@ export class PumpkinChad implements Character {
     skinMat.roughness = 0.62
     this.skinColor.set(a.skin)
     this.shortsColor.set(a.top === 'armor' ? '#1a181c' : a.outfit)
-    this.glowColor.set(a.glow)
     recolour(skinMat, this.skinColor, this.shortsColor)
     B.material = skinMat
     this.disposables.push(skinMat, B.geometry)
-
-    model.updateMatrixWorld(true)
-    const hl = this.bone('hand_l').getWorldPosition(new THREE.Vector3())
-    this.leftSign = Math.sign(hl.x) || 1
 
     // clothing shells (fitted, skinned to the same skeleton)
     const fabric = new THREE.MeshStandardMaterial({ color: a.outfit, roughness: 0.92, metalness: 0 })
@@ -294,7 +335,7 @@ export class PumpkinChad implements Character {
     }
     this.root.add(pumpkin)
     this.root.updateMatrixWorld(true)
-    mergeStatic(pumpkin)
+    mergeStatic(pumpkin, this.disposables)
     head.attach(pumpkin)
     if (a.chain) {
       const chest = this.bone('spine_03')
@@ -307,18 +348,224 @@ export class PumpkinChad implements Character {
       this.root.updateMatrixWorld(true)
       chest.attach(chain)
     }
+  }
 
-    this.fistL = this.bone('hand_l')
-    this.fistR = this.bone('hand_r')
-    const box = new THREE.Box3().setFromObject(pumpkin)
-    this.headHeight = box.max.y - 0.1
+  /** Gold chain on the upper chest, sized per species. */
+  private addChain(scale = 1, drop = 0, fwd = 0) {
+    const chest = this.bone('spine_03')
+    const neck = this.bone('neck_01').getWorldPosition(new THREE.Vector3())
+    const chain = buildChain(this.disposables)
+    chain.name = 'acc:chain'
+    this.chainObj = chain
+    chain.scale.setScalar(scale)
+    chain.position.set(neck.x, neck.y - 0.02 - drop, neck.z + fwd)
+    this.root.add(chain)
+    this.root.updateMatrixWorld(true)
+    chest.attach(chain)
+  }
 
-    this.mixer = new THREE.AnimationMixer(model)
-    for (const [k, name] of Object.entries(CLIPS)) {
-      const clip = src.clips.get(name)
-      if (clip) this.actions.set(k, this.mixer.clipAction(clip))
+  /** Attach an accessory built in bind-pose world space to a bone. */
+  private attachTo(boneName: string, obj: THREE.Object3D) {
+    this.root.add(obj)
+    this.root.updateMatrixWorld(true)
+    this.bone(boneName).attach(obj)
+  }
+
+  /** Lift the model so the lowest point of the given mesh (bind pose) touches the ground. */
+  private groundOn(model: THREE.Group, mesh: THREE.Mesh) {
+    mesh.geometry.computeBoundingBox()
+    model.position.y = -Math.min(mesh.geometry.boundingBox!.min.y, 0)
+  }
+
+  /* ═════════ DEMON CHAD ═════════
+     Same sculpted Superhero body (real face kept), demon skin with glowing veins,
+     sculpted ridged horns, glowing eyes, ember-tipped horns, real Ranger gear (CC0). */
+  private buildDemon(model: THREE.Group, meshes: THREE.SkinnedMesh[], a: Appearance, src: ChadAssets) {
+    const B = meshes.find((m) => (m.material as THREE.Material).name === 'Skin')!
+    const eyes = meshes.find((m) => (m.material as THREE.Material).name === 'EyeMat')
+    const brows = meshes.find((m) => (m.material as THREE.Material).name === 'Brows')
+    const top = a.top
+    this.shortsColor.set(top === 'armor' ? '#1a181c' : a.outfit)
+    const skinMat = (B.material as THREE.MeshStandardMaterial).clone()
+    skinMat.roughness = 0.74
+    skinMat.roughnessMap = null // the human skin roughness map makes demon skin look like plastic
+    recolour(skinMat, this.skinColor.clone().multiplyScalar(0.78), this.shortsColor)
+    const veins = veinTexture()
+    skinMat.emissiveMap = veins
+    skinMat.emissive = new THREE.Color(a.glow)
+    skinMat.emissiveIntensity = 0.7
+    B.material = skinMat
+    this.disposables.push(skinMat, veins)
+    if (eyes) {
+      const em = new THREE.MeshStandardMaterial({ color: '#160404', emissive: new THREE.Color(a.glow), emissiveIntensity: 2.6, roughness: 0.2 })
+      eyes.material = em
+      eyes.name = 'acc:eyes'
+      this.disposables.push(em)
     }
-    this.play('idle', 0)
+    if (brows) {
+      const bm = (brows.material as THREE.MeshStandardMaterial).clone()
+      bm.color.set('#1a0a08')
+      brows.material = bm
+      this.disposables.push(bm)
+    }
+
+    // real Ranger pieces rebound onto the muscular skeleton
+    const DF = { ...DEMON_FIT, ...((globalThis as unknown as { __demon?: Partial<typeof DEMON_FIT> }).__demon ?? {}) }
+    const pieces: [RegExp, number, number?, number?][] = [[/Boots/, 0.004], [/Belt_1$/, ...DF.belt]]
+    if (top !== 'hoodie') pieces.push([/Bracer/, 0.016], [/Pauldron/, ...DF.pauldron])
+    const gear = rebind(src.ranger!, B, pieces, a.outfit, 0.55, this.disposables)
+    gear.forEach((g) => model.add(g))
+    const boots = gear.find((g) => /Boots/.test(g.userData.piece))
+    if (boots) {
+      this.disposables.push(hideUnder(B, ['foot_l', 'foot_r', 'ball_l', 'ball_r', 'ball_leaf_l', 'ball_leaf_r', 'calf_l', 'calf_r'], DF.bootHide))
+      this.groundOn(model, boots)
+    }
+
+    if (top === 'hoodie') {
+      const fabric = new THREE.MeshStandardMaterial({ color: a.outfit, roughness: 0.92 })
+      this.disposables.push(fabric)
+      const t = shell(B, ['spine_01', 'spine_02', 'spine_03', 'clavicle_l', 'clavicle_r', 'upperarm_l', 'upperarm_r', 'lowerarm_l', 'lowerarm_r'], 0.018, fabric, { minY: 0.93, maxY: 1.6 })
+      t.name = 'cloth:hoodie'
+      model.add(t)
+      this.disposables.push(t.geometry)
+    } else if (top === 'armor') {
+      const plate = new THREE.MeshPhysicalMaterial({ color: a.outfit, metalness: 0.72, roughness: 0.42, clearcoat: 0.25 })
+      this.disposables.push(plate)
+      const t = shell(B, ['pelvis', 'spine_01', 'spine_02', 'spine_03', 'clavicle_l', 'clavicle_r', 'upperarm_l', 'upperarm_r'], 0.026, plate, { minY: 0.98, maxY: 1.6 })
+      t.name = 'cloth:armor'
+      model.add(t)
+      this.disposables.push(t.geometry)
+    }
+
+    // horns + ember tips, riding the Head bone
+    const hp = this.bone('Head').getWorldPosition(new THREE.Vector3())
+    const horns = buildDemonHorns(this.disposables)
+    horns.name = 'acc:horns'
+    horns.position.set(hp.x, hp.y + 0.1, hp.z + 0.005)
+    for (const tip of horns.userData.tips as THREE.Vector3[]) {
+      const f = new Fire(tip.x, tip.y - 0.01, tip.z, 0.07)
+      horns.add(f.group)
+      this.fires.push(f)
+    }
+    if (a.headwear === 'crown') {
+      const crown = buildHeadwear({ ...a, headwear: 'crown' }, this.disposables)!
+      crown.name = 'acc:crown'
+      crown.scale.setScalar(0.62)
+      crown.position.set(0, 0.03, -0.01)
+      horns.add(crown)
+    }
+    this.attachTo('Head', horns)
+    this.headObj = horns
+    if (a.eyewear !== 'none') {
+      const ew = buildShades(this.disposables, a.eyewear === 'visor' ? a.glow : undefined)
+      ew.name = `acc:${a.eyewear}`
+      ew.scale.setScalar(0.5)
+      // lenses sit on the real eyes (Eyes mesh bounds in bind pose)
+      const eb = new THREE.Box3().setFromObject(eyes ?? B)
+      ew.position.set(0, (eb.min.y + eb.max.y) / 2 - 0.045 * 0.5, eb.max.z + 0.012 - 0.2256 * 0.5)
+      this.attachTo('Head', ew)
+    }
+    if (a.chain) this.addChain(1)
+  }
+
+  /* ═════════ SKELETON CHAD ═════════
+     Hooded Ranger outfit (CC0, rigged to the same skeleton) with a real sculpted skull (CC0),
+     glowing eye sockets and leather gloves. Lean silhouette — no human muscle. */
+  private buildSkeleton(model: THREE.Group, meshes: THREE.SkinnedMesh[], a: Appearance, src: ChadAssets) {
+    const SK = { ...SKULL, ...((globalThis as unknown as { __skull?: Partial<typeof SKULL> }).__skull ?? {}) }
+    const top = a.top === 'shirtless' ? 'armor' : a.top
+    const tint = new THREE.Color(a.outfit)
+    const rangerMats = new Map<THREE.Material, THREE.Material>()
+    for (const m of meshes) {
+      const name = pieceName(m)
+      const mat = m.material as THREE.MeshStandardMaterial
+      if (mat.name === 'Hands') {
+        const glove = new THREE.MeshStandardMaterial({ color: '#17120f', roughness: 0.55, metalness: 0.05, normalMap: mat.normalMap })
+        m.material = glove
+        this.disposables.push(glove)
+        continue
+      }
+      if (!rangerMats.has(mat)) {
+        const c = mat.clone()
+        tintShader(c, tint, 0.85)
+        rangerMats.set(mat, c)
+        this.disposables.push(c)
+      }
+      m.material = rangerMats.get(mat)!
+      if (/Pauldron|Bracer/.test(name)) m.visible = top === 'armor'
+      m.userData.piece = name
+      if (/Hood/.test(name)) m.name = 'cloth:hood' // always up: frames the skull and hides the neck
+      if (/Body$/.test(name)) m.name = top === 'armor' ? 'cloth:armor' : 'cloth:hoodie'
+    }
+    const boots = meshes.find((m) => /Boots/.test(pieceName(m)))
+    if (boots) this.groundOn(model, boots)
+
+    // the skull: real CC0 asset, sized to sit inside the hood, riding the Head bone
+    const hp = this.bone('Head').getWorldPosition(new THREE.Vector3())
+    const skull = SkeletonUtils.clone(src.skull!) as THREE.Group
+    const holder = new THREE.Group()
+    holder.name = 'acc:head'
+    skull.rotation.set(SK.rx, SK.ry, 0)
+    holder.add(skull)
+    holder.updateMatrixWorld(true)
+    const sb = new THREE.Box3().setFromObject(skull)
+    const size = sb.getSize(new THREE.Vector3())
+    const k = SK.width / size.x
+    skull.scale.setScalar(k)
+    holder.updateMatrixWorld(true)
+    const sb2 = new THREE.Box3().setFromObject(skull)
+    const c2 = sb2.getCenter(new THREE.Vector3())
+    skull.position.sub(c2) // centre the skull on the holder
+    skull.traverse((o) => {
+      const mm = o as THREE.Mesh
+      if (!mm.isMesh) return
+      const srcMat = mm.material as THREE.MeshStandardMaterial
+      const mat = new THREE.MeshStandardMaterial({ map: srcMat.map, normalMap: srcMat.normalMap, roughness: 0.72, metalness: 0, color: this.skinColor.clone().multiplyScalar(0.92) })
+      mm.material = mat
+      mm.castShadow = true
+      this.disposables.push(mat)
+    })
+    const sz = sb2.getSize(new THREE.Vector3())
+    // glowing eyes deep in the sockets
+    const eyeMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(a.glow).multiplyScalar(1.9), toneMapped: false })
+    const eyeGeo = new THREE.SphereGeometry(sz.x * 0.05, 12, 8)
+    this.disposables.push(eyeMat, eyeGeo)
+    for (const s of [-1, 1]) {
+      const e = new THREE.Mesh(eyeGeo, eyeMat)
+      e.position.set(s * sz.x * SK.eyeX, sz.y * SK.eyeY, sz.z * SK.eyeZ)
+      e.scale.set(1, 0.8, 0.6)
+      holder.add(e)
+    }
+    holder.position.set(hp.x, hp.y + SK.lift, hp.z + SK.fwd)
+    if (a.eyewear !== 'none') {
+      const ew = buildShades(this.disposables, a.eyewear === 'visor' ? a.glow : undefined)
+      ew.name = `acc:${a.eyewear}`
+      const sc = (sz.x * SK.eyeX) / 0.068
+      ew.scale.setScalar(sc)
+      ew.position.set(0, sz.y * SK.eyeY - 0.045 * sc, sz.z * 0.5 + 0.006 - 0.2256 * sc)
+      holder.add(ew)
+    }
+    this.attachTo('Head', holder)
+    // crown / horns sit on the hood, fitted to its measured bounds (bind pose)
+    const hood = meshes.find((m) => /Hood/.test(m.userData.piece))
+    const hw = a.headwear !== 'none' && hood ? buildHeadwear({ ...a }, this.disposables) : null
+    if (hw && hood) {
+      const hb = new THREE.Box3().setFromObject(hood)
+      const hc = hb.getCenter(new THREE.Vector3())
+      const hs = hb.getSize(new THREE.Vector3())
+      hw.position.set(0, 0, 0)
+      hw.rotation.set(0, 0, a.headwear === 'crown' ? 0.06 : 0)
+      const own = new THREE.Box3().setFromObject(hw)
+      const ow = own.getSize(new THREE.Vector3())
+      const fit = a.headwear === 'crown' ? { w: SK.crownW, sink: SK.crownSink, z: SK.crownZ } : { w: 1.05, sink: 0.07, z: 0.0 }
+      const sc = (hs.x * fit.w) / ow.x
+      hw.scale.setScalar(sc)
+      hw.position.set(hc.x - ((own.min.x + own.max.x) / 2) * sc, hb.max.y - fit.sink - own.min.y * sc, hc.z + fit.z - ((own.min.z + own.max.z) / 2) * sc)
+      hw.name = `acc:${a.headwear}`
+      this.attachTo('Head', hw)
+    }
+    this.headObj = holder
+    if (a.chain) this.addChain(SK.chainScale, SK.chainDrop, SK.chainFwd)
   }
 
   private bone(n: string) {
@@ -401,6 +648,7 @@ export class PumpkinChad implements Character {
     this.mixer.update(dt)
     this.root.updateMatrixWorld(true)
     this.applyLayers()
+    for (const f of this.fires) f.update(this.t)
   }
 
   /** QA: everything a test needs to verify the character, in world space. */
@@ -425,7 +673,9 @@ export class PumpkinChad implements Character {
       const mm = (o as THREE.Mesh).material as THREE.MeshPhysicalMaterial | undefined
       if (mm?.emissiveMap) headGlow = '#' + mm.emissive.getHexString()
     })
+    if (!headGlow) headGlow = '#' + this.glowColor.getHexString()
     return {
+      species: this.species,
       parts: parts.sort(),
       tris: Math.round(tris),
       draws,
@@ -454,6 +704,198 @@ export class PumpkinChad implements Character {
 
   dispose() {
     this.mixer.stopAllAction()
+    this.mixer.uncacheRoot(this.mixer.getRoot())
+    // every skinned mesh owns a Skeleton whose bone matrices live in a GPU texture: free them too
+    const skeletons = new Set<THREE.Skeleton>()
+    this.root.traverse((o) => (o as THREE.SkinnedMesh).isSkinnedMesh && skeletons.add((o as THREE.SkinnedMesh).skeleton))
+    skeletons.forEach((s) => s.dispose())
     this.disposables.forEach((d) => d.dispose())
   }
+}
+
+
+/* ───────────── species helpers ───────────── */
+
+/** Outfit piece name: single-primitive meshes carry the node name; multi-primitive ones sit under a named group. */
+function pieceName(m: THREE.Object3D) {
+  return /^Male_Ranger/.test(m.name) ? m.name : m.parent?.name ?? m.name
+}
+
+/** Skull placement inside the hood (tuned against the CC0 skull's axes). */
+/** Ranger pieces on the muscular body: [normal offset, uniform scale, lift] */
+const DEMON_FIT: { belt: [number, number, number]; pauldron: [number, number, number]; bootHide: number } = { belt: [0.014, 0.95, -0.05], pauldron: [0.004, 1.14, 0.01], bootHide: 0.5 }
+const SKULL = { rx: 0, ry: 0, width: 0.155, lift: 0.095, fwd: 0.02, eyeX: 0.2, eyeY: 0.03, eyeZ: 0.44, chainScale: 1.12, chainDrop: 0.03, chainFwd: 0.01, crownW: 0.7, crownSink: 0.06, crownZ: 0 }
+
+/** Tint a textured material toward a colour while keeping its painted detail. */
+function tintShader(mat: THREE.MeshStandardMaterial, color: THREE.Color, amount: number) {
+  mat.onBeforeCompile = (sh) => {
+    sh.uniforms.uTint = { value: color }
+    sh.uniforms.uAmt = { value: amount }
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform vec3 uTint;\nuniform float uAmt;')
+      .replace(
+        '#include <map_fragment>',
+        `#include <map_fragment>
+        {
+          float lum = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114));
+          diffuseColor.rgb = mix(diffuseColor.rgb, uTint * (0.25 + lum * 1.9), uAmt);
+        }`,
+      )
+  }
+  mat.customProgramCacheKey = () => 'chad-tint'
+}
+
+/** Rebind selected Ranger outfit pieces onto another body's skeleton (same bone names). */
+function rebind(ranger: THREE.Group, body: THREE.SkinnedMesh, pieces: [RegExp, number, number?, number?][], tint: string, amount: number, D: (THREE.Material | THREE.BufferGeometry | THREE.Texture)[]) {
+  const out: THREE.SkinnedMesh[] = []
+  const byName = new Map(body.skeleton.bones.map((b) => [b.name, b]))
+  const mats = new Map<THREE.Material, THREE.Material>()
+  ranger.traverse((o) => {
+    const src = o as THREE.SkinnedMesh
+    if (!src.isSkinnedMesh) return
+    const name = pieceName(src)
+    const hit = pieces.find(([re]) => re.test(name))
+    if (!hit) return
+    const srcMat = src.material as THREE.MeshStandardMaterial
+    if (srcMat.name === 'Hands') return
+    if (!mats.has(srcMat)) {
+      const c = srcMat.clone()
+      tintShader(c, new THREE.Color(tint), amount)
+      mats.set(srcMat, c)
+      D.push(c)
+    }
+    const g = src.geometry.clone()
+    if (hit[1]) {
+      const pos = g.attributes.position as THREE.BufferAttribute
+      const nor = g.attributes.normal as THREE.BufferAttribute
+      for (let i = 0; i < pos.count; i++) pos.setXYZ(i, pos.getX(i) + nor.getX(i) * hit[1], pos.getY(i) + nor.getY(i) * hit[1], pos.getZ(i) + nor.getZ(i) * hit[1])
+    }
+    // uniform scale about the piece's own centre (+ lift): fits a bulkier body without pushing layered parts through each other
+    if ((hit[2] && hit[2] !== 1) || hit[3]) {
+      g.computeBoundingBox()
+      const c = g.boundingBox!.getCenter(new THREE.Vector3())
+      const k = hit[2] ?? 1
+      g.translate(-c.x, -c.y, -c.z).scale(k, k, k).translate(c.x, c.y + (hit[3] ?? 0), c.z)
+    }
+    D.push(g)
+    const bones = src.skeleton.bones.map((b) => byName.get(b.name)!)
+    const skel = new THREE.Skeleton(bones, src.skeleton.boneInverses.map((m) => m.clone()))
+    const m = new THREE.SkinnedMesh(g, mats.get(srcMat)!)
+    m.bind(skel, src.bindMatrix.clone())
+    m.castShadow = true
+    m.frustumCulled = false
+    m.name = 'cloth:' + name.replace(/^Male_Ranger_/, '').toLowerCase()
+    m.userData.piece = name
+    out.push(m)
+  })
+  return out
+}
+
+/** Hide body triangles that sit under footwear (avoids toes poking through boots). */
+function hideUnder(mesh: THREE.SkinnedMesh, bones: string[], maxY: number) {
+  const set = new Set(bones.map((n) => mesh.skeleton.bones.findIndex((b) => b.name === n)))
+  const g = mesh.geometry
+  const si = g.attributes.skinIndex as THREE.BufferAttribute
+  const sw = g.attributes.skinWeight as THREE.BufferAttribute
+  const pos = g.attributes.position as THREE.BufferAttribute
+  const w = (v: number) => {
+    let t = 0
+    for (let k = 0; k < 4; k++) if (set.has(si.getComponent(v, k))) t += sw.getComponent(v, k)
+    return t
+  }
+  const idx = g.index!
+  const keep: number[] = []
+  for (let t = 0; t < idx.count; t += 3) {
+    const a = idx.getX(t), b = idx.getX(t + 1), c = idx.getX(t + 2)
+    if (w(a) > 0.5 && w(b) > 0.5 && w(c) > 0.5 && pos.getY(a) < maxY) continue
+    keep.push(a, b, c)
+  }
+  const ng = g.clone()
+  ng.setIndex(keep)
+  mesh.geometry = ng
+  return ng
+}
+
+/** Faint branching vein pattern for demon skin (emissive mask). */
+function veinTexture() {
+  const c = document.createElement('canvas')
+  c.width = c.height = 1024
+  const g = c.getContext('2d')!
+  g.fillStyle = '#000'
+  g.fillRect(0, 0, 1024, 1024)
+  let seed = 17
+  const r = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646
+  for (let n = 0; n < 70; n++) {
+    let x = r() * 1024
+    let y = r() * 1024
+    let ang = r() * Math.PI * 2
+    g.lineWidth = 1 + r() * 1.6
+    g.strokeStyle = `rgba(255,255,255,${0.35 + r() * 0.4})`
+    g.beginPath()
+    g.moveTo(x, y)
+    for (let i = 0; i < 26; i++) {
+      ang += (r() - 0.5) * 0.9
+      x += Math.cos(ang) * 9
+      y += Math.sin(ang) * 9
+      g.lineTo(x, y)
+      if (r() < 0.08) {
+        g.stroke()
+        g.lineWidth *= 0.7
+        g.beginPath()
+        g.moveTo(x, y)
+      }
+    }
+    g.stroke()
+  }
+  const t = new THREE.CanvasTexture(c)
+  t.colorSpace = THREE.SRGBColorSpace
+  return t
+}
+
+/** Sculpted, ridged, tapering demon horns (one draw call, gradient via vertex colours). */
+function buildDemonHorns(D: (THREE.Material | THREE.BufferGeometry | THREE.Texture)[]) {
+  const group = new THREE.Group()
+  const mat = new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: 0.42, clearcoat: 0.35, clearcoatRoughness: 0.5 })
+  D.push(mat)
+  const tips: THREE.Vector3[] = []
+  const base = new THREE.Color('#4a2a1a')
+  const tipC = new THREE.Color('#0b0808')
+  for (const s of [-1, 1]) {
+    const curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(s * 0.05, 0.0, 0.035),
+      new THREE.Vector3(s * 0.1, 0.06, 0.01),
+      new THREE.Vector3(s * 0.15, 0.1, -0.05),
+      new THREE.Vector3(s * 0.17, 0.07, -0.12),
+      new THREE.Vector3(s * 0.15, 0.0, -0.13),
+      new THREE.Vector3(s * 0.14, -0.03, -0.08),
+    ])
+    const SEG = 40
+    const RAD = 12
+    const tube = new THREE.TubeGeometry(curve, SEG, 1, RAD, false)
+    const pos = tube.attributes.position as THREE.BufferAttribute
+    const col = new Float32Array(pos.count * 3)
+    for (let ring = 0; ring <= SEG; ring++) {
+      const t = ring / SEG
+      const center = curve.getPointAt(t)
+      const radius = (0.05 * Math.pow(1 - t, 1.1) + 0.004) * (1 + 0.1 * Math.sin(t * 52)) // taper + growth ridges
+      const c = base.clone().lerp(tipC, Math.pow(t, 0.8))
+      for (let k = 0; k <= RAD; k++) {
+        const i = ring * (RAD + 1) + k
+        const dx = pos.getX(i) - center.x
+        const dy = pos.getY(i) - center.y
+        const dz = pos.getZ(i) - center.z
+        pos.setXYZ(i, center.x + dx * radius, center.y + dy * radius, center.z + dz * radius)
+        col.set([c.r, c.g, c.b], i * 3)
+      }
+    }
+    tube.setAttribute('color', new THREE.BufferAttribute(col, 3))
+    tube.computeVertexNormals()
+    D.push(tube)
+    const m = new THREE.Mesh(tube, mat)
+    m.castShadow = true
+    group.add(m)
+    tips.push(curve.getPointAt(1))
+  }
+  group.userData.tips = tips
+  return group
 }

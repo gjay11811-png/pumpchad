@@ -37,7 +37,7 @@ function loadGLB(url: string) {
 
 /** Preload a species' model in the background (no-op for procedural species). */
 export function preloadModel(species: Appearance['species']) {
-  if (species === 'pumpkin') void loadChadAssets().catch(() => {})
+  void loadChadAssets(species).catch(() => {})
   const spec = MODELS[species]
   if (spec) void loadGLB(spec.url).catch(() => {})
 }
@@ -132,9 +132,9 @@ export async function createCharacter(a: Appearance): Promise<Character> {
   const params = typeof location !== 'undefined' ? new URLSearchParams(location.search) : new URLSearchParams()
   const forceTest = params.get('model') === 'robot'
   // Pumpkin Chad: real rigged body + library animations (falls back to the stand-in if loading fails)
-  if (a.species === 'pumpkin' && !forceTest && params.get('legacy') !== '1') {
+  if (!forceTest && params.get('legacy') !== '1') {
     try {
-      return new PumpkinChad(await loadChadAssets(), a)
+      return new PumpkinChad(await loadChadAssets(a.species), a)
     } catch (err) {
       console.warn('[chadverse] Pumpkin Chad model failed, using stand-in:', err)
     }
@@ -156,4 +156,5 @@ export function disposeCharacter(c: Character) {
   c.root.removeFromParent()
   if (c instanceof PumpkinChad) c.dispose()
   else if (c.kind === 'procedural') disposeObject(c.root)
+  else c.root.traverse((o) => (o as THREE.SkinnedMesh).isSkinnedMesh && (o as THREE.SkinnedMesh).skeleton.dispose()) // bone textures are per clone
 }
