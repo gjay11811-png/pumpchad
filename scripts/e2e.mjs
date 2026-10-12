@@ -153,10 +153,19 @@ for (const [w, h, tag, mobile] of [
 
   // 12 enter gym via the dialogue option
   await p.getByRole('button', { name: 'Take me to the gym' }).click()
-  await p.waitForFunction(() => window.__chadverse?.phase === 'gym', null, { timeout: 15000 })
-  await p.waitForSelector('[data-testid=press-start]')
+  await p.waitForFunction(() => window.__chadverse?.phase === 'gym' && window.__chadverse.gym()?.mode === 'free', null, { timeout: 15000 })
   await sleep(700)
   check(true, 'entered Chad Gym')
+  // the gym is a walkable hall now: step onto the Chad Press platform and use it
+  const useGym = async (id, label) => {
+    await p.evaluate((id) => window.__chadverse.gymGoto(id), id)
+    await sleep(500)
+    if (mobile) await p.getByRole('button', { name: label }).click()
+    else await p.keyboard.press('e')
+  }
+  await useGym('press', 'Chad Press — timing challenge')
+  await p.waitForSelector('[data-testid=press-start]')
+  await sleep(500)
   await p.screenshot({ path: `${out}/e2e-${tag}-gym.jpg`, quality: 70 })
 
   // 13 play: press when the marker is inside the gold zone (read from the DOM, like a player's eyes)
@@ -201,6 +210,9 @@ for (const [w, h, tag, mobile] of [
   const xpBefore = sv.progress.xp
 
   await p.click('[data-testid=press-exit]')
+  await p.waitForFunction(() => window.__chadverse?.gym()?.mode === 'free', null, { timeout: 8000 })
+  check(true, 'Chad Press hands back to the gym floor')
+  await useGym('exit', 'Back to Chad Square')
   await p.waitForFunction(() => window.__chadverse?.phase === 'world' && window.__chadverse.world(), null, { timeout: 15000 })
   await sleep(600)
   const back = await cv(() => window.__chadverse.world())

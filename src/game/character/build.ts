@@ -11,7 +11,7 @@ import type { Appearance } from './types'
  *                       ├ armL/armR ─ elbow ─ forearm/fist
  *                       └ neck ─ head (species head, headwear, eyewear)
  */
-export type Pose = 'idle' | 'walk' | 'flex' | 'press' | 'wave' | 'hammer' | 'dance'
+export type Pose = 'idle' | 'walk' | 'flex' | 'press' | 'wave' | 'hammer' | 'dance' | 'bench' | 'squat' | 'curl' | 'guard'
 
 export class CharacterRig {
   kind: 'procedural' | 'model' = 'procedural'

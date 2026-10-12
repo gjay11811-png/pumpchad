@@ -25,7 +25,9 @@ for (let i = 0; i < 5; i++) {
   await p.keyboard.press('e')
   await p.waitForFunction(() => window.__chadverse?.phase === 'gym' && window.__chadverse.gymInspect(), null, { timeout: 15000 })
   const g = await stat()
-  await p.keyboard.press('Escape')
+  await p.evaluate(() => window.__chadverse.gymGoto('exit')) // leave through the gym door
+  await p.waitForTimeout(300)
+  await p.keyboard.press('e')
   await inWorld()
   const w = await stat()
   console.log(`cycle ${i}: gym geo ${g.geometries} tex ${g.textures} prog ${g.programs} | world geo ${w.geometries} tex ${w.textures} prog ${w.programs}`)

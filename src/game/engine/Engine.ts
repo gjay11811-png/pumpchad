@@ -133,6 +133,27 @@ export class Engine {
     this.composer = c
   }
 
+  /** Compile a scene's shaders in the background (KHR_parallel_shader_compile) before it is shown,
+   *  so the first frame doesn't freeze while the GPU driver builds every program. */
+  async precompile(s: GameScene) {
+    // with bloom the scene renders into an offscreen target, which changes each material's shader variant
+    // (no in-shader tone mapping, linear output) — compile against the same kind of target so the work is reused
+    const bloom = !!s.bloom && this.quality !== 'low' && !this.reducedEffects
+    const prev = this.renderer.getRenderTarget()
+    const tmp = bloom ? new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType }) : null
+    try {
+      this.renderer.setRenderTarget(tmp)
+      const ready = this.renderer.compileAsync(s.scene, s.camera) // programs are created synchronously here
+      this.renderer.setRenderTarget(prev)
+      await ready
+    } catch {
+      // older drivers: the first frame compiles synchronously instead (slower, still correct)
+    } finally {
+      this.renderer.setRenderTarget(prev)
+      tmp?.dispose()
+    }
+  }
+
   setScene(s: GameScene | null) {
     const prev = this.current
     this.current = s

@@ -3,7 +3,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { disposeObject } from '../engine/Engine'
 import { buildCharacter, type Pose } from './build'
-import { PumpkinChad, loadChadAssets } from './chad'
+import { PumpkinChad, loadChadAssets, type OneShot } from './chad'
 import { MODELS, TEST_MODEL, type ModelSpec } from './models'
 import type { Appearance } from './types'
 
@@ -20,6 +20,9 @@ export interface Character {
   /** 'procedural' stand-in or a loaded 'model' */
   kind: 'procedural' | 'model'
   update(dt: number): void
+  /** real models only: play a library clip once (punches, celebrate...), returns its length in seconds */
+  playOnce?(name: OneShot): number
+  cancelOneShot?(): void
 }
 
 const loader = new GLTFLoader()

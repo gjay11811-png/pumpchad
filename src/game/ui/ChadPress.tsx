@@ -228,7 +228,7 @@ export function ChadPress({
                 Go again
               </Btn>
               <Btn variant="ghost" className="flex-1" onClick={onExit} data-testid="press-exit">
-                Back to the square
+                Back to the gym floor
               </Btn>
             </div>
           </Card>

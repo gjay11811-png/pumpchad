@@ -3,7 +3,7 @@
  * so there are no audio files and nothing copyrighted. The context is only created
  * after a user gesture (required by iOS/Chrome autoplay rules).
  */
-export type Sfx = 'click' | 'select' | 'confirm' | 'step' | 'interact' | 'rep' | 'perfect' | 'miss' | 'achievement' | 'portal' | 'boing'
+export type Sfx = 'click' | 'select' | 'confirm' | 'step' | 'interact' | 'rep' | 'perfect' | 'miss' | 'achievement' | 'portal' | 'boing' | 'clank' | 'thud'
 export type Ambience = 'menu' | 'square' | 'gym' | null
 
 class AudioEngine {
@@ -143,6 +143,17 @@ class AudioEngine {
       case 'boing':
         this.tone(160 * r, 0.35, 'sine', 0.22, 0, 520)
         this.tone(320 * r, 0.25, 'triangle', 0.08, 0.12, 140)
+        break
+      case 'clank': // iron plates settling on a rack
+        this.tone(1250 * r, 0.22, 'square', 0.035)
+        this.tone(1870 * r, 0.16, 'triangle', 0.05, 0.01)
+        this.burst(0.08, 3200, 0.14, 2.5)
+        this.burst(0.18, 420, 0.12, 0.8, 'lowpass', 0.02)
+        break
+      case 'thud': // glove into a heavy bag
+        this.tone(95 * r, 0.16, 'sine', 0.32, 0, 55)
+        this.burst(0.11, 600, 0.3, 0.9, 'lowpass')
+        this.burst(0.05, 2400, 0.08, 1.5)
         break
     }
   }

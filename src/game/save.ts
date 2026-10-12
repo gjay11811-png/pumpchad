@@ -27,6 +27,10 @@ export type Progress = {
   gymBest: number
   gymRuns: number
   discoveries: string[]
+  /** lifetime strength points from gym stations */
+  strength: number
+  /** lifetime reps per station (bench / curl / squat / bag) */
+  reps: Record<string, number>
 }
 
 export type SaveData = {
@@ -53,7 +57,7 @@ export const defaultSettings = (): Settings => ({
 export const defaultSave = (): SaveData => ({
   version: SAVE_VERSION,
   character: null,
-  progress: { xp: 0, achievements: [], gymBest: 0, gymRuns: 0, discoveries: [] },
+  progress: { xp: 0, achievements: [], gymBest: 0, gymRuns: 0, discoveries: [], strength: 0, reps: {} },
   settings: defaultSettings(),
 })
 
@@ -96,6 +100,17 @@ function sanitizeAppearance(a: unknown): Appearance | null {
   }
 }
 
+/** station → rep count, only known stations, whole non-negative numbers */
+function repMap(v: unknown): Record<string, number> {
+  const out: Record<string, number> = {}
+  if (!v || typeof v !== 'object') return out
+  for (const k of ['bench', 'curl', 'squat', 'bag']) {
+    const n = (v as Record<string, unknown>)[k]
+    if (typeof n === 'number' && Number.isFinite(n) && n > 0) out[k] = Math.min(1e7, Math.floor(n))
+  }
+  return out
+}
+
 export function sanitizeSave(raw: unknown): SaveData {
   const d = defaultSave()
   if (!raw || typeof raw !== 'object') return d
@@ -122,6 +137,8 @@ export function sanitizeSave(raw: unknown): SaveData {
       gymBest: Math.floor(num(p.gymBest, 0, 1e6, 0)),
       gymRuns: Math.floor(num(p.gymRuns, 0, 1e6, 0)),
       discoveries: strList(p.discoveries),
+      strength: Math.floor(num(p.strength, 0, 1e7, 0)),
+      reps: repMap(p.reps),
     },
     settings: {
       quality: oneOf(s.quality, ['low', 'medium', 'high'] as const, d.settings.quality),
@@ -168,4 +185,6 @@ export const ACHIEVEMENTS: Record<string, { name: string; desc: string }> = {
   gourd_whisperer: { name: 'Gourd Whisperer', desc: 'Annoy the suspicious pumpkin.' },
   kings_stash: { name: 'The King’s Stash', desc: 'Find the hidden switch.' },
   seed_collector: { name: 'Seed Collector', desc: 'Find all 5 golden seeds.' },
+  full_circuit: { name: 'Full Circuit', desc: 'Finish a set on every gym station.' },
+  century: { name: 'Century', desc: 'Do 100 reps at the gym stations.' },
 }

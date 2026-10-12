@@ -8,7 +8,9 @@ import { DIALOGUE, PUMPKIN_LINES, type Dialogue, type DialogueOption } from './d
 import { Engine } from './engine/Engine'
 import { Input } from './input'
 import { ACHIEVEMENTS, defaultSave, loadSave, writeSave, type SaveData, type Settings } from './save'
-import { Gym } from './scenes/Gym'
+import { Gym, type GymMode } from './scenes/Gym'
+import { STATIONS, setXp, type SetState, type StationId } from './workout'
+import { WorkoutPanel } from './ui/WorkoutPanel'
 import { Showroom } from './scenes/Showroom'
 import { World, type Interactable } from './scenes/World'
 import { ChadPress } from './ui/ChadPress'
@@ -46,6 +48,7 @@ export function GameApp() {
   const [toasts, setToasts] = useState<Toast[]>([])
   const [portal, setPortal] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
+  const [gymMode, setGymMode] = useState<GymMode>('free')
   const [error, setError] = useState('')
   const [touch] = useState(() => window.matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window)
 
@@ -139,6 +142,7 @@ export function GameApp() {
 
   /* ── world interactions ── */
   const handleInteractRef = useRef<(id: string) => void>(() => {})
+  const handleGymRef = useRef<(id: string) => void>(() => {})
 
   /* ── scene transitions ── */
   const go = useCallback(async (next: 'creator' | 'world' | 'gym', opts: { spawn?: 'start' | 'gym'; label?: string } = {}) => {
@@ -163,17 +167,22 @@ export function GameApp() {
       showroom.current = null
       const w = new World(e, input.current!, { onPrompt: setPrompt, onInteract: (id) => handleInteractRef.current(id) }, saveRef.current.settings.quality)
       w.cameraSensitivity = saveRef.current.settings.cameraSensitivity
-      e.setScene(w)
+      // load + compile behind the portal overlay; the previous scene keeps rendering until the swap
       await w.populate(app, opts.spawn ?? 'start', saveRef.current.progress.discoveries)
+      await e.precompile(w)
+      e.setScene(w)
       if (saveRef.current.progress.discoveries.includes('stash')) w.revealStash()
       world.current = w
       audio.setAmbience('square')
     } else if (next === 'gym' && app) {
       showroom.current = null
-      const g = new Gym(e)
-      e.setScene(g)
+      const g = new Gym(e, input.current, { onPrompt: setPrompt, onInteract: (id) => handleGymRef.current(id) })
+      g.cameraSensitivity = saveRef.current.settings.cameraSensitivity
       await g.populate(app)
+      await e.precompile(g)
+      e.setScene(g)
       gym.current = g
+      setGymMode('free')
       audio.setAmbience('gym')
     }
     setPhase(next)
@@ -240,6 +249,23 @@ export function GameApp() {
     }
   }
 
+  /* ── gym floor: stations + the door back out ── */
+  handleGymRef.current = (id: string) => {
+    const g = gym.current
+    if (!g) return
+    if (id === 'exit') return void go('world', { spawn: 'gym', label: 'Back to Chad Square' })
+    if (id === 'press' || id in STATIONS) {
+      input.current?.clear()
+      g.startStation(id as 'press' | StationId)
+      setGymMode(id as GymMode)
+    }
+  }
+  const leaveStation = useCallback(() => {
+    gym.current?.stopStation()
+    input.current?.clear()
+    setGymMode('free')
+  }, [])
+
   const closeDialogue = (action: DialogueOption['action']) => {
     setDialogue(null)
     world.current?.cooldown()
@@ -250,6 +276,7 @@ export function GameApp() {
   useEffect(() => {
     const blocked = !!overlay || !!dialogue || !!portal
     if (world.current) world.current.paused = blocked
+    if (gym.current) gym.current.paused = blocked
     if (input.current) {
       input.current.enabled = !blocked
       if (blocked) input.current.clear()
@@ -259,11 +286,11 @@ export function GameApp() {
   /* ── keyboard: Esc opens pause in the world ── */
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && phase === 'world' && !overlay && !dialogue && !portal) setOverlay('pause')
+      if (e.key === 'Escape' && (phase === 'world' || (phase === 'gym' && gymMode === 'free')) && !overlay && !dialogue && !portal) setOverlay('pause')
     }
     window.addEventListener('keydown', k)
     return () => window.removeEventListener('keydown', k)
-  }, [phase, overlay, dialogue, portal])
+  }, [phase, overlay, dialogue, portal, gymMode])
 
   /* ── settings ── */
   const changeSettings = (patch: Partial<Settings>) => {
@@ -274,6 +301,7 @@ export function GameApp() {
     audio.configure(next)
     if (next.quality !== prev.quality || next.reducedEffects !== prev.reducedEffects) engine.current?.setQuality(next.quality, next.reducedEffects)
     if (world.current) world.current.cameraSensitivity = next.cameraSensitivity
+    if (gym.current) gym.current.cameraSensitivity = next.cameraSensitivity
   }
 
   const enterFromTitle = (sound: boolean) => {
@@ -301,6 +329,21 @@ export function GameApp() {
     return xp
   }
 
+  const finishSet = useCallback(
+    (station: StationId, set: SetState) => {
+      const xp = setXp(set, STATIONS[station])
+      setSave((s) => ({
+        ...s,
+        progress: { ...s.progress, xp: s.progress.xp + xp, strength: s.progress.strength + set.strength, reps: { ...s.progress.reps, [station]: (s.progress.reps[station] ?? 0) + set.reps } },
+      }))
+      const reps = saveRef.current.progress.reps
+      if ((Object.keys(STATIONS) as StationId[]).every((k) => (reps[k] ?? 0) >= STATIONS[k].reps)) unlock('full_circuit')
+      if (Object.values(reps).reduce((a, b) => a + b, 0) >= 100) unlock('century')
+      return xp
+    },
+    [setSave, unlock],
+  )
+
   const resetProgress = () => {
     const fresh = { ...defaultSave(), settings: saveRef.current.settings }
     setSave(() => fresh)
@@ -327,6 +370,8 @@ export function GameApp() {
       integrity: () => world.current?.integrity() ?? null,
       playerInspect: () => (world.current?.player as unknown as { inspect?: () => unknown } | null)?.inspect?.() ?? null,
       gymInspect: () => (gym.current?.player as unknown as { inspect?: () => unknown } | null)?.inspect?.() ?? null,
+      gym: () => (gym.current ? { mode: gym.current.mode, prompt: gym.current.interactables.length } : null),
+      gymGoto: (id: string) => gym.current?.goto(id),
       character: () => (world.current?.player ?? null)?.kind ?? null,
       showroom: () => showroom.current,
     }
@@ -359,8 +404,29 @@ export function GameApp() {
               </>
             )}
 
-            {phase === 'gym' && gym.current && (
-              <ChadPress gym={gym.current} best={save.progress.gymBest} onFinish={finishRun} onExit={() => void go('world', { spawn: 'gym', label: 'Back to Chad Square' })} />
+            {phase === 'gym' && gym.current && gymMode === 'free' && (
+              <>
+                {touch && !overlay && input.current && <Joystick input={input.current} sensitivity={s.stickSensitivity} />}
+                <Hud
+                  save={save}
+                  prompt={overlay ? null : prompt}
+                  touch={touch}
+                  onPause={() => setOverlay('pause')}
+                  onToggleSound={() => changeSettings({ muted: !s.muted })}
+                  onAction={() => input.current?.queueAction()}
+                />
+              </>
+            )}
+            {phase === 'gym' && gym.current && gymMode === 'press' && <ChadPress gym={gym.current} best={save.progress.gymBest} onFinish={finishRun} onExit={leaveStation} />}
+            {phase === 'gym' && gym.current && gymMode !== 'free' && gymMode !== 'press' && (
+              <WorkoutPanel
+                key={gymMode}
+                gym={gym.current}
+                spec={STATIONS[gymMode]}
+                lifetimeReps={save.progress.reps[gymMode] ?? 0}
+                onSetDone={(set) => finishSet(gymMode, set)}
+                onStop={leaveStation}
+              />
             )}
 
             <Toasts toasts={toasts} />

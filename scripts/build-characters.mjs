@@ -10,7 +10,10 @@ import { mkdirSync, statSync, writeFileSync } from 'node:fs'
 import obj2gltf from 'obj2gltf'
 import { join } from 'node:path'
 
-const RAW = process.argv[2] || '../pumpchad-assets/raw'
+const RAW = process.argv.slice(2).find((a) => !a.startsWith('--')) || '../pumpchad-assets/raw'
+// --only=anims rebuilds just the animation packs (leaves the approved body / outfit / skull files untouched)
+const ONLY = process.argv.find((a) => a.startsWith('--only='))?.slice(7) ?? null
+const want = (part) => !ONLY || ONLY === part
 const OUT = 'public/chadverse/models'
 mkdirSync(OUT, { recursive: true })
 await MeshoptEncoder.ready
@@ -18,7 +21,7 @@ const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies(
 const kb = (p) => `${(statSync(p).size / 1024).toFixed(0)} KB`
 
 /* ── body: Superhero Male, human face meshes removed (the pumpkin head replaces them) ── */
-{
+if (want('body')) {
   const src = join(RAW, 'Universal Base Characters[Standard]/Base Characters/Godot - UE/Superhero_Male_FullBody.gltf')
   const doc = await io.read(src)
   const root = doc.getRoot()
@@ -47,10 +50,16 @@ const kb = (p) => `${(statSync(p).size / 1024).toFixed(0)} KB`
 }
 
 /* ── animations: library clips only (no mannequin mesh), resampled ── */
-{
-  // only what the game uses today; add clip names here when a mini-game needs them
-  const KEEP = new Set(['Idle_Loop', 'Walk_Loop', 'Jog_Fwd_Loop', 'Sprint_Loop', 'Dance_Loop', 'Interact', 'Idle_Talking_Loop'])
-  const src = join(RAW, 'Universal Animation Library[Standard]/Unreal-Godot/UAL1_Standard.glb')
+// only what the game uses; add clip names here when a feature needs them. Both libraries share the 65-bone rig.
+const PACKS = [
+  ['Universal Animation Library[Standard]/Unreal-Godot/UAL1_Standard.glb', 'chad_anims.glb',
+    ['Idle_Loop', 'Walk_Loop', 'Jog_Fwd_Loop', 'Sprint_Loop', 'Dance_Loop', 'Interact', 'Idle_Talking_Loop', 'Jump_Start', 'Jump_Loop', 'Jump_Land', 'Punch_Jab', 'Punch_Cross']],
+  ['ual2/Universal Animation Library 2[Standard]/Unreal-Godot/UAL2_Standard.glb', 'chad_anims2.glb',
+    ['Melee_Hook', 'Yes', 'Idle_FoldArms_Loop', 'OverhandThrow', 'ClimbUp_1m', 'Slide_Start', 'Slide_Loop', 'Slide_Exit']],
+]
+if (want('anims')) for (const [file, outName, keep] of PACKS) {
+  const KEEP = new Set(keep)
+  const src = join(RAW, file)
   const doc = await io.read(src)
   const root = doc.getRoot()
   const killSampler = (smp) => {
@@ -86,13 +95,13 @@ const kb = (p) => `${(statSync(p).size / 1024).toFixed(0)} KB`
     }
   await MeshoptEncoder.ready
   await doc.transform(resample({ tolerance: 1e-3 }), prune({ keepLeaves: true }), dedup(), meshopt({ encoder: MeshoptEncoder, level: 'medium' }))
-  const out = join(OUT, 'chad_anims.glb')
+  const out = join(OUT, outName)
   await io.write(out, doc)
   console.log('anims →', out, kb(out), root.listAnimations().map((a) => a.getName()))
 }
 
 /* ── Ranger outfit (Quaternius Modular Character Outfits – Fantasy, CC0): rigged to the same 65-bone skeleton ── */
-{
+if (want('ranger')) {
   const src = join(RAW, 'Modular Character Outfits - Fantasy[Standard]/Exports/glTF (Godot-Unreal)/Outfits/Male_Ranger.gltf')
   const doc = await io.read(src)
   const root = doc.getRoot()
@@ -108,7 +117,7 @@ const kb = (p) => `${(statSync(p).size / 1024).toFixed(0)} KB`
 }
 
 /* ── Skull (OpenGameArt "Human Skull" by CDmir, CC0) ── */
-{
+if (want('skull')) {
   const src = join(RAW, 'skull/skull-obj/skull-Low4K.obj')
   const glb = await obj2gltf(src, { binary: true })
   const tmp = join(OUT, '_skull_tmp.glb')

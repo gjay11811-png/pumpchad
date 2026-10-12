@@ -31,18 +31,25 @@ function file(name: string) {
 }
 /** Loads only what a species needs (Pumpkin never downloads the Ranger outfit or skull). */
 export async function loadChadAssets(species: Appearance['species'] = 'pumpkin'): Promise<ChadAssets> {
-  const [body, anims, ranger, skull] = await Promise.all([
+  const [body, anims, anims2, ranger, skull] = await Promise.all([
     file('chad_body.glb'),
     file('chad_anims.glb'),
+    file('chad_anims2.glb'),
     species === 'pumpkin' ? null : file('chad_ranger.glb'),
     species === 'skeleton' ? file('chad_skull.glb') : null,
   ])
-  return { body: body.scene, clips: new Map(anims.animations.map((c) => [c.name, c])), ranger: ranger?.scene, skull: skull?.scene }
+  return { body: body.scene, clips: new Map([...anims.animations, ...anims2.animations].map((c) => [c.name, c])), ranger: ranger?.scene, skull: skull?.scene }
 }
 
 /* Clip names in the library, and the speed (m/s) each locomotion clip was authored at,
    so playback rate can match ground speed (no foot sliding). */
-const CLIPS = { idle: 'Idle_Loop', walk: 'Walk_Loop', jog: 'Jog_Fwd_Loop', sprint: 'Sprint_Loop', dance: 'Dance_Loop', interact: 'Interact', talk: 'Idle_Talking_Loop' }
+const CLIPS = {
+  idle: 'Idle_Loop', walk: 'Walk_Loop', jog: 'Jog_Fwd_Loop', sprint: 'Sprint_Loop', dance: 'Dance_Loop', interact: 'Interact', talk: 'Idle_Talking_Loop',
+  jumpStart: 'Jump_Start', jumpLoop: 'Jump_Loop', jumpLand: 'Jump_Land', jab: 'Punch_Jab', cross: 'Punch_Cross', hook: 'Melee_Hook',
+  yes: 'Yes', folded: 'Idle_FoldArms_Loop', throw: 'OverhandThrow', climb: 'ClimbUp_1m', slideStart: 'Slide_Start', slide: 'Slide_Loop', slideExit: 'Slide_Exit',
+}
+/** clips that play once and hand back to the pose-driven base clip */
+export type OneShot = 'jab' | 'cross' | 'hook' | 'yes' | 'throw' | 'climb' | 'jumpStart' | 'jumpLand' | 'interact'
 /* Measured with scripts/sweep-stride.mjs: zero-slip speeds are walk 0.91, jog 6.2, sprint 9.4 m/s.
    Jog/sprint are set slightly lower (≈8% slip) for a livelier cadence at game speeds. */
 const CLIP_SPEED = { walk: 0.91, jog: 5.8, sprint: 8.8 }
@@ -208,7 +215,11 @@ export class PumpkinChad implements Character {
   private actions = new Map<string, THREE.AnimationAction>()
   private current: THREE.AnimationAction | null = null
   private bones = new Map<string, THREE.Bone>()
-  private layer = { flex: 0, press: 0, wave: 0 }
+  private layer = { flex: 0, press: 0, wave: 0, bench: 0, squat: 0, curl: 0, guard: 0 }
+  private model!: THREE.Group
+  /** model offset set by the species build (soles / boots on the ground) — posture changes are added on top */
+  private modelBase = new THREE.Vector3()
+  private oneShot: { act: THREE.AnimationAction; end: number } | null = null
   private t = 0
   private lastPhase = 0
   private disposables: (THREE.Material | THREE.BufferGeometry | THREE.Texture)[] = []
@@ -229,6 +240,7 @@ export class PumpkinChad implements Character {
     const source = a.species === 'skeleton' ? src.ranger : src.body
     if (!source) throw new Error(`assets for ${a.species} not loaded`)
     const model = SkeletonUtils.clone(source) as THREE.Group
+    this.model = model
     this.root.add(model)
     const meshes: THREE.SkinnedMesh[] = []
     model.traverse((o) => {
@@ -250,6 +262,7 @@ export class PumpkinChad implements Character {
     else if (a.species === 'demon') this.buildDemon(model, meshes, a, src)
     else this.buildSkeleton(model, meshes, a, src)
 
+    this.modelBase.copy(model.position)
     this.fistL = this.bone('hand_l')
     this.fistR = this.bone('hand_r')
     const box = new THREE.Box3().setFromObject(this.headObj ?? model)
@@ -575,11 +588,34 @@ export class PumpkinChad implements Character {
   }
 
   private play(name: string, fade = 0.25) {
+    if (this.oneShot) return // a one-shot clip owns the body until it finishes
     const next = this.actions.get(name) ?? this.actions.get('idle')!
     if (next === this.current) return
     next.reset().setEffectiveWeight(1).fadeIn(fade).play()
     this.current?.fadeOut(fade)
     this.current = next
+  }
+
+  /** Play a library clip once (punch, celebrate, throw...), then blend back to the pose-driven clip. Returns its length (s). */
+  playOnce(name: OneShot, fade = 0.12) {
+    const act = this.actions.get(name)
+    if (!act) return 0
+    act.reset().setLoop(THREE.LoopOnce, 1)
+    act.clampWhenFinished = true
+    act.setEffectiveTimeScale(1).setEffectiveWeight(1).fadeIn(fade).play()
+    if (this.current && this.current !== act) this.current.fadeOut(fade)
+    this.current = act
+    const dur = act.getClip().duration
+    this.oneShot = { act, end: this.t + dur - fade }
+    return dur
+  }
+
+  /** End any one-shot clip early and blend back to the pose-driven clip (e.g. leaving a station mid-celebration). */
+  cancelOneShot(fade = 0.2) {
+    if (!this.oneShot) return
+    this.oneShot.act.fadeOut(fade)
+    this.oneShot = null
+    this.current = null
   }
 
   /* ── procedural pose layers on the real skeleton (no flex/press clips exist in the library) ── */
@@ -621,6 +657,83 @@ export class PumpkinChad implements Character {
       }
     }
     if (wave > 0.001) arm('r', new THREE.Vector3(-L * 0.55, 0.85, 0.15), new THREE.Vector3(-L * (0.25 + Math.sin(this.t * 9) * 0.45), 1, 0.1), wave)
+
+    const { bench, squat, curl, guard } = this.layer
+    const e = this.pressAmount // rep phase: 0 = start of the movement, 1 = top (curl / bench) or bottom (squat)
+    const mix = (a: THREE.Vector3, b: THREE.Vector3, t: number) => a.clone().lerp(b, t)
+    // dumbbell curl: elbows pinned at the sides, forearms swing up
+    if (curl > 0.001)
+      for (const side of ['l', 'r'] as const) {
+        const s = side === 'l' ? L : -L
+        arm(side, new THREE.Vector3(s * 0.14, -1, 0.1 + e * 0.12), mix(new THREE.Vector3(s * 0.08, -1, 0.22), new THREE.Vector3(s * 0.12, 0.82, 0.55), e), curl)
+      }
+    // boxing guard (the real punch clips play over it)
+    const g = guard * (this.oneShot ? 0.15 : 1)
+    if (g > 0.001)
+      for (const side of ['l', 'r'] as const) {
+        const s = side === 'l' ? L : -L
+        arm(side, new THREE.Vector3(s * 0.42, -0.55, 0.6), new THREE.Vector3(-s * 0.18, 0.85, 0.45), g)
+      }
+    // back squat: bar across the shoulders, hips sink, feet stay planted (two-bone IK)
+    if (squat > 0.001) {
+      for (const side of ['l', 'r'] as const) {
+        const s = side === 'l' ? L : -L
+        arm(side, new THREE.Vector3(s * 0.95, 0.12, -0.3), new THREE.Vector3(-s * 0.25, 0.75, -0.6), squat)
+      }
+      this.squatLegs(e * squat)
+    }
+    // bench press: lying on the bench (model pitched onto its back), feet on the floor, bar from chest to lockout
+    if (bench > 0.001)
+      for (const side of ['l', 'r'] as const) {
+        const s = side === 'l' ? L : -L
+        arm(side, mix(new THREE.Vector3(s * 0.85, -0.35, 0.05), new THREE.Vector3(s * 0.22, 1, 0.02), e), mix(new THREE.Vector3(s * 0.05, 1, 0), new THREE.Vector3(s * 0.08, 1, 0), e), bench)
+        this.aim(this.bone(`thigh_${side}`), this.bone(`calf_${side}`), new THREE.Vector3(s * 0.35, -0.62, 0.7), bench)
+        this.aim(this.bone(`calf_${side}`), this.bone(`foot_${side}`), new THREE.Vector3(s * 0.1, -1, 0.08), bench)
+      }
+  }
+
+  private ik = { hip: new THREE.Vector3(), knee: new THREE.Vector3(), ankle: new THREE.Vector3(), d: new THREE.Vector3(), bend: new THREE.Vector3() }
+  /** Squat: drop the pelvis, lean the torso, then re-solve each leg so the ankles stay where the idle pose planted them. */
+  private squatLegs(depth: number) {
+    if (depth < 0.001) return
+    const P = this.ik
+    const rq = this.root.getWorldQuaternion(new THREE.Quaternion())
+    const inv = rq.clone().invert()
+    const ankles = (['l', 'r'] as const).map((s) => this.bone(`foot_${s}`).getWorldPosition(new THREE.Vector3()))
+    const pelvis = this.bone('pelvis')
+    const pw = pelvis.getWorldPosition(new THREE.Vector3())
+    pw.y -= depth * 0.42
+    pw.addScaledVector(new THREE.Vector3(0, 0, -1).applyQuaternion(rq), depth * 0.12) // hips travel back
+    pelvis.position.copy(pelvis.parent!.worldToLocal(pw))
+    pelvis.updateWorldMatrix(false, true)
+    // torso leans forward to stay balanced over mid-foot
+    const sp = this.bone('spine_01')
+    sp.rotateX(depth * 0.5)
+    sp.updateWorldMatrix(false, true)
+    const fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(rq)
+    ;(['l', 'r'] as const).forEach((side, i) => {
+      const thigh = this.bone(`thigh_${side}`)
+      const calf = this.bone(`calf_${side}`)
+      const foot = this.bone(`foot_${side}`)
+      thigh.getWorldPosition(P.hip)
+      calf.getWorldPosition(P.knee)
+      foot.getWorldPosition(P.ankle)
+      const l1 = P.hip.distanceTo(P.knee)
+      const l2 = P.knee.distanceTo(P.ankle)
+      const target = ankles[i]
+      P.d.subVectors(target, P.hip)
+      const dist = THREE.MathUtils.clamp(P.d.length(), Math.abs(l1 - l2) + 1e-3, l1 + l2 - 1e-3)
+      P.d.normalize()
+      const a = Math.acos(THREE.MathUtils.clamp((l1 * l1 + dist * dist - l2 * l2) / (2 * l1 * dist), -1, 1))
+      // knees track forward and slightly out over the toes
+      const out = new THREE.Vector3(1, 0, 0).applyQuaternion(rq).multiplyScalar((side === 'l' ? this.leftSign : -this.leftSign) * 0.35)
+      P.bend.copy(fwd).add(out)
+      P.bend.addScaledVector(P.d, -P.bend.dot(P.d)).normalize()
+      const knee = P.hip.clone().addScaledVector(P.d, Math.cos(a) * l1).addScaledVector(P.bend, Math.sin(a) * l1)
+      this.aim(thigh, calf, knee.sub(P.hip).applyQuaternion(inv), 1)
+      calf.getWorldPosition(P.knee)
+      this.aim(calf, foot, target.clone().sub(P.knee).applyQuaternion(inv), 1)
+    })
   }
 
   update(dt: number) {
@@ -629,6 +742,16 @@ export class PumpkinChad implements Character {
     this.layer.flex += ((this.pose === 'flex' ? 1 : 0) - this.layer.flex) * k
     this.layer.press += ((this.pose === 'press' ? 1 : 0) - this.layer.press) * k
     this.layer.wave += ((this.pose === 'wave' ? 1 : 0) - this.layer.wave) * k
+    for (const key of ['bench', 'squat', 'curl', 'guard'] as const) this.layer[key] += ((this.pose === key ? 1 : 0) - this.layer[key]) * k
+    // lying down for the bench: pitch the whole model onto its back (head toward -Z), raised onto the pad
+    const lie = this.layer.bench
+    this.model.rotation.x = (-Math.PI / 2) * lie
+    this.model.position.set(this.modelBase.x, this.modelBase.y + 0.7 * lie, this.modelBase.z + 0.95 * lie) // back on the pad, head under the J-hooks, hips mid-bench
+    if (this.oneShot && this.t >= this.oneShot.end) {
+      this.oneShot.act.fadeOut(0.2)
+      this.oneShot = null
+      this.current = null // let the base clip fade back in
+    }
 
     // base clip from pose + ground speed (speed is in units of WALK = 3.4 m/s)
     const ms = this.speed * 3.4
