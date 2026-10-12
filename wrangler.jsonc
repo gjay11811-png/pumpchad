@@ -1,0 +1,8 @@
+{
+  // Cloudflare Workers/Pages static hosting for the pre-launch landing page.
+  // Build: `npm run build` (writes ./dist) — deploy: `npx wrangler deploy`.
+  // `name` must match the project name chosen in the Cloudflare dashboard.
+  "name": "pumpchad",
+  "compatibility_date": "2026-10-01",
+  "assets": { "directory": "./dist" }
+}
