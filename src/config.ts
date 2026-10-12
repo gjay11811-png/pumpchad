@@ -40,15 +40,70 @@ export const site = {
 export const social = {
   telegramHandle: 'PumpchadPCHAD',
   telegramUrl: 'https://t.me/PumpchadPCHAD',
-  /** TODO: replace with the official X profile URL. Do not guess the handle. */
+  /**
+   * TODO: set the official X handle (without @), e.g. 'PumpchadPCHAD'. Do not guess it.
+   * While this is empty, every "Follow on X" button shows "X — coming soon" instead of a dead link.
+   */
   xHandle: '',
-  xUrl: 'https://x.com/',
+}
+export const xUrl = social.xHandle ? `https://x.com/${social.xHandle}` : ''
+
+/**
+ * ─── LAUNCH ───
+ * Official date: 31 October 2026 (Halloween).
+ * Provisional time: midnight UK time on 31 October, pending final confirmation.
+ * UK clocks go back on 25 October 2026, so midnight UK on the 31st is 00:00 GMT (UTC+0).
+ * To change the time, edit `target` — keep the explicit offset so every visitor's timer agrees.
+ */
+export const launch = {
+  target: '2026-10-31T00:00:00+00:00',
+  dateLabel: 'October 31',
+  countdownTitle: 'The Chad era begins in…',
+  countdownTagline: 'October 31 — the Chads are coming.',
+  doneTitle: 'The Chad era has begun.',
+  headline: ['The Chad era', 'is coming.'],
+  subheading: 'More than a meme. More than a community. A whole new world is coming.',
+}
+
+/**
+ * Development progress — flip `state` as things finish ('done' | 'building' | 'date').
+ * Keep it honest: only mark something done when it actually is.
+ */
+export const milestones: { label: string; state: 'done' | 'building' | 'date'; note: string }[] = [
+  { label: 'PumpChad characters', state: 'done', note: 'Complete' },
+  { label: 'Chadverse world', state: 'building', note: 'In development' },
+  { label: 'Interactive gym', state: 'building', note: 'In development' },
+  { label: 'Mini-games', state: 'building', note: 'In development' },
+  { label: 'Public launch', state: 'date', note: '31 October 2026' },
+]
+
+/** Chadverse 3D teaser — real screenshots from the in-development game (static images; the game itself is not on this site). */
+export const chadverse3d = {
+  characters: [
+    { name: 'Pumpkin Chad', src: asset('/art/chadverse-3d/char-pumpkin.webp'), alt: 'Pumpkin Chad flexing on the character-creator stage of the in-development Chadverse' },
+    { name: 'Skeleton Chad', src: asset('/art/chadverse-3d/char-skeleton.webp'), alt: 'Hooded Skeleton Chad flexing on the character-creator stage' },
+    { name: 'Demon Chad', src: asset('/art/chadverse-3d/char-demon.webp'), alt: 'Horned Demon Chad flexing on the character-creator stage' },
+  ],
+  world: { src: asset('/art/chadverse-3d/chad-square.webp'), alt: 'Chad Square at night: the Pump Fountain, lanterns and pumpkin-headed chads, from the in-development Chadverse' },
+  gym: [
+    { label: 'Bench press', src: asset('/art/chadverse-3d/gym-bench.webp'), alt: 'Pumpkin Chad on the bench press in the Chad Gym' },
+    { label: 'Back squat', src: asset('/art/chadverse-3d/gym-squat.webp'), alt: 'Pumpkin Chad squatting in the Chad Gym rack' },
+    { label: 'Heavy bag', src: asset('/art/chadverse-3d/gym-bag.webp'), alt: 'Pumpkin Chad punching the heavy bag in the Chad Gym' },
+  ],
+  features: [
+    { title: 'Customisable 3D characters', text: 'Pumpkin, Skeleton and Demon Chads — skins, gear, glow and attitude.' },
+    { title: 'Interactive gym', text: 'Bench, squat, curls and the heavy bag. Reps on the beat build strength.' },
+    { title: 'Explorable environments', text: 'Chad Square, its residents, secrets and hidden golden seeds.' },
+    { title: 'Mini-games & challenges', text: 'Timing challenges now; more activities on the way.' },
+    { title: 'Community activities', text: 'Planned for the future — built with the community.' },
+  ],
 }
 
 /** Launch status board. Flip states here as things go live. */
 export const launchStatus: { label: string; state: LaunchState; text: string }[] = [
   { label: 'Website', state: 'live', text: 'LIVE' },
   { label: 'X', state: 'live', text: 'LIVE' },
+  { label: 'Launch date', state: 'soon', text: '31 OCT 2026' },
   { label: 'Telegram', state: 'live', text: 'LIVE' },
   { label: 'Token', state: 'soon', text: 'COMING SOON' },
   { label: 'Contract', state: 'not-live', text: 'NOT LIVE' },
@@ -153,6 +208,8 @@ export const chadverse: Artwork[] = [
 
 export const faq: { q: string; a: string }[] = [
   { q: 'What is Pumpchad?', a: 'Pumpchad is a Solana meme coin built around the Pumpchad character, memes and community.' },
+  { q: 'When does Pumpchad launch?', a: 'The official launch date is 31 October 2026 (Halloween). The countdown on this page shows the time remaining; the exact time will be confirmed on our official channels.' },
+  { q: 'What is the Chadverse?', a: 'An interactive 3D world we are building for the community: customisable characters, a gym, places to explore and mini-games. It is in development and not open to the public yet.' },
   { q: 'What is the ticker?', a: '$PCHAD.' },
   { q: 'What is the total supply?', a: '1,000,000,000 $PCHAD.' },
   { q: 'Is there a buy or sell tax?', a: 'The planned structure is 0% tax.' },
@@ -185,9 +242,9 @@ export const tickerPhrases = [
 
 export const nav = [
   { label: 'About', href: '#about' },
+  { label: 'Chadverse 3D', href: '#chadverse-3d' },
+  { label: 'Progress', href: '#progress' },
   { label: 'Tokenomics', href: '#tokenomics' },
-  { label: 'How to Buy', href: '#how-to-buy' },
-  { label: 'Chadverse', href: '#chadverse' },
   { label: 'FAQ', href: '#faq' },
 ]
 

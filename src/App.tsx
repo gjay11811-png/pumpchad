@@ -1,6 +1,8 @@
 import { LazyMotion, MotionConfig, domAnimation } from 'framer-motion'
 import { About } from './components/About'
 import { Chadverse } from './components/Chadverse'
+import { ChadverseTeaser } from './components/ChadverseTeaser'
+import { Progress } from './components/Progress'
 import { Commandments } from './components/Commandments'
 import { Community } from './components/Community'
 import { Cursor } from './components/Cursor'
@@ -28,13 +30,15 @@ export default function App() {
             <MoodStrip />
             <Ticker />
             <About />
+            <ChadverseTeaser />
+            <Progress />
+            <Community />
             <Diagnostics />
             <Commandments />
             <Tokenomics />
             <HowToBuy />
             <Lore />
             <Chadverse />
-            <Community />
             <Faq />
           </main>
           <Footer />

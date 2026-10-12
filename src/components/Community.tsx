@@ -1,8 +1,47 @@
 import { m, useReducedMotion, useScroll, useTransform } from 'framer-motion'
-import { ArrowUpRight } from 'lucide-react'
-import { useRef } from 'react'
-import { art, social } from '../config'
+import { ArrowUpRight, Check, Share2 } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { art, launch, site, social, xUrl } from '../config'
 import { TelegramIcon, XIcon } from './ui'
+
+const SHARE_TEXT = `PumpChad ($PCHAD) — ${launch.countdownTagline}`
+/** the address people are actually on (site.url is still a placeholder domain) */
+const pageUrl = () => (typeof window === 'undefined' ? '' : window.location.origin + window.location.pathname)
+
+/** Native share sheet on phones; copy-the-link fallback everywhere else. */
+function ShareButton() {
+  const [copied, setCopied] = useState(false)
+  const share = async () => {
+    const url = pageUrl()
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: site.projectName, text: SHARE_TEXT, url })
+        return
+      } catch {
+        // cancelled — fall through to copy only if sharing isn't available
+        return
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(url)
+    } catch {
+      const t = document.createElement('textarea')
+      t.value = url
+      document.body.appendChild(t)
+      t.select()
+      document.execCommand('copy')
+      t.remove()
+    }
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2200)
+  }
+  return (
+    <button type="button" onClick={share} className="group inline-flex min-h-13 items-center justify-center gap-3 rounded-full border-2 border-ink px-6 font-semibold uppercase tracking-[0.08em] text-ink transition-colors hover:bg-ink hover:text-pump active:scale-[0.97]" data-testid="share-button">
+      {copied ? <Check className="h-5 w-5" /> : <Share2 className="h-5 w-5 transition-transform group-hover:-rotate-12" />}
+      <span aria-live="polite">{copied ? 'Link copied' : 'Share PumpChad'}</span>
+    </button>
+  )
+}
 
 export function Community() {
   const ref = useRef<HTMLElement>(null)
@@ -25,19 +64,42 @@ export function Community() {
             <span className="h-px w-8 bg-current opacity-50" />
             Community
           </p>
-          <h2 id="zone-title" className="mt-6 font-display text-[clamp(3.5rem,16vw,10.5rem)] uppercase leading-[0.88]">
-            Enter the
+          <h2 id="zone-title" className="mt-6 font-display text-[clamp(3rem,13vw,8.5rem)] uppercase leading-[0.88]">
+            The strongest
             <br />
-            Chad zone
+            Chads build
+            <br />
+            together.
           </h2>
-          <div className="mt-8 space-y-1 font-display text-[clamp(1.6rem,6vw,2.75rem)] uppercase leading-[1.05]">
-            <p>The memes start on X.</p>
-            <p className="text-ink/60">The chaos happens on Telegram.</p>
+          <div className="mt-8 space-y-1 font-display text-[clamp(1.4rem,5.5vw,2.4rem)] uppercase leading-[1.05]">
+            <p>Get in before {launch.dateLabel}.</p>
+            <p className="text-ink/60">Launch news, sneak peeks and the memes land here first.</p>
           </div>
 
           <div className="mt-10 grid gap-3 sm:grid-cols-2 sm:gap-4 lg:max-w-2xl">
             <ZoneButton href={social.telegramUrl} icon={<TelegramIcon className="h-6 w-6" />} title="Join Telegram" sub={`t.me/${social.telegramHandle}`} />
-            <ZoneButton href={social.xUrl} icon={<XIcon className="h-5 w-5" />} title="Follow on X" sub={social.xHandle ? `@${social.xHandle}` : 'Official X account'} />
+            {xUrl ? (
+              <ZoneButton href={xUrl} icon={<XIcon className="h-5 w-5" />} title="Follow on X" sub={`@${social.xHandle}`} />
+            ) : (
+              <div className="flex items-center gap-4 rounded-2xl border-2 border-dashed border-ink/25 px-5 py-5 md:px-6 md:py-6">
+                <span className="flex h-12 w-12 items-center justify-center rounded-full bg-ink/10">
+                  <XIcon className="h-5 w-5" />
+                </span>
+                <span>
+                  <span className="block font-display text-2xl uppercase leading-none tracking-wide">X — coming soon</span>
+                  <span className="mt-1 block font-mono text-[11px] tracking-[0.12em] text-ink/60">Official account link drops here</span>
+                </span>
+              </div>
+            )}
+          </div>
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            <ShareButton />
+            <a href={`https://t.me/share/url?url=${encodeURIComponent(pageUrl())}&text=${encodeURIComponent(SHARE_TEXT)}`} target="_blank" rel="noopener noreferrer" className="font-mono text-[12px] uppercase tracking-[0.16em] underline decoration-ink/30 underline-offset-4 hover:decoration-ink">
+              Share on Telegram
+            </a>
+            <a href={`https://x.com/intent/post?text=${encodeURIComponent(SHARE_TEXT)}&url=${encodeURIComponent(pageUrl())}`} target="_blank" rel="noopener noreferrer" className="font-mono text-[12px] uppercase tracking-[0.16em] underline decoration-ink/30 underline-offset-4 hover:decoration-ink">
+              Post on X
+            </a>
           </div>
         </div>
 

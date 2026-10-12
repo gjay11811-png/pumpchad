@@ -1,7 +1,14 @@
 import { m, useReducedMotion, useScroll, useTransform } from 'framer-motion'
 import { useRef } from 'react'
-import { art, site, social } from '../config'
+import { art, launch, site, social, xUrl } from '../config'
+import { Countdown } from './Countdown'
 import { ArtSlot, Cta, TelegramIcon, XIcon, ease } from './ui'
+
+/** a few drifting embers — fixed positions so the layout never shifts */
+const EMBERS = [
+  [6, 11, 0, 30], [14, 9, 2.5, -20], [23, 13, 5, 40], [31, 10, 1.2, -35], [42, 12, 3.6, 25], [51, 8.5, 6.4, -15],
+  [60, 11, 0.8, 30], [68, 9.5, 4.2, -40], [77, 12.5, 2, 20], [86, 10, 5.6, -25], [93, 9, 3, 35],
+]
 
 const WORD = 'PUMPCHAD'.split('')
 
@@ -22,6 +29,23 @@ export function Hero() {
         <div className="glow-breathe absolute left-1/2 top-[8%] h-[70vw] w-[70vw] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(255,122,26,0.32),rgba(255,122,26,0.06)_45%,transparent_70%)] lg:left-[68%] lg:top-[2%] lg:h-[62vw] lg:w-[62vw]" />
         <div className="absolute -bottom-40 -left-40 h-[32rem] w-[32rem] rounded-full bg-sol-purple/[0.08] blur-[120px]" />
         <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-ink to-transparent" />
+        {/* Halloween: low fog, embers, two bats crossing the moon */}
+        <div className="fog absolute inset-x-[-5%] bottom-0 h-[40%]" />
+        {!reduce &&
+          EMBERS.map(([left, dur, delay, drift], i) => (
+            <span key={i} className="ember" style={{ left: `${left}%`, ['--dur' as string]: `${dur}s`, ['--delay' as string]: `${delay}s`, ['--drift' as string]: `${drift}px` }} />
+          ))}
+        {!reduce &&
+          [
+            [12, 28, 0],
+            [22, 34, 11],
+          ].map(([top, dur, delay], i) => (
+            <span key={`b${i}`} className="bat" style={{ top: `${top}%`, ['--dur' as string]: `${dur}s`, ['--delay' as string]: `${delay}s` }}>
+              <svg viewBox="0 0 64 28" fill="#07060a">
+                <path d="M32 9c2-4 4-5 6-5-1 2-1 4 0 5 4-3 10-4 16-2-4 2-6 5-6 9-3-2-6-2-9 0-1-2-3-3-7-3s-6 1-7 3c-3-2-6-2-9 0 0-4-2-7-6-9 6-2 12-1 16 2 1-1 1-3 0-5 2 0 4 1 6 5z" />
+              </svg>
+            </span>
+          ))}
       </div>
 
       <div className="relative mx-auto flex max-w-[1440px] flex-col lg:block lg:min-h-[calc(100svh-5rem)]">
@@ -47,7 +71,7 @@ export function Hero() {
         </m.div>
 
         {/* ── copy ── */}
-        <m.div style={{ opacity: copyOpacity }} className="relative z-20 order-3 px-4 pb-14 sm:px-6 lg:max-w-[min(42rem,46vw)] lg:px-10 lg:pb-0 lg:pt-[clamp(2.5rem,9vh,7rem)]">
+        <m.div style={{ opacity: copyOpacity }} className="relative z-20 order-3 px-4 pb-14 sm:px-6 lg:max-w-[min(42rem,46vw)] lg:px-10 lg:pb-[calc(min(21.8vw,22rem)*0.92)] lg:pt-[clamp(2rem,7vh,5.5rem)]">
           <m.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -58,12 +82,12 @@ export function Hero() {
             <TickerChip />
           </m.div>
 
-          <h2 className="overflow-hidden font-display text-[clamp(2.75rem,11.5vw,4.5rem)] uppercase leading-[0.92] lg:text-[clamp(3.5rem,6.2vw,6.75rem)]">
+          <h2 className="overflow-hidden font-display text-[clamp(2.75rem,11.5vw,4.5rem)] uppercase leading-[0.92] lg:text-[clamp(3.25rem,5.4vw,6rem)]">
             <m.span className="block" initial={{ y: '105%' }} animate={{ y: 0 }} transition={{ duration: 1, ease, delay: 0.35 }}>
-              Markets dump.
+              {launch.headline[0]}
             </m.span>
             <m.span className="text-molten block" initial={{ y: '105%' }} animate={{ y: 0 }} transition={{ duration: 1, ease, delay: 0.47 }}>
-              Chads pump.
+              {launch.headline[1]}
             </m.span>
           </h2>
 
@@ -71,19 +95,23 @@ export function Hero() {
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.9, ease, delay: 0.7 }}
-            className="mt-5 max-w-[30rem] text-[17px] leading-relaxed text-bone/70 md:text-lg"
+            className="mt-5 max-w-[32rem] font-serif text-[clamp(1.2rem,4.6vw,1.6rem)] italic leading-snug text-bone/80"
           >
-            {site.heroLine}
+            “{launch.subheading}”
           </m.p>
+
+          <m.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9, ease, delay: 0.85 }} className="mt-7 max-w-[34rem]">
+            <Countdown />
+          </m.div>
 
           <m.div
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.9, ease, delay: 0.85 }}
-            className="mt-8 flex flex-col gap-3 sm:flex-row"
+            transition={{ duration: 0.9, ease, delay: 1 }}
+            className="mt-6 flex flex-col gap-3 sm:flex-row"
           >
             <Cta href={social.telegramUrl} icon={<TelegramIcon className="h-5 w-5" />}>Join Telegram</Cta>
-            <Cta href={social.xUrl} variant="ghost" icon={<XIcon className="h-4 w-4" />}>Follow on X</Cta>
+            <Cta href={xUrl} soon="X — coming soon" variant="ghost" icon={<XIcon className="h-4 w-4" />}>Follow on X</Cta>
           </m.div>
 
           <m.p

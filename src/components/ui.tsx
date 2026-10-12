@@ -67,7 +67,14 @@ type CtaProps = {
   label?: string
 }
 
-export function Cta({ href, children, variant = 'pump', icon, className = '', label }: CtaProps) {
+export function Cta({ href, children, variant = 'pump', icon, className = '', label, soon }: CtaProps & { soon?: string }) {
+  if (!href)
+    return (
+      <span aria-disabled="true" className={`relative inline-flex min-h-13 cursor-default items-center justify-center gap-3 rounded-full border border-dashed border-bone/20 px-7 font-sans text-[15px] font-semibold uppercase tracking-[0.08em] text-bone/45 ${className}`}>
+        {icon && <span className="opacity-60">{icon}</span>}
+        <span>{soon ?? 'Coming soon'}</span>
+      </span>
+    )
   const external = href.startsWith('http')
   const styles = {
     pump: 'bg-pump text-ink hover:bg-ember shadow-[0_10px_40px_-10px_rgba(255,122,26,0.7)]',

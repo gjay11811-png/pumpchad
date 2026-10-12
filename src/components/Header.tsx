@@ -1,6 +1,6 @@
 import { AnimatePresence, m } from 'framer-motion'
 import { useEffect, useState } from 'react'
-import { art, nav, site, social } from '../config'
+import { art, nav, site, social, xUrl } from '../config'
 import { TelegramIcon, XIcon, ease } from './ui'
 
 export function Header() {
@@ -53,9 +53,11 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-2">
-          <SocialPill href={social.xUrl} label="Pumpchad on X">
-            <XIcon className="h-4 w-4" />
-          </SocialPill>
+          {xUrl && (
+            <SocialPill href={xUrl} label="Pumpchad on X">
+              <XIcon className="h-4 w-4" />
+            </SocialPill>
+          )}
           <SocialPill href={social.telegramUrl} label="Pumpchad on Telegram" accent>
             <TelegramIcon className="h-4 w-4" />
             <span className="hidden sm:inline">Telegram</span>
@@ -116,9 +118,11 @@ export function Header() {
                 <a href={social.telegramUrl} target="_blank" rel="noopener noreferrer" className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-full bg-pump font-semibold uppercase tracking-wider text-ink">
                   <TelegramIcon className="h-4 w-4" /> Telegram
                 </a>
-                <a href={social.xUrl} target="_blank" rel="noopener noreferrer" className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-full border border-bone/20 font-semibold uppercase tracking-wider">
-                  <XIcon className="h-4 w-4" /> Follow
-                </a>
+                {xUrl && (
+                  <a href={xUrl} target="_blank" rel="noopener noreferrer" className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-full border border-bone/20 font-semibold uppercase tracking-wider">
+                    <XIcon className="h-4 w-4" /> Follow
+                  </a>
+                )}
               </div>
             </m.div>
           </m.div>

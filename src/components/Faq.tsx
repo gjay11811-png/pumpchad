@@ -15,7 +15,7 @@ export function LaunchStatus() {
     <div className="metal overflow-hidden rounded-[24px]">
       <div className="flex items-center justify-between border-b border-bone/[0.07] px-5 py-4 sm:px-6">
         <p className="font-display text-2xl uppercase tracking-wide">Launch status</p>
-        <span className="font-mono text-[11px] uppercase tracking-[0.25em] text-ash">No countdowns</span>
+        <span className="font-mono text-[11px] uppercase tracking-[0.25em] text-ember">Launch · 31 Oct 2026</span>
       </div>
       <ul>
         {launchStatus.map((s) => {

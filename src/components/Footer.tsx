@@ -1,4 +1,4 @@
-import { art, disclaimer, nav, site, social } from '../config'
+import { art, disclaimer, nav, site, social, xUrl } from '../config'
 import { TelegramIcon, XIcon } from './ui'
 
 export function Footer() {
@@ -34,9 +34,15 @@ export function Footer() {
             <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-ash">Official links</p>
             <ul className="mt-4 space-y-2.5">
               <li>
-                <a href={social.xUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-[15px] text-bone/75 transition-colors hover:text-pump">
-                  <XIcon className="h-3.5 w-3.5" /> X
-                </a>
+                {xUrl ? (
+                  <a href={xUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-[15px] text-bone/75 transition-colors hover:text-pump">
+                    <XIcon className="h-3.5 w-3.5" /> X
+                  </a>
+                ) : (
+                  <span className="inline-flex items-center gap-2 text-[15px] text-bone/40">
+                    <XIcon className="h-3.5 w-3.5" /> X — coming soon
+                  </span>
+                )}
               </li>
               <li>
                 <a href={social.telegramUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-[15px] text-bone/75 transition-colors hover:text-pump">
