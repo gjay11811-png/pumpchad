@@ -215,7 +215,17 @@ export class PumpkinChad implements Character {
   private actions = new Map<string, THREE.AnimationAction>()
   private current: THREE.AnimationAction | null = null
   private bones = new Map<string, THREE.Bone>()
-  private layer = { flex: 0, press: 0, wave: 0, bench: 0, squat: 0, curl: 0, guard: 0 }
+  private layer = { flex: 0, press: 0, wave: 0, bench: 0, squat: 0, curl: 0, guard: 0, pushup: 0, hips: 0, point: 0 }
+  /** body lean set by the scene each frame (turning / accelerating) */
+  lean = { turn: 0, accel: 0 }
+  private leanNow = { turn: 0, accel: 0 }
+  /** personality fidgets while standing idle (off in cut-scenes / stations) */
+  fidgets = true
+  private persona!: Persona
+  private nextFidget = 6
+  private fidget: { kind: Persona['fidget']; t0: number; dur: number } | null = null
+  private air: 'ground' | 'air' = 'ground'
+  private airT = 0
   private model!: THREE.Group
   /** model offset set by the species build (soles / boots on the ground) — posture changes are added on top */
   private modelBase = new THREE.Vector3()
@@ -273,6 +283,13 @@ export class PumpkinChad implements Character {
       const clip = src.clips.get(name)
       if (clip) this.actions.set(k, this.mixer.clipAction(clip))
     }
+    const js = this.actions.get('jumpStart')
+    if (js) {
+      js.setLoop(THREE.LoopOnce, 1)
+      js.clampWhenFinished = true
+    }
+    this.persona = PERSONA[a.species] ?? PERSONA.pumpkin
+    this.nextFidget = 4 + Math.random() * 5
     this.play('idle', 0)
   }
 
@@ -597,17 +614,52 @@ export class PumpkinChad implements Character {
   }
 
   /** Play a library clip once (punch, celebrate, throw...), then blend back to the pose-driven clip. Returns its length (s). */
-  playOnce(name: OneShot, fade = 0.12) {
+  playOnce(name: OneShot, fade = 0.12, opts: { timeScale?: number; maxDur?: number } = {}) {
     const act = this.actions.get(name)
     if (!act) return 0
+    const ts = opts.timeScale ?? 1
     act.reset().setLoop(THREE.LoopOnce, 1)
     act.clampWhenFinished = true
-    act.setEffectiveTimeScale(1).setEffectiveWeight(1).fadeIn(fade).play()
+    act.setEffectiveTimeScale(ts).setEffectiveWeight(1).fadeIn(fade).play()
     if (this.current && this.current !== act) this.current.fadeOut(fade)
     this.current = act
-    const dur = act.getClip().duration
+    const dur = Math.min(act.getClip().duration / ts, opts.maxDur ?? Infinity)
     this.oneShot = { act, end: this.t + dur - fade }
+    this.fidget = null
     return dur
+  }
+
+  /** Jump: the take-off clip starts crouched and extends; the scene adds the vertical velocity ~0.07 s later. */
+  jump() {
+    if (this.air !== 'ground') return
+    this.cancelOneShot(0.08)
+    this.fidget = null
+    this.air = 'air'
+    this.airT = 0
+    const js = this.actions.get('jumpStart')
+    if (js) {
+      js.reset().setEffectiveTimeScale(0.65).setEffectiveWeight(1).fadeIn(0.06).play() // slow crouch → extension, then sped up in update
+      this.current?.fadeOut(0.06)
+      this.current = js
+    }
+  }
+
+  /** Landing: a full recovery when standing, a quick absorb when landing on the move (so running never stalls). */
+  setGrounded(grounded: boolean, quiet = false) {
+    if (grounded && quiet) {
+      this.air = 'ground' // e.g. snapped onto a gym station: no landing reaction
+      return
+    }
+    if (grounded && this.air === 'air' && this.airT > 0.12) {
+      this.air = 'ground'
+      const ms = this.speed * 3.4
+      if (ms > 1.2) this.playOnce('jumpLand', 0.08, { timeScale: 1.9, maxDur: 0.3 })
+      else this.playOnce('jumpLand', 0.08, { timeScale: 1.25, maxDur: 0.75 })
+    } else if (!grounded && this.air === 'ground') {
+      // walked off a ledge: straight into the air loop
+      this.air = 'air'
+      this.airT = 0.5
+    }
   }
 
   /** End any one-shot clip early and blend back to the pose-driven clip (e.g. leaving a station mid-celebration). */
@@ -661,19 +713,25 @@ export class PumpkinChad implements Character {
     const { bench, squat, curl, guard } = this.layer
     const e = this.pressAmount // rep phase: 0 = start of the movement, 1 = top (curl / bench) or bottom (squat)
     const mix = (a: THREE.Vector3, b: THREE.Vector3, t: number) => a.clone().lerp(b, t)
-    // dumbbell curl: elbows pinned at the sides, forearms swing up
-    if (curl > 0.001)
+    // dumbbell curl: elbows pinned at the sides, forearms swing up; the torso braces back a touch at the top
+    if (curl > 0.001) {
       for (const side of ['l', 'r'] as const) {
         const s = side === 'l' ? L : -L
         arm(side, new THREE.Vector3(s * 0.14, -1, 0.1 + e * 0.12), mix(new THREE.Vector3(s * 0.08, -1, 0.22), new THREE.Vector3(s * 0.12, 0.82, 0.55), e), curl)
       }
+      this.turnBone('spine_02', AX.x, -0.07 * e * curl)
+      this.turnBone('neck_01', AX.x, 0.06 * e * curl)
+    }
     // boxing guard (the real punch clips play over it)
     const g = guard * (this.oneShot ? 0.15 : 1)
-    if (g > 0.001)
+    if (g > 0.001) {
+      const bob = Math.sin(this.t * 7.5) * 0.04 // boxer's bounce in the hands
       for (const side of ['l', 'r'] as const) {
         const s = side === 'l' ? L : -L
-        arm(side, new THREE.Vector3(s * 0.42, -0.55, 0.6), new THREE.Vector3(-s * 0.18, 0.85, 0.45), g)
+        arm(side, new THREE.Vector3(s * 0.42, -0.55 + bob, 0.6), new THREE.Vector3(-s * 0.18, 0.85, 0.45), g)
       }
+      this.turnBone('spine_01', AX.x, 0.08 * g) // chin down, shoulders forward
+    }
     // back squat: bar across the shoulders, hips sink, feet stay planted (two-bone IK)
     if (squat > 0.001) {
       for (const side of ['l', 'r'] as const) {
@@ -682,6 +740,30 @@ export class PumpkinChad implements Character {
       }
       this.squatLegs(e * squat)
     }
+    // ── emotes ──
+    const { hips, point, pushup } = this.layer
+    // "Chad pose": fists on hips, chest out
+    if (hips > 0.001)
+      for (const side of ['l', 'r'] as const) {
+        const s = side === 'l' ? L : -L
+        arm(side, new THREE.Vector3(s * 0.8, -0.55, -0.18), new THREE.Vector3(-s * 0.65, -0.5, 0.2), hips)
+      }
+    if (hips > 0.001) this.turnBone('spine_03', AX.x, -0.16 * hips)
+    // "You're next": right arm points at the camera, left fist on the hip
+    if (point > 0.001) {
+      const bob = Math.sin(this.t * 2.2) * 0.04
+      arm('r', new THREE.Vector3(-L * 0.18, 0.12 + bob, 1), new THREE.Vector3(-L * 0.1, 0.16 + bob, 1), point)
+      arm('l', new THREE.Vector3(L * 0.8, -0.55, -0.18), new THREE.Vector3(-L * 0.65, -0.5, 0.2), point)
+      this.turnBone('spine_02', AX.y, -L * 0.12 * point)
+    }
+    // push-ups: the model is pitched into a plank (see update); arms lock out at the top, elbows flare at the bottom
+    if (pushup > 0.001)
+      for (const side of ['l', 'r'] as const) {
+        const s = side === 'l' ? L : -L
+        const u = this.pushPhase
+        arm(side, mix(new THREE.Vector3(s * 0.85, -0.5, -0.2), new THREE.Vector3(s * 0.2, -1, 0.05), u), mix(new THREE.Vector3(s * 0.08, -1, 0.12), new THREE.Vector3(s * 0.05, -1, 0.04), u), pushup)
+      }
+
     // bench press: lying on the bench (model pitched onto its back), feet on the floor, bar from chest to lockout
     if (bench > 0.001)
       for (const side of ['l', 'r'] as const) {
@@ -690,6 +772,78 @@ export class PumpkinChad implements Character {
         this.aim(this.bone(`thigh_${side}`), this.bone(`calf_${side}`), new THREE.Vector3(s * 0.35, -0.62, 0.7), bench)
         this.aim(this.bone(`calf_${side}`), this.bone(`foot_${side}`), new THREE.Vector3(s * 0.1, -1, 0.08), bench)
       }
+  }
+
+  private pushPhase = 1
+  private tb = { pos: new THREE.Vector3(), scl: new THREE.Vector3(), pq: new THREE.Quaternion(), ax: new THREE.Vector3(), rq: new THREE.Quaternion(), rot: new THREE.Quaternion() }
+  /** Rotate a bone about a character-space axis (independent of the bone's own local axes).
+   *  Cheap: reads the parent's current world transform and leaves descendant matrices to the renderer's
+   *  once-per-frame update (the tiny lag from earlier turns in the same chain is invisible at these angles). */
+  private turnBone(name: string, axis: THREE.Vector3, angle: number) {
+    if (Math.abs(angle) < 1e-4) return
+    const b = this.bone(name)
+    const T = this.tb
+    b.parent!.matrixWorld.decompose(T.pos, T.pq, T.scl)
+    this.root.matrixWorld.decompose(T.pos, T.rq, T.scl)
+    T.ax.copy(axis).applyQuaternion(T.rq).applyQuaternion(T.pq.invert())
+    b.quaternion.premultiply(T.rot.setFromAxisAngle(T.ax, angle))
+  }
+
+  /** Per-species idle character: posture, breathing rhythm and an occasional fidget. Plus lean from movement. */
+  private applyPersonality(dt: number) {
+    const P = this.persona
+    const standing = this.pose === 'idle' || this.pose === 'walk'
+    const still = standing && this.speed < 0.05 && this.air === 'ground' && !this.oneShot
+    const kStand = standing ? 1 : 0
+    // posture (always on while standing / walking)
+    if (kStand) {
+      this.turnBone('spine_03', AX.x, P.chest)
+      this.turnBone('neck_01', AX.x, P.headDown)
+      if (P.sway) this.turnBone('spine_02', AX.z, Math.sin(this.t * P.swayRate) * P.sway * (still ? 1 : 0.3))
+    }
+    // lean into turns and acceleration (smoothed, scaled by speed so standing turns stay upright)
+    const kl = 1 - Math.exp(-dt * 6)
+    this.leanNow.turn += (THREE.MathUtils.clamp(this.lean.turn, -1, 1) - this.leanNow.turn) * kl
+    this.leanNow.accel += (THREE.MathUtils.clamp(this.lean.accel, -1, 1) - this.leanNow.accel) * kl
+    if (kStand && this.air === 'ground') {
+      this.turnBone('spine_01', AX.z, -this.leanNow.turn * 0.16)
+      this.turnBone('spine_01', AX.x, this.leanNow.accel * 0.09)
+    }
+    // fidgets
+    if (!still || !this.fidgets) {
+      this.fidget = null
+      this.nextFidget = Math.max(this.nextFidget, this.t + 3)
+      return
+    }
+    if (!this.fidget && this.t > this.nextFidget) this.fidget = { kind: P.fidget, t0: this.t, dur: P.fidget === 'flex' ? 1.6 : 1.4 }
+    const f = this.fidget
+    if (!f) return
+    const u = (this.t - f.t0) / f.dur
+    if (u >= 1) {
+      this.fidget = null
+      this.nextFidget = this.t + 6 + Math.random() * 7
+      return
+    }
+    const env = Math.sin(Math.PI * Math.min(1, u * 1.15))
+    if (f.kind === 'flex') {
+      const L = this.leftSign
+      const k = env * 0.95
+      for (const side of ['l', 'r'] as const) {
+        const s = side === 'l' ? L : -L
+        this.aim(this.bone(`upperarm_${side}`), this.bone(`lowerarm_${side}`), new THREE.Vector3(s, 0.32, 0.12), k)
+        this.aim(this.bone(`lowerarm_${side}`), this.bone(`hand_${side}`), new THREE.Vector3(s * 0.12, 1, 0.1), k)
+      }
+      this.turnBone('spine_03', AX.x, -0.1 * env)
+    } else if (f.kind === 'creak') {
+      // the skeleton's skull tilts one way, then clicks back
+      this.turnBone('Head', AX.z, env * 0.38 * (u < 0.55 ? 1 : 1 + Math.sin(this.t * 40) * 0.05))
+      this.turnBone('neck_01', AX.x, env * 0.08)
+    } else {
+      // the demon rolls his neck
+      const a = u * Math.PI * 2
+      this.turnBone('Head', AX.z, Math.sin(a) * 0.28 * env)
+      this.turnBone('Head', AX.x, (Math.cos(a) * 0.5 + 0.5) * 0.22 * env)
+    }
   }
 
   private ik = { hip: new THREE.Vector3(), knee: new THREE.Vector3(), ankle: new THREE.Vector3(), d: new THREE.Vector3(), bend: new THREE.Vector3() }
@@ -742,11 +896,23 @@ export class PumpkinChad implements Character {
     this.layer.flex += ((this.pose === 'flex' ? 1 : 0) - this.layer.flex) * k
     this.layer.press += ((this.pose === 'press' ? 1 : 0) - this.layer.press) * k
     this.layer.wave += ((this.pose === 'wave' ? 1 : 0) - this.layer.wave) * k
-    for (const key of ['bench', 'squat', 'curl', 'guard'] as const) this.layer[key] += ((this.pose === key ? 1 : 0) - this.layer[key]) * k
+    for (const key of ['bench', 'squat', 'curl', 'guard', 'hips', 'point'] as const) this.layer[key] += ((this.pose === key ? 1 : 0) - this.layer[key]) * k
+    // push-ups blend in a little slower so dropping into the plank reads as a movement, not a snap
+    this.layer.pushup += ((this.pose === 'pushup' ? 1 : 0) - this.layer.pushup) * (1 - Math.exp(-dt * 5))
     // lying down for the bench: pitch the whole model onto its back (head toward -Z), raised onto the pad
     const lie = this.layer.bench
-    this.model.rotation.x = (-Math.PI / 2) * lie
-    this.model.position.set(this.modelBase.x, this.modelBase.y + 0.7 * lie, this.modelBase.z + 0.95 * lie) // back on the pad, head under the J-hooks, hips mid-bench
+    // push-up plank: pivot on the toes; shoulder height cycles 0.28 → 0.56 m
+    this.pushPhase = 0.5 + 0.5 * Math.sin(this.t * 3.1)
+    const plank = Math.acos(THREE.MathUtils.clamp((0.28 + 0.28 * this.pushPhase) / 1.34, -1, 1))
+    this.model.rotation.x = (-Math.PI / 2) * lie + plank * this.layer.pushup
+    // pivoting at the ankles would push the toes through the floor: lift by the toe length
+    const toeLift = 0.19 * Math.sin(plank) * this.layer.pushup
+    this.model.position.set(this.modelBase.x, this.modelBase.y + 0.7 * lie + toeLift, this.modelBase.z + 0.95 * lie) // bench: back on the pad, head under the J-hooks
+    if (this.air === 'air') {
+      this.airT += dt
+      const js = this.actions.get('jumpStart')
+      if (js && this.current === js && this.airT > 0.11) js.timeScale = 1.25 // off the ground: into the airborne pose
+    }
     if (this.oneShot && this.t >= this.oneShot.end) {
       this.oneShot.act.fadeOut(0.2)
       this.oneShot = null
@@ -756,10 +922,12 @@ export class PumpkinChad implements Character {
     // base clip from pose + ground speed (speed is in units of WALK = 3.4 m/s)
     const ms = this.speed * 3.4
     let name = 'idle'
-    if (this.pose === 'hammer') name = 'interact'
+    if (this.air === 'air') name = this.airT < 0.5 ? 'jumpStart' : 'jumpLoop'
+    else if (this.pose === 'hammer') name = 'interact'
     else if (this.pose === 'dance') name = 'dance'
+    else if (this.pose === 'folded') name = 'folded'
     else if (this.pose === 'idle' || this.pose === 'walk') name = ms < 0.15 ? 'idle' : ms < 1.6 ? 'walk' : ms < 4.8 ? 'jog' : 'sprint'
-    this.play(name)
+    this.play(name, name === 'jumpLoop' ? 0.3 : 0.25)
     if (name === 'walk' || name === 'jog' || name === 'sprint') {
       const act = this.current!
       const qa = (globalThis as unknown as { __chadClipSpeed?: Record<string, number> }).__chadClipSpeed
@@ -767,9 +935,10 @@ export class PumpkinChad implements Character {
       const ph = (act.time / act.getClip().duration) % 1
       if ((this.lastPhase < 0.5 && ph >= 0.5) || ph < this.lastPhase) this.onStep?.()
       this.lastPhase = ph
-    } else if (this.current) this.current.timeScale = 1
+    } else if (this.current && this.current !== this.oneShot?.act && name !== 'jumpStart') this.current.timeScale = name === 'idle' ? this.persona.idleRate : 1
     this.mixer.update(dt)
     this.root.updateMatrixWorld(true)
+    this.applyPersonality(dt)
     this.applyLayers()
     for (const f of this.fires) f.update(this.t)
   }
@@ -799,6 +968,11 @@ export class PumpkinChad implements Character {
     if (!headGlow) headGlow = '#' + this.glowColor.getHexString()
     return {
       species: this.species,
+      pose: this.pose,
+      air: this.air,
+      fidget: this.fidget?.kind ?? null,
+      idleRate: this.persona.idleRate,
+      layers: Object.fromEntries(Object.entries(this.layer).map(([k, v]) => [k, +v.toFixed(3)])),
       parts: parts.sort(),
       tris: Math.round(tris),
       draws,
@@ -845,6 +1019,16 @@ function pieceName(m: THREE.Object3D) {
 }
 
 /** Skull placement inside the hood (tuned against the CC0 skull's axes). */
+/** character-space axes for turnBone (x = right/left pitch axis, y = up, z = forward roll axis) */
+const AX = { x: new THREE.Vector3(1, 0, 0), y: new THREE.Vector3(0, 1, 0), z: new THREE.Vector3(0, 0, 1) }
+type Persona = { idleRate: number; chest: number; headDown: number; sway: number; swayRate: number; fidget: 'flex' | 'creak' | 'neck' }
+/** Each species stands and fidgets differently: Pumpkin = proud show-off, Skeleton = slow, slouched, creaky, Demon = restless menace. */
+const PERSONA: Record<string, Persona> = {
+  pumpkin: { idleRate: 1, chest: -0.07, headDown: -0.03, sway: 0.02, swayRate: 1.1, fidget: 'flex' },
+  skeleton: { idleRate: 0.8, chest: 0.12, headDown: 0.06, sway: 0.035, swayRate: 0.7, fidget: 'creak' },
+  demon: { idleRate: 1.15, chest: -0.03, headDown: 0.1, sway: 0.015, swayRate: 1.6, fidget: 'neck' },
+}
+
 /** Ranger pieces on the muscular body: [normal offset, uniform scale, lift] */
 const DEMON_FIT: { belt: [number, number, number]; pauldron: [number, number, number]; bootHide: number } = { belt: [0.014, 0.95, -0.05], pauldron: [0.004, 1.14, 0.01], bootHide: 0.5 }
 const SKULL = { rx: 0, ry: 0, width: 0.155, lift: 0.095, fwd: 0.02, eyeX: 0.2, eyeY: 0.03, eyeZ: 0.44, chainScale: 1.12, chainDrop: 0.03, chainFwd: 0.01, crownW: 0.7, crownSink: 0.06, crownZ: 0 }

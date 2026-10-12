@@ -37,6 +37,7 @@ export function Joystick({ input, sensitivity }: { input: Input; sensitivity: nu
   return (
     <div
       data-testid="joystick-zone"
+      data-no-look
       className="absolute bottom-0 left-0 z-10 h-[46%] w-[48%] touch-none"
       onPointerDown={(e) => {
         if (id.current !== null) return

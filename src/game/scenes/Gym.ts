@@ -7,6 +7,8 @@ import { audio } from '../audio'
 import { STATIONS, type RepGrade, type StationId } from '../workout'
 import { signTexture } from './textures'
 import type { Interactable } from './World'
+import { Emoter, type EmoteId } from '../emotes'
+import { Jumper, leanFor, turnRate, velocityRate } from '../movement'
 
 export type GymEvents = {
   onPrompt(p: Interactable | null): void
@@ -33,6 +35,7 @@ const SPOTS: Record<'press' | StationId, Spot> = {
 const BAG = new THREE.Vector3(5.2, 0, 3.35)
 
 type Box = { x0: number; x1: number; z0: number; z1: number }
+const easeInOut = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2)
 
 /** Chad Gym interior: a walkable hall with working stations, plus the Chad Press platform. */
 export class Gym implements GameScene {
@@ -79,6 +82,9 @@ export class Gym implements GameScene {
   private repDur = 0.8
   private punch = 0
   private pendingHit = -1
+  private jumper = new Jumper()
+  private lastSpeed = 0
+  emoter = new Emoter()
 
   constructor(engine: Engine, private input: Input | null = null, private events: GymEvents | null = null) {
     const s = this.scene
@@ -342,9 +348,23 @@ export class Gym implements GameScene {
 
   /* ───────── stations ───────── */
 
+  /** QA */
+  animState() {
+    return { emote: this.emoter.active, busy: this.emoter.busy, airborne: this.jumper.airborne, jumpY: +this.jumper.y.toFixed(3), mode: this.mode }
+  }
+
+  /** play an emote from the wheel (free roam only, not mid-air) */
+  emote(id: EmoteId) {
+    if (this.mode !== 'free' || this.jumper.airborne || this.paused) return null
+    return this.emoter.start(this.player, id)
+  }
+
   startStation(id: 'press' | StationId) {
     const p = this.player
     if (!p) return
+    this.emoter.cancel(p)
+    this.jumper.reset()
+    p.setGrounded?.(true, true)
     this.mode = id
     const sp = SPOTS[id]
     this.pos.set(sp.stand[0], id === 'press' ? 0.12 : 0, sp.stand[1])
@@ -549,16 +569,22 @@ export class Gym implements GameScene {
     const wish = fwd.multiplyScalar(mv.z).add(right.multiplyScalar(mv.x))
     const mag = Math.min(1, wish.length())
     const targetVel = mag > 0.01 ? wish.normalize().multiplyScalar((mv.run ? RUN : WALK) * mag) : new THREE.Vector3()
-    this.vel.lerp(targetVel, 1 - Math.exp(-dt * (mag > 0.01 ? 10 : 14)))
+    const p0 = this.player
+    if (this.input?.takeJump() && !this.paused && this.jumper.tryJump(p0)) this.emoter.cancel(p0)
+    if (mag > 0.05 && this.emoter.busy) this.emoter.cancel(p0)
+    this.jumper.update(dt, p0)
+    this.emoter.update(dt)
+    this.vel.lerp(targetVel, 1 - Math.exp(-dt * velocityRate(mag > 0.01, Math.hypot(this.vel.x, this.vel.z), this.jumper.airborne)))
     this.pos.addScaledVector(this.vel, dt)
     this.collide(this.pos)
     const onPlatform = Math.abs(this.pos.x - PRESS.x) < 1.8 && Math.abs(this.pos.z - PRESS.z) < 1.8
     this.pos.y += ((onPlatform ? 0.12 : 0) - this.pos.y) * (1 - Math.exp(-dt * 18))
     const speed = Math.hypot(this.vel.x, this.vel.z)
+    const yaw0 = this.yaw
     if (speed > 0.15) {
       let d = Math.atan2(this.vel.x, this.vel.z) - this.yaw
       d = Math.atan2(Math.sin(d), Math.cos(d))
-      this.yaw += d * (1 - Math.exp(-dt * 12))
+      this.yaw += d * (1 - Math.exp(-dt * turnRate(speed)))
       if (!look.x && mv.z > 0.2) {
         let cd = this.yaw + Math.PI - this.camYaw
         cd = Math.atan2(Math.sin(cd), Math.cos(cd))
@@ -568,8 +594,16 @@ export class Gym implements GameScene {
     const p = this.player
     if (p) {
       p.speed = speed / 3.4
-      if (p.pose !== 'flex') p.pose = speed > 0.1 ? 'walk' : 'idle'
+      p.pose = this.emoter.pose() ?? (speed > 0.1 ? 'walk' : 'idle')
+      if (p.lean) {
+        let dy = this.yaw - yaw0
+        dy = Math.atan2(Math.sin(dy), Math.cos(dy))
+        const l = leanFor(dy / Math.max(dt, 1e-3), (speed - this.lastSpeed) / Math.max(dt, 1e-3), speed)
+        p.lean.turn = l.turn
+        p.lean.accel = l.accel
+      }
     }
+    this.lastSpeed = speed
 
     // interaction prompt
     let best: Interactable | null = null
@@ -598,7 +632,9 @@ export class Gym implements GameScene {
     if (this.mode === 'free') this.updateFree(dt)
     else {
       this.input?.takeAction() // the station UI owns E / space / tap; don't let a queued press leak out later
+      this.input?.takeJump()
       this.input?.takeLook()
+      if (p?.lean) p.lean.turn = p.lean.accel = 0
       if (this.prompt) {
         this.prompt = null
         this.events?.onPrompt(null)
@@ -608,6 +644,7 @@ export class Gym implements GameScene {
 
     if (p) {
       p.root.position.copy(this.pos)
+      if (this.mode === 'free') p.root.position.y += this.jumper.y
       p.root.rotation.y = this.yaw
       if (this.mode === 'press') p.pressAmount += (this.target - p.pressAmount) * (1 - Math.exp(-dt * 12))
       else if (this.mode !== 'free' && this.mode !== 'bag') {
@@ -616,7 +653,11 @@ export class Gym implements GameScene {
         if (this.repT >= 0) {
           this.repT += dt
           const u = Math.min(1, this.repT / this.repDur)
-          amt = spec.rest + (1 - 2 * spec.rest) * Math.sin(Math.PI * u) // rest → far end → rest
+          // real lifts aren't symmetric: bench lowers slowly then drives up, curls snap up then lower under control,
+          // squats sink controlled then drive up — eased so each phase accelerates and settles
+          const share = this.mode === 'bench' ? 0.58 : this.mode === 'curl' ? 0.38 : 0.55
+          const f = u < share ? easeInOut(u / share) : 1 - easeInOut((u - share) / (1 - share))
+          amt = spec.rest + (1 - 2 * spec.rest) * f // rest → far end → rest
           if (u >= 1) {
             this.repT = -1
             if (this.mode !== 'curl') audio.play('clank')

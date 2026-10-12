@@ -1,4 +1,6 @@
 import * as THREE from 'three'
+import { Emoter, type EmoteId } from '../emotes'
+import { Jumper, leanFor, turnRate, velocityRate } from '../movement'
 import { buildCharacter } from '../character/build'
 import { createCharacter, disposeCharacter, type Character } from '../character/character'
 import type { Appearance } from '../character/types'
@@ -84,6 +86,9 @@ export class World implements GameScene {
   private t = 0
   private disposed = false
   private walkedTime = 0
+  private jumper = new Jumper()
+  private lastSpeed = 0
+  emoter = new Emoter()
   private quality: Quality
 
   constructor(
@@ -398,6 +403,17 @@ export class World implements GameScene {
     this.spawn(spawn)
   }
 
+  /** QA */
+  animState() {
+    return { emote: this.emoter.active, busy: this.emoter.busy, airborne: this.jumper.airborne, jumpY: +this.jumper.y.toFixed(3), speed: +Math.hypot(this.playerVel.x, this.playerVel.z).toFixed(3) }
+  }
+
+  /** play an emote from the wheel (ignored mid-air) */
+  emote(id: EmoteId) {
+    if (this.jumper.airborne || this.paused) return null
+    return this.emoter.start(this.player, id)
+  }
+
   spawn(where: 'start' | 'gym') {
     if (where === 'gym') {
       this.playerPos.set(12.6, 0, -4)
@@ -408,6 +424,7 @@ export class World implements GameScene {
     }
     this.camYaw = this.playerYaw + Math.PI
     this.playerVel.set(0, 0, 0)
+    this.jumper.reset()
     this.snapCamera()
   }
 
@@ -620,18 +637,25 @@ export class World implements GameScene {
     const mag = Math.min(1, wish.length())
     const maxSpeed = mv.run ? RUN : WALK
     const targetVel = mag > 0.01 ? wish.normalize().multiplyScalar(maxSpeed * mag) : new THREE.Vector3()
-    this.playerVel.lerp(targetVel, 1 - Math.exp(-dt * (mag > 0.01 ? 10 : 14)))
+    // jump (Space / touch button); moving or jumping ends an emote
+    if (this.input.takeJump() && !this.paused && this.jumper.tryJump(p)) this.emoter.cancel(p)
+    if (mag > 0.05 && this.emoter.busy) this.emoter.cancel(p)
+    this.jumper.update(dt, p)
+    this.emoter.update(dt)
+    const nowSpeed = Math.hypot(this.playerVel.x, this.playerVel.z)
+    this.playerVel.lerp(targetVel, 1 - Math.exp(-dt * velocityRate(mag > 0.01, nowSpeed, this.jumper.airborne)))
     this.playerPos.addScaledVector(this.playerVel, dt)
     this.resolve(this.playerPos, PLAYER_R)
     const gy = groundHeight(this.playerPos.x, this.playerPos.z)
     this.playerPos.y += (gy - this.playerPos.y) * (1 - Math.exp(-dt * 18))
 
     const speed = Math.hypot(this.playerVel.x, this.playerVel.z)
+    const yaw0 = this.playerYaw
     if (speed > 0.15) {
       const targetYaw = Math.atan2(this.playerVel.x, this.playerVel.z)
       let d = targetYaw - this.playerYaw
       d = Math.atan2(Math.sin(d), Math.cos(d))
-      this.playerYaw += d * (1 - Math.exp(-dt * 12))
+      this.playerYaw += d * (1 - Math.exp(-dt * turnRate(speed)))
       if (!look.x && mv.z > 0.2) {
         let cd = this.playerYaw + Math.PI - this.camYaw
         cd = Math.atan2(Math.sin(cd), Math.cos(cd))
@@ -641,11 +665,20 @@ export class World implements GameScene {
     }
     if (p) {
       p.root.position.copy(this.playerPos)
+      p.root.position.y += this.jumper.y
       p.root.rotation.y = this.playerYaw
       p.speed = speed / WALK
-      if (p.pose !== 'flex') p.pose = speed > 0.1 ? 'walk' : 'idle'
+      p.pose = this.emoter.pose() ?? (speed > 0.1 ? 'walk' : 'idle')
+      if (p.lean) {
+        let dy = this.playerYaw - yaw0
+        dy = Math.atan2(Math.sin(dy), Math.cos(dy))
+        const l = leanFor(dy / Math.max(dt, 1e-3), (speed - this.lastSpeed) / Math.max(dt, 1e-3), speed)
+        p.lean.turn = l.turn
+        p.lean.accel = l.accel
+      }
       p.update(dt)
     }
+    this.lastSpeed = speed
     this.placeCamera(1 - Math.exp(-dt * 9))
 
     this.crowd.update(dt, this.playerPos, this.camera.position, this.paused, groundHeight)
@@ -716,6 +749,7 @@ export class World implements GameScene {
       y: +this.playerPos.y.toFixed(2),
       z: +this.playerPos.z.toFixed(2),
       yaw: +this.playerYaw.toFixed(2),
+      camYaw: +this.camYaw.toFixed(3),
       prompt: this.prompt?.id ?? null,
       walked: +this.walkedTime.toFixed(2),
       camDist: +this.camDistNow.toFixed(2),

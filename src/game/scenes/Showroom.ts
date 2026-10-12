@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { lookable } from '../input'
 import { createCharacter, disposeCharacter, type Character } from '../character/character'
 import type { Pose } from '../character/build'
 import type { Appearance } from '../character/types'
@@ -140,7 +141,9 @@ export class Showroom implements GameScene {
     this.dust = new THREE.Points(g, new THREE.PointsMaterial({ color: '#ffb067', size: 0.025, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending }))
     s.add(this.dust)
 
-    canvas.addEventListener('pointerdown', this.down)
+    // the creator UI layer sits over the canvas: catch presses on the shared container, skip real UI controls
+    this.surface = canvas.parentElement ?? canvas
+    this.surface.addEventListener('pointerdown', this.down)
     window.addEventListener('pointermove', this.move)
     window.addEventListener('pointerup', this.up)
     window.addEventListener('pointercancel', this.up)
@@ -148,7 +151,9 @@ export class Showroom implements GameScene {
   }
 
   /* ── input: drag to rotate, pinch / wheel to zoom ── */
+  private surface: HTMLElement
   private down = (e: PointerEvent) => {
+    if (!lookable(e.target)) return
     this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
     this.lastX = e.clientX
     if (this.pointers.size === 2) {
@@ -168,8 +173,8 @@ export class Showroom implements GameScene {
     }
     const dx = e.clientX - this.lastX
     this.lastX = e.clientX
-    this.yawVel = dx * 0.011
-    this.yaw += dx * 0.011
+    this.yawVel = dx * 0.008
+    this.yaw += dx * 0.008
   }
   private up = (e: PointerEvent) => {
     this.pointers.delete(e.pointerId)
@@ -277,7 +282,7 @@ export class Showroom implements GameScene {
   dispose() {
     this.disposed = true
     if (this.rig) disposeCharacter(this.rig)
-    this.canvas.removeEventListener('pointerdown', this.down)
+    this.surface.removeEventListener('pointerdown', this.down)
     window.removeEventListener('pointermove', this.move)
     window.removeEventListener('pointerup', this.up)
     window.removeEventListener('pointercancel', this.up)

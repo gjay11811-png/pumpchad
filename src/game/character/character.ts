@@ -23,6 +23,14 @@ export interface Character {
   /** real models only: play a library clip once (punches, celebrate...), returns its length in seconds */
   playOnce?(name: OneShot): number
   cancelOneShot?(): void
+  /** real models: start a jump (crouch → take-off clip); the scene owns the physics */
+  jump?(): void
+  /** real models: tell the rig whether the feet are on the ground (drives air / landing clips) */
+  setGrounded?(grounded: boolean, quiet?: boolean): void
+  /** real models: body lean from turning (-1..1) and acceleration (-1..1) */
+  lean?: { turn: number; accel: number }
+  /** real models: allow personality fidgets while standing idle */
+  fidgets?: boolean
 }
 
 const loader = new GLTFLoader()

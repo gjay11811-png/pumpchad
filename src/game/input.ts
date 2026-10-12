@@ -2,22 +2,34 @@
  * Unified input: keyboard + virtual joystick + camera drag, read once per frame.
  * Gameplay code only ever sees `move` (x,z in -1..1), `look` deltas and edge-triggered actions.
  */
+/** UI that must never start a camera drag (buttons, panels, menus, the joystick…) */
+const NO_LOOK = 'button, a, input, textarea, select, [role=menu], [role=dialog], .panel, [data-no-look]'
+/** A press starts a drag-to-look only on the 3D view or empty UI space over it. */
+export function lookable(t: EventTarget | null) {
+  if (!(t instanceof Element)) return false
+  return t.tagName === 'CANVAS' || !t.closest(NO_LOOK)
+}
+
 export class Input {
   private keys = new Set<string>()
   stick = { x: 0, y: 0, active: false }
   private lookDX = 0
   private lookDY = 0
   private actionQueued = false
+  private jumpQueued = false
   private dragId: number | null = null
   private lastX = 0
   private lastY = 0
   enabled = true
+  /** the UI layer sits on top of the canvas, so presses are caught on the shared container and filtered */
+  private surface: HTMLElement
 
-  constructor(private el: HTMLElement) {
+  constructor(el: HTMLElement) {
+    this.surface = el.parentElement ?? el
     window.addEventListener('keydown', this.onKey)
     window.addEventListener('keyup', this.onKeyUp)
     window.addEventListener('blur', this.clear)
-    el.addEventListener('pointerdown', this.onDown)
+    this.surface.addEventListener('pointerdown', this.onDown)
     window.addEventListener('pointermove', this.onMove)
     window.addEventListener('pointerup', this.onUp)
     window.addEventListener('pointercancel', this.onUp)
@@ -33,6 +45,7 @@ export class Input {
     const k = e.key.toLowerCase()
     if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k) && this.enabled) e.preventDefault()
     if ((k === 'e' || k === 'enter') && !e.repeat) this.actionQueued = true
+    if (k === ' ' && !e.repeat) this.jumpQueued = true
     this.keys.add(k)
   }
   private onKeyUp = (e: KeyboardEvent) => this.keys.delete(e.key.toLowerCase())
@@ -40,10 +53,11 @@ export class Input {
     this.keys.clear()
     this.stick = { x: 0, y: 0, active: false }
     this.actionQueued = false
+    this.jumpQueued = false
   }
 
   private onDown = (e: PointerEvent) => {
-    if (this.dragId !== null) return
+    if (this.dragId !== null || !lookable(e.target)) return
     this.dragId = e.pointerId
     this.lastX = e.clientX
     this.lastY = e.clientY
@@ -61,6 +75,15 @@ export class Input {
 
   queueAction() {
     this.actionQueued = true
+  }
+  queueJump() {
+    this.jumpQueued = true
+  }
+  /** edge-triggered jump (Space / the touch Jump button) */
+  takeJump() {
+    const j = this.jumpQueued
+    this.jumpQueued = false
+    return j && this.enabled
   }
 
   /** Movement intent in camera space: x = strafe right, z = forward. */
@@ -102,7 +125,7 @@ export class Input {
     window.removeEventListener('keydown', this.onKey)
     window.removeEventListener('keyup', this.onKeyUp)
     window.removeEventListener('blur', this.clear)
-    this.el.removeEventListener('pointerdown', this.onDown)
+    this.surface.removeEventListener('pointerdown', this.onDown)
     window.removeEventListener('pointermove', this.onMove)
     window.removeEventListener('pointerup', this.onUp)
     window.removeEventListener('pointercancel', this.onUp)

@@ -20,7 +20,10 @@ const gym = () => p.evaluate(() => window.__chadverse.gym())
 const save = () => p.evaluate(() => window.__chadverse.save())
 const stats = () => p.evaluate(() => window.__chadverse.stats())
 const phase = () => p.evaluate(() => window.__chadverse.phase)
-const promptText = () => p.locator('[data-testid=prompt]').textContent({ timeout: 2000 }).catch(() => '')
+/** the prompt text (while one prompt animates out and the next in, two can exist briefly — read them all) */
+const promptText = () => p.locator('[data-testid=prompt]').allTextContents().then((t) => t.join(' | ')).catch(() => '')
+/** wait (up to 4 s) for a prompt containing `label` */
+const promptHas = (label) => p.waitForFunction((l) => [...document.querySelectorAll('[data-testid=prompt]')].some((e) => e.textContent.includes(l)), label, { timeout: 4000 }).then(() => true, () => false)
 const enterGym = async () => {
   await p.evaluate(() => window.__chadverse.teleport(14.4, -4))
   await w(400)
@@ -91,7 +94,7 @@ for (const [id, cfg] of Object.entries(STA)) {
   console.log(`  -- ${id}`)
   await p.evaluate((id) => window.__chadverse.gymGoto(id), id)
   await w(500)
-  check((await promptText()).includes(cfg.label), `prompt "${cfg.label}" appears at the ${id}`)
+  check(await promptHas(cfg.label), `prompt "${cfg.label}" appears at the ${id}`)
   await p.keyboard.press('e')
   await p.waitForSelector('[data-testid=workout-start]', { timeout: 5000 })
   check((await gym()).mode === id, `E starts the ${id} station`)
@@ -108,7 +111,7 @@ for (const [id, cfg] of Object.entries(STA)) {
   let punchClip = ''
   let lowHead = Infinity
   await tapOnBeat()
-  for (let k = 0; k < 12; k++) {
+  for (let k = 0; k < 26; k++) { // ~2 s of samples: a full rep even when headless frames run slow
     const s = await ins()
     const y = id === 'squat' ? s.pelvis[1] : (s.handL[1] + s.handR[1]) / 2
     lo = Math.min(lo, y)
@@ -139,7 +142,7 @@ for (const [id, cfg] of Object.entries(STA)) {
   const g2 = await gym()
   const after2 = await ins()
   check(g2.mode === 'free' && after2.headBone[1] > 1.3, `Stop returns to free movement standing (mode ${g2.mode})`)
-  check((await promptText()).includes(cfg.label), 'prompt is back after stepping away')
+  check(await promptHas(cfg.label), 'prompt is back after stepping away')
 }
 
 /* ── Chad Press still works from its platform ── */
@@ -171,7 +174,7 @@ for (const [id, cfg] of Object.entries(STA)) {
 {
   await p.evaluate(() => window.__chadverse.gymGoto('exit'))
   await w(400)
-  check((await promptText()).includes('Back to Chad Square'), 'exit door prompt')
+  check(await promptHas('Back to Chad Square'), `exit door prompt (${await promptText()})`)
   await p.keyboard.press('e')
   await p.waitForFunction(() => window.__chadverse?.phase === 'world' && window.__chadverse.playerInspect(), null, { timeout: 20000 })
   check((await phase()) === 'world', 'door returns to Chad Square')

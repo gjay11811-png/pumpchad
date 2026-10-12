@@ -2,6 +2,8 @@ import { AnimatePresence, m } from 'framer-motion'
 import { ACHIEVEMENTS, levelFor, xpForLevel, type SaveData } from '../save'
 import type { Interactable } from '../scenes/World'
 import { Icon, IconBtn } from './kit'
+import { EmoteWheel } from './EmoteWheel'
+import type { EmoteId } from '../emotes'
 
 export function objectiveFor(save: SaveData) {
   const d = save.progress.discoveries
@@ -22,6 +24,9 @@ export function Hud({
   onPause,
   onToggleSound,
   onAction,
+  onEmote,
+  onJump,
+  emotesDisabled = false,
 }: {
   save: SaveData
   prompt: Interactable | null
@@ -29,6 +34,9 @@ export function Hud({
   onPause: () => void
   onToggleSound: () => void
   onAction: () => void
+  onEmote?: (id: EmoteId) => void
+  onJump?: () => void
+  emotesDisabled?: boolean
 }) {
   const xp = save.progress.xp
   const lvl = levelFor(xp)
@@ -110,9 +118,10 @@ export function Hud({
       )}
       {!touch && (
         <p className="absolute bottom-3 left-1/2 -translate-x-1/2 font-mono text-[10px] uppercase tracking-[0.25em] text-bone/35">
-          WASD move · Shift run · Drag look · E interact · Esc menu
+          WASD move · Shift run · Space jump · Q emotes · Drag look · E interact · Esc menu
         </p>
       )}
+      {onEmote && onJump && <EmoteWheel touch={touch} disabled={emotesDisabled} onEmote={onEmote} onJump={onJump} />}
     </div>
   )
 }

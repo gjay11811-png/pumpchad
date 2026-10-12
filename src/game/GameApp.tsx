@@ -372,6 +372,7 @@ export function GameApp() {
       gymInspect: () => (gym.current?.player as unknown as { inspect?: () => unknown } | null)?.inspect?.() ?? null,
       gym: () => (gym.current ? { mode: gym.current.mode, prompt: gym.current.interactables.length } : null),
       gymGoto: (id: string) => gym.current?.goto(id),
+      anim: () => world.current?.animState() ?? gym.current?.animState() ?? null,
       character: () => (world.current?.player ?? null)?.kind ?? null,
       showroom: () => showroom.current,
     }
@@ -399,6 +400,9 @@ export function GameApp() {
                   onPause={() => setOverlay('pause')}
                   onToggleSound={() => changeSettings({ muted: !s.muted })}
                   onAction={() => input.current?.queueAction()}
+                  onEmote={(id) => world.current?.emote(id)}
+                  onJump={() => input.current?.queueJump()}
+                  emotesDisabled={!!overlay || !!dialogue}
                 />
                 <AnimatePresence>{dialogue && <DialoguePanel key={dialogue.speaker + dialogue.lines[0]} d={dialogue} onDone={closeDialogue} reduced={s.reducedEffects} />}</AnimatePresence>
               </>
@@ -414,6 +418,9 @@ export function GameApp() {
                   onPause={() => setOverlay('pause')}
                   onToggleSound={() => changeSettings({ muted: !s.muted })}
                   onAction={() => input.current?.queueAction()}
+                  onEmote={(id) => gym.current?.emote(id)}
+                  onJump={() => input.current?.queueJump()}
+                  emotesDisabled={!!overlay}
                 />
               </>
             )}
