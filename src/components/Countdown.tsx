@@ -49,7 +49,7 @@ export function Countdown() {
 
   return (
     <div className="countdown-panel relative overflow-hidden rounded-[26px] p-4 sm:p-5 md:p-6" data-testid="countdown">
-      <div aria-hidden="true" className="pointer-events-none absolute -top-24 left-1/2 h-48 w-[80%] -translate-x-1/2 rounded-full bg-pump/25 blur-[70px]" />
+      <div aria-hidden="true" className="pointer-events-none absolute -top-28 left-1/2 h-56 w-[90%] -translate-x-1/2 bg-[radial-gradient(ellipse_at_center,rgba(255,122,26,0.30),transparent_68%)]" />
       <p className="relative flex items-center gap-2.5 font-mono text-[11px] uppercase tracking-[0.3em] text-ember sm:text-[12px]">
         <span className="relative flex h-2 w-2" aria-hidden="true">
           <span className="absolute inset-0 animate-ping rounded-full bg-pump/80 motion-reduce:animate-none" />
@@ -100,15 +100,15 @@ function Unit({ label, value, digits }: { label: string; value: number; digits: 
 function Digit({ d }: { d: string }) {
   const reduce = useReducedMotion()
   return (
-    <span className="relative inline-block h-[1em] w-[0.6em] overflow-hidden font-display text-[clamp(2rem,9vw,4.25rem)] leading-none tabular-nums">
+    <span className="relative inline-block h-[1em] w-[0.6em] overflow-hidden font-display text-[clamp(2rem,9vw,4.25rem)] leading-none tabular-nums [contain:paint]">
       <AnimatePresence initial={false} mode="popLayout">
         <m.span
           key={d}
-          className="text-countdown absolute inset-0 text-center"
-          initial={reduce ? { opacity: 0 } : { y: '-100%', opacity: 0, filter: 'blur(4px)' }}
-          animate={{ y: '0%', opacity: 1, filter: 'blur(0px)' }}
-          exit={reduce ? { opacity: 0 } : { y: '100%', opacity: 0, filter: 'blur(4px)' }}
-          transition={{ duration: reduce ? 0.2 : 0.45, ease: [0.22, 1, 0.36, 1] }}
+          className="text-countdown absolute inset-0 text-center will-change-transform"
+          initial={reduce ? { opacity: 0 } : { y: '-70%', opacity: 0 }}
+          animate={{ y: '0%', opacity: 1 }}
+          exit={reduce ? { opacity: 0 } : { y: '70%', opacity: 0 }}
+          transition={{ duration: reduce ? 0.2 : 0.32, ease: [0.22, 1, 0.36, 1] }}
         >
           {d}
         </m.span>
