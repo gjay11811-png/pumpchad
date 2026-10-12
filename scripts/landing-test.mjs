@@ -47,11 +47,11 @@ for (const [tag, ctxOpts] of [
   check(toMs(c1) - toMs(c2) >= 1000 && toMs(c1) - toMs(c2) <= 4000, `ticks every second (${((toMs(c1) - toMs(c2)) / 1000).toFixed(0)} s in 2.2 s)`)
 
   // links
-  const tg = await p.locator('a[href="https://t.me/PumpchadPCHAD"]').count()
-  check(tg >= 3, `Telegram links point at t.me/PumpchadPCHAD (${tg})`)
-  const blankX = await p.locator('a[href="https://x.com/"]').count()
-  check(blankX === 0, 'no dead "x.com/" links while the X handle is unset')
-  check((await p.getByText('X — coming soon').count()) >= 1, 'X buttons say "coming soon" until the handle is set')
+  const tg = await p.locator('a[href="https://t.me/PUMPCHADPCHAD"]').count()
+  check(tg >= 3, `Telegram links point at t.me/PUMPCHADPCHAD (${tg})`)
+  const xLinks = await p.locator('a[href="https://x.com/jaygd5d5"]').count()
+  check(xLinks >= 3, `X links point at x.com/jaygd5d5 (${xLinks})`)
+  check((await p.locator('a[href="https://x.com/"]').count()) === 0 && (await p.getByText('X — coming soon').count()) === 0, 'no dead x.com links and no "coming soon" placeholders left')
   const ext = await p.$$eval('a[target=_blank]', (as) => as.every((a) => (a.getAttribute('rel') || '').includes('noopener')))
   check(ext, 'external links open safely (noopener)')
 

@@ -38,13 +38,10 @@ export const site = {
 }
 
 export const social = {
-  telegramHandle: 'PumpchadPCHAD',
-  telegramUrl: 'https://t.me/PumpchadPCHAD',
-  /**
-   * TODO: set the official X handle (without @), e.g. 'PumpchadPCHAD'. Do not guess it.
-   * While this is empty, every "Follow on X" button shows "X — coming soon" instead of a dead link.
-   */
-  xHandle: '',
+  telegramHandle: 'PUMPCHADPCHAD',
+  telegramUrl: 'https://t.me/PUMPCHADPCHAD',
+  /** Official X account (handle without @). If this is ever emptied, every X button falls back to "X — coming soon". */
+  xHandle: 'jaygd5d5',
 }
 export const xUrl = social.xHandle ? `https://x.com/${social.xHandle}` : ''
 
