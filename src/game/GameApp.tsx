@@ -207,6 +207,7 @@ export function GameApp() {
         break
       case 'statue':
       case 'gate':
+      case 'citygate':
       case 'board':
       case 'well':
       case 'window':

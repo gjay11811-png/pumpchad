@@ -5,6 +5,9 @@ import type { Town } from './buildings'
 import { Cloth, Fire } from './fx'
 import { boxUV, instanced, rng } from './kit'
 import { grassTuft, noticeBoard } from './textures'
+import type { KingdomStyle, styleMaterials } from './style'
+
+type StyleMats = ReturnType<typeof styleMaterials>
 
 /* ───────── ground: base terrain, plaza disc, roads + curbs ───────── */
 export type Road = { x0: number; z0: number; x1: number; z1: number; w: number }
@@ -21,8 +24,8 @@ export const ROADS: Road[] = [
 
 export function buildGround(T: Town, tex: Record<string, THREE.Texture>) {
   const P = T.P
-  tex.ground.repeat.set(22, 22)
-  const ground = new THREE.Mesh(new THREE.CircleGeometry(62, 72), P.ground)
+  tex.ground.repeat.set(13, 13)
+  const ground = new THREE.Mesh(new THREE.CircleGeometry(36.8, 72), P.ground)
   ground.rotation.x = -Math.PI / 2
   ground.receiveShadow = true
   T.scene.add(ground)
@@ -320,8 +323,8 @@ export function fence(T: Town, pts: [number, number][], broken = false) {
 
 /* ───────── castle (north) with real steps, torches and waving banners ───────── */
 export const CASTLE_Z = -31
-export function castle(T: Town) {
-  const P = T.P
+export function castle(T: Town, style: KingdomStyle, SM: StyleMats) {
+  const P = { ...T.P, stone: SM.stone, roofSlate: SM.roof }
   const Z = CASTLE_Z
   for (const [x, w] of [[-13, 18], [13, 18]] as const) {
     T.batch.put(boxUV(w, 8, 2.4, 2.5), P.stone, x, 4, Z)
@@ -363,6 +366,7 @@ export function castle(T: Town) {
     T.scene.add(c.mesh)
     T.cloths.push(c)
   }
+  keep(T, style, SM)
   // flags on the gatehouse
   for (const s of [-1, 1]) {
     T.batch.put(new THREE.CylinderGeometry(0.05, 0.05, 3, 6), P.iron, s * 2.8, 12.5, Z - 0.4)
@@ -372,6 +376,72 @@ export function castle(T: Town) {
     T.scene.add(flag.mesh)
     T.cloths.push(flag)
   }
+}
+
+/**
+ * The KEEP: the kingdom's landmark, standing behind the gatehouse and visible from all over town —
+ * a great tower with the tallest spire, four corner turrets, rows of lit windows (fog-free so they
+ * read through the mist) and banners. All dimensions/colours follow the active kingdom style.
+ */
+function keep(T: Town, style: KingdomStyle, SM0: StyleMats) {
+  const SM = { ...SM0, stone: SM0.farStone, trim: SM0.farStone, roof: SM0.farRoof }
+  const Z = CASTLE_Z - 10
+  const W = 16
+  const D = 11
+  const H = 17
+  T.batch.put(boxUV(W, H, D, 2.5), SM.stone, 0, H / 2, Z)
+  T.batch.put(boxUV(W + 0.8, 0.5, D + 0.8, 1.5), SM.trim, 0, H + 0.1, Z)
+  for (let k = 0; k < 9; k++) {
+    T.batch.put(boxUV(0.9, 1, 0.6, 1), SM.stone, -W / 2 + 0.6 + k * ((W - 1.2) / 8), H + 0.85, Z + D / 2 + 0.1)
+    T.batch.put(boxUV(0.9, 1, 0.6, 1), SM.stone, -W / 2 + 0.6 + k * ((W - 1.2) / 8), H + 0.85, Z - D / 2 - 0.1)
+  }
+  // rows of lit windows on the town-facing side
+  for (let row = 0; row < 3; row++)
+    for (let col = 0; col < 5; col++) {
+      if (row === 0 && col === 2) continue
+      T.batch.put(new THREE.PlaneGeometry(0.75, 1.5), SM.farWindow, -6 + col * 3, 5 + row * 4, Z + D / 2 + 0.03, 0, 1, 1, 1, { cast: false })
+    }
+  // great hall door + balcony
+  T.batch.put(boxUV(3.2, 4.4, 0.4, 1), T.P.timber, 0, 2.2, Z + D / 2 + 0.2)
+  T.batch.put(boxUV(5.5, 0.3, 1.4, 1), SM.trim, 0, 9.3, Z + D / 2 + 0.7)
+  // corner turrets
+  for (const sx of [-1, 1])
+    for (const sz of [-1, 1]) {
+      const x = sx * (W / 2)
+      const z = Z + sz * (D / 2)
+      const r = 1.7
+      const h = H + 7
+      T.batch.put(new THREE.CylinderGeometry(r, r * 1.06, h, 16), SM.stone, x, h / 2, z)
+      T.batch.put(new THREE.CylinderGeometry(r * 1.2, r, 0.5, 16), SM.trim, x, h + 0.05, z)
+      const rh = r * 3 * style.spire
+      T.batch.put(new THREE.ConeGeometry(r * 1.35, rh, 16), SM.roof, x, h + 0.3 + rh / 2, z)
+      if (style.finials) T.batch.put(new THREE.SphereGeometry(0.2, 8, 6), SM.finial, x, h + 0.4 + rh, z)
+      if (sz > 0) T.batch.put(new THREE.PlaneGeometry(0.35, 1), SM.farWindow, x, h - 4, z + r + 0.02, 0, 1, 1, 1, { cast: false })
+    }
+  // great tower rising from the middle — the tallest thing in the kingdom
+  const gr = 3.4
+  const gh = H + 15
+  T.batch.put(new THREE.CylinderGeometry(gr, gr * 1.05, gh, 20), SM.stone, 0, gh / 2, Z - 0.5)
+  T.batch.put(new THREE.CylinderGeometry(gr * 1.22, gr, 0.7, 20), SM.trim, 0, gh + 0.1, Z - 0.5)
+  for (let k = 0; k < 12; k++) {
+    const a = (k / 12) * Math.PI * 2
+    T.batch.put(boxUV(0.85, 0.9, 0.5, 1), SM.stone, Math.cos(a) * gr * 1.15, gh + 0.9, Z - 0.5 + Math.sin(a) * gr * 1.15, -a + Math.PI / 2)
+  }
+  const sh = gr * 3.4 * style.spire
+  T.batch.put(new THREE.ConeGeometry(gr * 1.3, sh, 20), SM.roof, 0, gh + 0.45 + sh / 2, Z - 0.5)
+  T.batch.put(new THREE.CylinderGeometry(0.06, 0.06, 4, 6), T.P.iron, 0, gh + sh + 2, Z - 0.5)
+  for (let k = 0; k < 4; k++) T.batch.put(new THREE.PlaneGeometry(0.6, 1.4), SM.farWindow, Math.sin((k * Math.PI) / 2) * (gr + 0.02), gh - 5, Z - 0.5 + Math.cos((k * Math.PI) / 2) * (gr + 0.02), (k * Math.PI) / 2, 1, 1, 1, { cast: false })
+  // a pennant on the very top
+  const flagTex = bannerTexture()
+  const flagMat = new THREE.MeshStandardMaterial({ map: flagTex, roughness: 0.8, side: THREE.DoubleSide, color: style.id === 'balanced' ? '#ffffff' : style.banner[0] })
+  T.disposables.push(flagTex, flagMat)
+  const flag = new Cloth(2.2, 1.2, flagMat, 0.3)
+  flag.mesh.rotation.z = -Math.PI / 2
+  flag.mesh.position.set(0, gh + sh + 3.2, Z - 0.5)
+  T.scene.add(flag.mesh)
+  T.cloths.push(flag)
+  // warm uplight so the keep reads as a lit landmark at night
+  T.lights.push({ x: 0, y: 12, z: Z + D / 2 + 4, color: '#ff9a50', intensity: 16, dist: 22, priority: 3 })
 }
 
 /* ───────── Chad Gym (working: enter for Chad Press) ───────── */

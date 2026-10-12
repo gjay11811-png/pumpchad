@@ -12,7 +12,10 @@ import { arcade, entranceArch, forge, fountain, hollowHouse, house, stall, strip
 import { Leaves, Particles, type Fire, type Cloth } from './world/fx'
 import { StaticBatch, makePalette } from './world/kit'
 import { Crowd, RESIDENTS } from './world/npcs'
-import { CASTLE_Z, ROADS, buildGround, castle, clutter, fence, gym, lampPosts, poles, stringLights, townWall, vegetation } from './world/props'
+import { CASTLE_Z, ROADS, buildGround, castle, clutter, fence, gym, lampPosts, poles, stringLights, vegetation } from './world/props'
+import { CITY_SIGN, kingdom, mountains, valleyRoad } from './world/kingdom'
+import { buildChadCity } from './world/skyline'
+import { kingdomStyle, styleMaterials } from './world/style'
 import * as TX from './world/textures'
 
 export type Interactable = { id: string; label: string; pos: THREE.Vector3; radius: number; kind: 'talk' | 'activity' | 'info' | 'collect' | 'secret' }
@@ -47,7 +50,8 @@ export function groundHeight(x: number, z: number) {
 
 export class World implements GameScene {
   scene = new THREE.Scene()
-  camera = new THREE.PerspectiveCamera(55, 1, 0.1, 220)
+  // far plane reaches the Chad City skyline (~330 m) and the mountains beyond it
+  camera = new THREE.PerspectiveCamera(55, 1, 0.1, 950)
   bloom = 0.6
   player: Character | null = null
   private playerPos = new THREE.Vector3(0, 0, 19.5)
@@ -79,6 +83,7 @@ export class World implements GameScene {
   private smoke: Particles | null = null
   private embers: Particles | null = null
   private leaves: Leaves | null = null
+  private city: ReturnType<typeof buildChadCity> | null = null
   private disposables: (THREE.Material | THREE.Texture | THREE.BufferGeometry)[] = []
   paused = false
   private actionCooldown = 0
@@ -150,7 +155,9 @@ export class World implements GameScene {
     king.root.traverse((o) => (o as THREE.Mesh).geometry?.dispose())
 
     // ── districts ──
-    castle(T)
+    const style = kingdomStyle()
+    const SM = styleMaterials(style, tex, this.disposables)
+    castle(T, style, SM)
     gym(T)
     tavern(T, -12, 19, 'e')
     forge(T, -16, -13, 's')
@@ -162,8 +169,9 @@ export class World implements GameScene {
     house(T, { x: -25, z: 13.5, w: 6, d: 5, face: 'n', roof: P.roofOrange, seed: 11 })
     house(T, { x: -26, z: -9.5, w: 6, d: 5, face: 's', roof: P.roofRed, seed: 13 })
     house(T, { x: 26, z: 10, w: 5, d: 6, face: 'w', roof: P.roofSlate, seed: 17 })
-    house(T, { x: -9, z: 29, w: 5, d: 4, floors: 1, face: 'e', roof: P.roofRed, seed: 19 })
-    house(T, { x: 9.5, z: 29, w: 5, d: 4, floors: 1, face: 'w', roof: P.roofOrange, seed: 23 })
+    // the two cottages by the south wall moved inland so the Lookout Terrace opens onto the valley
+    house(T, { x: -15, z: 27, w: 5, d: 4, floors: 1, face: 'e', roof: P.roofRed, seed: 19 })
+    house(T, { x: 16, z: 26.5, w: 5, d: 4, floors: 1, face: 'w', roof: P.roofOrange, seed: 23 })
 
     // Market Row
     const stripes = stripeMats(T)
@@ -192,7 +200,9 @@ export class World implements GameScene {
     fence(T, [[-22, 10.4], [-28.2, 10.4]])
 
     clutter(T)
-    townWall(T, BOUNDS)
+    kingdom(T, style, SM, q)
+    this.city = buildChadCity(this.scene, q, this.disposables)
+    valleyRoad(T, this.city.road)
 
     // vegetation avoids roads, plaza and buildings
     const avoid = (x: number, z: number) => {
@@ -255,20 +265,13 @@ export class World implements GameScene {
     const pos = new Float32Array(N * 3)
     for (let i = 0; i < N; i++) {
       const th = Math.random() * Math.PI * 2
-      const ph = Math.random() * 0.45 * Math.PI
-      pos.set([Math.cos(th) * Math.cos(ph) * 150, Math.sin(ph) * 150 + 10, Math.sin(th) * Math.cos(ph) * 150], i * 3)
+      const ph = 0.06 + Math.random() * 0.42 * Math.PI
+      pos.set([Math.cos(th) * Math.cos(ph) * 880, Math.sin(ph) * 880 + 10, Math.sin(th) * Math.cos(ph) * 880], i * 3)
     }
     const g = new THREE.BufferGeometry()
     g.setAttribute('position', new THREE.BufferAttribute(pos, 3))
-    s.add(new THREE.Points(g, new THREE.PointsMaterial({ color: '#f3ece2', size: 0.6, fog: false, transparent: true, opacity: 0.8 })))
-    const hillMat = new THREE.MeshBasicMaterial({ color: '#0d0a12' })
-    for (let i = 0; i < 18; i++) {
-      const a = (i / 18) * Math.PI * 2
-      const h = 12 + ((i * 37) % 11)
-      const hill = new THREE.Mesh(new THREE.ConeGeometry(16, h, 5), hillMat)
-      hill.position.set(Math.cos(a) * 80, h / 2 - 1, Math.sin(a) * 80)
-      s.add(hill)
-    }
+    s.add(new THREE.Points(g, new THREE.PointsMaterial({ color: '#f3ece2', size: 3.4, fog: false, transparent: true, opacity: 0.8 })))
+    mountains(s, this.disposables)
   }
 
   private buildLightsAndSky(q: Quality) {
@@ -303,6 +306,7 @@ export class World implements GameScene {
     add('arcade', 'Pump Arcade — opening soon', 7.8, 19, 1.9, 'info')
     add('rune', 'Press the strange rune', -24.5, -27, 1.6, 'secret')
     add('pumpkin', 'Poke the suspicious pumpkin', -9.6, 10.4, 2.1, 'info')
+    add('citygate', 'Read the Chad City sign', CITY_SIGN.x - 0.4, CITY_SIGN.z - 1.2, 1.9, 'info')
     for (const r of RESIDENTS) if (r.talk) add(r.id, r.talk, r.talkAt?.[0] ?? r.x, r.talkAt?.[1] ?? r.z, r.talkAt ? 1.6 : 2.2, 'talk')
 
     // the suspicious pumpkin
@@ -712,6 +716,7 @@ export class World implements GameScene {
     this.smoke?.update(dt, t)
     this.embers?.update(dt, t)
     this.leaves?.update(dt, t, this.playerPos.x, this.playerPos.z)
+    this.city?.update(dt)
     let mi = 0
     for (const [, m] of this.markers) {
       m.position.y += Math.sin(t * 2.4 + mi++) * 0.004

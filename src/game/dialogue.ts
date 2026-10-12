@@ -34,6 +34,15 @@ export const DIALOGUE: Record<string, Dialogue> = {
     role: 'Sealed',
     lines: ['You knock. Silence.', 'A muffled voice: “The King is busy. He is doing his sets.”', 'The castle opens in a future update. Probably after leg day.'],
   },
+  citygate: {
+    speaker: 'Road to Chad City',
+    role: 'Closed — coming soon',
+    lines: [
+      'The road winds down the cliff and across the valley to the lights of CHAD CITY.',
+      'Towers, a casino with a gold crown, streets you can’t walk yet. The portcullis stays down for now.',
+      'Stick around. When the gate lifts, you’ll want to be first through it.',
+    ],
+  },
   rune: {
     speaker: 'Strange Rune',
     role: 'Hidden switch',
