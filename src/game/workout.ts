@@ -26,7 +26,7 @@ export const STATIONS: Record<StationId, StationSpec> = {
   bench: { id: 'bench', name: 'Bench Press', verb: 'Press', pose: 'bench', reps: 10, beat: 1.5, window: 0.16, rest: 1, pts: { clean: 4, sloppy: 1 }, tip: 'Lower the bar, then drive it up on the beat.' },
   curl: { id: 'curl', name: 'Dumbbell Curls', verb: 'Curl', pose: 'curl', reps: 12, beat: 1.15, window: 0.17, rest: 0, pts: { clean: 3, sloppy: 1 }, tip: 'Elbows pinned. Curl when the ring locks in.' },
   squat: { id: 'squat', name: 'Back Squat', verb: 'Squat', pose: 'squat', reps: 10, beat: 1.7, window: 0.15, rest: 0, pts: { clean: 5, sloppy: 1 }, tip: 'Sit back, drive up through the heels.' },
-  bag: { id: 'bag', name: 'Heavy Bag', verb: 'Punch', pose: 'guard', reps: 15, beat: 0.85, window: 0.2, rest: 0, pts: { clean: 2, sloppy: 1 }, tip: 'Jab, cross, hook — hit on the beat for full power.' },
+  bag: { id: 'bag', name: 'Heavy Bag', verb: 'Punch', pose: 'guard', reps: 15, beat: 0.85, window: 0.2, rest: 0, pts: { clean: 2, sloppy: 1 }, tip: 'Jab, jab, cross — hit on the beat for full power.' },
 }
 
 /** Position inside the current beat, 0..1 (1 = the ring closes on the target). */

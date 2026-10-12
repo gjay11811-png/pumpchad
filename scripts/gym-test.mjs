@@ -106,6 +106,7 @@ for (const [id, cfg] of Object.entries(STA)) {
   let lo = Infinity
   let hi = -Infinity
   let punchClip = ''
+  let lowHead = Infinity
   await tapOnBeat()
   for (let k = 0; k < 12; k++) {
     const s = await ins()
@@ -113,9 +114,11 @@ for (const [id, cfg] of Object.entries(STA)) {
     lo = Math.min(lo, y)
     hi = Math.max(hi, y)
     if (/Punch|Melee/.test(s.clip ?? '')) punchClip = s.clip
+    lowHead = Math.min(lowHead, s.headBone[1])
     await w(60)
   }
   if (id === 'bag') check(!!punchClip, `throws a real punch clip (${punchClip || 'none'})`)
+  if (id === 'bag') check(lowHead > 1.3, `stays upright while punching (lowest head ${lowHead.toFixed(2)} m)`)
   else check(hi - lo > 0.22, `${id}: visible ${id === 'squat' ? 'hip' : 'hand'} travel through the rep (${(hi - lo).toFixed(2)} m)`)
   const s1 = await ins()
   check(s1.headAttach !== null ? s1.headAttach < 0.5 : true, `head stays attached during the ${id}`)

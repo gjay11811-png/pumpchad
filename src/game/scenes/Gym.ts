@@ -395,10 +395,11 @@ export class Gym implements GameScene {
     this.flash = 1
     this.flashColor.set(grade === 'clean' ? '#f6c870' : '#ff4d3d')
     if (this.mode === 'bag') {
-      const moves = ['jab', 'cross', 'hook'] as const
+      // jab-jab-cross: both library punches stay upright (the UAL2 melee hook lunges to the floor, wrong for a bag)
+      const moves = ['jab', 'jab', 'cross'] as const
       const mv = moves[this.punch++ % 3]
       p.playOnce?.(mv)
-      this.pendingHit = this.t + (mv === 'hook' ? 0.2 : 0.26)
+      this.pendingHit = this.t + 0.26
       this.bagHit = grade === 'clean' ? 1 : 0.55
       return
     }
