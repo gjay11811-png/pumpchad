@@ -72,8 +72,9 @@ for (const [tag, ctxOpts] of [
   check(!(await p.evaluate(() => [...document.scripts].some((s) => /chadverse\//.test(s.src)) || !!document.querySelector('canvas'))), 'the 3D game is not loaded on the landing page')
   await p.locator('[data-testid=chadverse-gate]').scrollIntoViewIfNeeded()
   await p.locator('[data-testid=chadverse-gate]').click()
-  await p.waitForTimeout(700)
-  check(await p.locator('[data-testid=gate-telegram]').isVisible(), 'knocking on the locked gate shows the Telegram message')
+  // the message animates in after the previous one animates out; allow for a slow network / busy device
+  const gateMsg = await p.locator('[data-testid=gate-telegram]').waitFor({ state: 'visible', timeout: 4000 }).then(() => true, () => false)
+  check(gateMsg, 'knocking on the locked gate shows the Telegram message')
   out && (await p.locator('#chadverse-3d').screenshot({ path: `${out}/lp-${tag}-chadverse.jpg`, quality: 75 }))
 
   // progress
