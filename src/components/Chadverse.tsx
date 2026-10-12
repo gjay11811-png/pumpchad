@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight, Expand, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { chadverse, type Artwork } from '../config'
-import { Reveal, SectionLabel, ease } from './ui'
+import { REVEAL_MARGIN, Reveal, SectionLabel, ease } from './ui'
 
 const isLandscape = (a: Artwork) => a.width / a.height > 1.2
 
@@ -54,7 +54,7 @@ export function Chadverse() {
                 key={art.id}
                 initial={{ opacity: 0, y: 32 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: '0px 0px -8% 0px' }}
+                viewport={{ once: true, margin: REVEAL_MARGIN }}
                 transition={{ duration: 0.7, ease, delay: (i % 3) * 0.07 }}
                 className={`${span} md:w-[calc(var(--w)*(100%-1.25rem))]`}
                 style={{ ['--w' as string]: deskWidth[i] }}

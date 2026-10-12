@@ -19,7 +19,8 @@ export function Hero() {
   const imgY = useTransform(scrollYProgress, [0, 1], reduce ? [0, 0] : [0, 140])
   const imgScale = useTransform(scrollYProgress, [0, 1], reduce ? [1, 1] : [1, 1.08])
   const wordY = useTransform(scrollYProgress, [0, 1], reduce ? [0, 0] : [0, -90])
-  const copyOpacity = useTransform(scrollYProgress, [0, 0.55], [1, 0])
+  // NOTE: the copy block (headline, countdown, Telegram / X buttons) is deliberately NOT tied to scroll —
+  // it must stay 100% opaque for as long as any part of it is on screen. Only the decorative art moves.
 
   return (
     <section ref={ref} id="top" aria-labelledby="hero-title" className="relative isolate overflow-hidden bg-ink pt-16 md:pt-20 lg:min-h-[100svh]">
@@ -71,7 +72,7 @@ export function Hero() {
         </m.div>
 
         {/* ── copy ── */}
-        <m.div style={{ opacity: copyOpacity }} className="relative z-20 order-3 px-4 pb-14 sm:px-6 lg:max-w-[min(42rem,46vw)] lg:px-10 lg:pb-[calc(min(21.8vw,22rem)*0.92)] lg:pt-[clamp(2rem,7vh,5.5rem)]">
+        <div className="relative z-20 order-3 px-4 pb-14 sm:px-6 lg:max-w-[min(42rem,46vw)] lg:px-10 lg:pb-[calc(min(21.8vw,22rem)*0.92)] lg:pt-[clamp(2rem,7vh,5.5rem)]">
           <m.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -123,7 +124,7 @@ export function Hero() {
             &gt; {site.secondary}
             <span className="blink ml-1 inline-block h-3 w-1.5 translate-y-0.5 bg-pump" />
           </m.p>
-        </m.div>
+        </div>
 
         {/* ── wordmark ── */}
         <m.div style={{ y: wordY }} className="relative z-10 order-2 -mt-[24vw] px-3 sm:-mt-[20vw] lg:absolute lg:inset-x-0 lg:bottom-[-1.6vw] lg:mt-0 lg:px-6">

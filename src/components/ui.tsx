@@ -24,6 +24,9 @@ export const PumpkinMark = (p: SVGProps<SVGSVGElement>) => (
 
 /* ───── Motion ───── */
 export const ease = [0.22, 1, 0.36, 1] as const
+/** Entrance animations start as soon as an element is genuinely on screen (just inside the bottom edge),
+ *  play ONCE, and then stay at 100% opacity — scrolling never triggers an exit. */
+export const REVEAL_MARGIN = '0px 0px -4% 0px'
 
 export function Reveal({
   children,
@@ -36,7 +39,7 @@ export function Reveal({
     <m.div
       initial={{ opacity: 0, y }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: '0px 0px -12% 0px' }}
+      viewport={{ once: true, margin: REVEAL_MARGIN }}
       transition={{ duration: 0.9, ease, delay }}
       className={className}
       {...rest}
@@ -70,7 +73,7 @@ type CtaProps = {
 export function Cta({ href, children, variant = 'pump', icon, className = '', label, soon }: CtaProps & { soon?: string }) {
   if (!href)
     return (
-      <span aria-disabled="true" className={`relative inline-flex min-h-13 cursor-default items-center justify-center gap-3 rounded-full border border-dashed border-bone/20 px-7 font-sans text-[15px] font-semibold uppercase tracking-[0.08em] text-bone/45 ${className}`}>
+      <span aria-disabled="true" className={`relative inline-flex min-h-13 cursor-default items-center justify-center gap-3 rounded-full border border-dashed border-bone/35 bg-bone/[0.04] px-7 font-sans text-[15px] font-semibold uppercase tracking-[0.08em] text-bone/75 ${className}`}>
         {icon && <span className="opacity-60">{icon}</span>}
         <span>{soon ?? 'Coming soon'}</span>
       </span>

@@ -39,7 +39,7 @@ export function Footer() {
                     <XIcon className="h-3.5 w-3.5" /> X
                   </a>
                 ) : (
-                  <span className="inline-flex items-center gap-2 text-[15px] text-bone/40">
+                  <span className="inline-flex items-center gap-2 text-[15px] text-bone/60">
                     <XIcon className="h-3.5 w-3.5" /> X — coming soon
                   </span>
                 )}

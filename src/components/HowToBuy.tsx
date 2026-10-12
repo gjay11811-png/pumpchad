@@ -2,7 +2,7 @@ import { m, useScroll, useTransform } from 'framer-motion'
 import { AlertTriangle, ArrowUpRight, Lock } from 'lucide-react'
 import { useRef } from 'react'
 import { contractLive, site } from '../config'
-import { SectionLabel, ease } from './ui'
+import { REVEAL_MARGIN, SectionLabel, ease } from './ui'
 
 const STEPS = [
   { title: 'Get a Solana wallet', body: 'Use a compatible wallet such as Phantom.' },
@@ -72,7 +72,7 @@ export function HowToBuy() {
               key={s.title}
               initial={{ opacity: 0, x: 30 }}
               whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true, margin: '0px 0px -15% 0px' }}
+              viewport={{ once: true, margin: REVEAL_MARGIN }}
               transition={{ duration: 0.8, ease }}
               className="relative grid grid-cols-[3.25rem_1fr] gap-5 pb-14 last:pb-0 md:grid-cols-[5rem_1fr] md:gap-8 md:pb-20"
             >

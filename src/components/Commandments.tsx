@@ -1,6 +1,6 @@
 import { m } from 'framer-motion'
 import { art } from '../config'
-import { Reveal, SectionLabel, ease } from './ui'
+import { REVEAL_MARGIN, Reveal, SectionLabel, ease } from './ui'
 
 const LAWS = [
   { n: 'I', title: 'Never panic.', line: 'Red candles build character.' },
@@ -54,7 +54,7 @@ export function Commandments() {
               key={l.n}
               initial={{ opacity: 0, y: 40 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: '0px 0px -10% 0px' }}
+              viewport={{ once: true, margin: REVEAL_MARGIN }}
               transition={{ duration: 0.8, ease, delay: i * 0.04 }}
               className="group relative isolate overflow-hidden border-t border-bone/10"
             >
