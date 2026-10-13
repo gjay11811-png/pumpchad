@@ -155,6 +155,61 @@ function Row({ k, v }: { k: string; v: string }) {
   )
 }
 
+/**
+ * The Chad Square notice board: what you can actually do here today (with live progress), what's coming,
+ * and the controls. Only implemented activities are listed as available.
+ */
+export function NoticeBoardMenu({ save, onBack }: { save: SaveData; onBack: () => void }) {
+  useEsc(onBack)
+  const p = save.progress
+  const seeds = p.discoveries.filter((d) => d.startsWith('seed_')).length
+  const gourds = p.discoveries.filter((d) => d.startsWith('gourd_')).length
+  const now: [string, string, string][] = [
+    ['Chad Gym', 'East of the fountain · 7 stations + Chad Press', `${Object.values(p.reps).reduce((a, b) => a + b, 0)} reps logged`],
+    ['Pumpkin Rush', 'The pumpkin cart by the fountain · 45 s sprint', p.records.pumpkin_rush ? `best ${p.records.pumpkin_rush}` : 'not played yet'],
+    ['The Lookout', 'South through the gate arch · sit and watch Chad City', p.discoveries.includes('lookout') ? 'visited' : 'unvisited'],
+    ['Golden seeds', 'Hidden in alleys and dead ends', `${seeds}/5 found`],
+    ['Talking pumpkins', 'Some pumpkins have opinions', `${gourds}/3 found`],
+    ['Residents', 'Coach Gourdon, b4s, Barley, Anvilus, Madame Marrowpot, Captain Tibia, Pip', 'say hi'],
+  ]
+  const soon: [string, string][] = [
+    ['Castle', 'The King is doing his sets'],
+    ['Chad City', 'Across the valley — the road is closed'],
+    ['Pump Arcade', 'Cabinets humming behind the boards'],
+    ['Chad Casino', 'Free-play only, when it opens. No real money, ever.'],
+  ]
+  return (
+    <Overlay label="Notice board">
+      <Header title="Notice board" onBack={onBack} />
+      <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.22em] text-moon">Chad Square · what’s on</p>
+      <ul className="mt-3 grid gap-1.5" data-testid="board-now">
+        {now.map(([t, d, s]) => (
+          <li key={t} className="flex items-center justify-between gap-3 rounded-xl bg-bone/[0.04] px-3 py-2 ring-1 ring-bone/10">
+            <span className="min-w-0">
+              <span className="block font-display text-lg uppercase leading-tight">{t}</span>
+              <span className="block text-[12px] text-bone/60">{d}</span>
+            </span>
+            <span className="shrink-0 rounded-full bg-moon/15 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-moon">{s}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.22em] text-ash">Coming soon</p>
+      <ul className="mt-2 grid grid-cols-2 gap-1.5" data-testid="board-soon">
+        {soon.map(([t, d]) => (
+          <li key={t} className="rounded-xl bg-bone/[0.02] px-3 py-2 ring-1 ring-bone/10">
+            <span className="block font-display text-base uppercase leading-tight text-bone/70">{t}</span>
+            <span className="block text-[11px] text-bone/45">{d}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.22em] text-ash">Controls</p>
+      <p className="mt-1 text-[13px] text-bone/70">
+        WASD / arrows to walk · Shift to sprint · drag to look · E to interact · Space to jump · Q emotes. On phones: stick, Sprint, Jump and GO.
+      </p>
+    </Overlay>
+  )
+}
+
 export function AchievementsMenu({ save, onBack }: { save: SaveData; onBack: () => void }) {
   useEsc(onBack)
   return (

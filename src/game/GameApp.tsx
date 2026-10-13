@@ -22,10 +22,10 @@ import { DialoguePanel } from './ui/DialoguePanel'
 import { Loading, Portal, Title } from './ui/Entrance'
 import { Hud, LevelUpBanner, Toasts, type Toast } from './ui/Hud'
 import { Joystick } from './ui/Joystick'
-import { AchievementsMenu, PauseMenu, ProfileMenu, SettingsMenu } from './ui/Menus'
+import { AchievementsMenu, NoticeBoardMenu, PauseMenu, ProfileMenu, SettingsMenu } from './ui/Menus'
 
 type Phase = 'boot' | 'title' | 'creator' | 'world' | 'gym' | 'error'
-type Overlay = null | 'pause' | 'settings' | 'achievements' | 'profile'
+type Overlay = null | 'pause' | 'settings' | 'achievements' | 'profile' | 'board'
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 const ACH_XP = 25
 
@@ -230,19 +230,47 @@ export function GameApp() {
       case 'smith':
       case 'potion':
       case 'captain':
+      case 'guide':
         discover(`talk_${id}`)
         w.faceNpcToPlayer(id)
         w.markTalked(id)
         setDialogue(DIALOGUE[id])
         break
       case 'statue':
+        // first read of the plaque is a lore discovery
+        if (!saveRef.current.progress.discoveries.includes('lore_fountain')) {
+          discover('lore_fountain')
+          notify('Lore discovered', 'The Pump Fountain — read the plaque in full.')
+        }
+        setDialogue(DIALOGUE.statue)
+        break
+      case 'board':
+        input.current?.clear()
+        setOverlay('board')
+        break
+      case 'gourd_1':
+      case 'gourd_2':
+      case 'gourd_3': {
+        setDialogue(DIALOGUE[id])
+        w.gourdFound(id)
+        if (!saveRef.current.progress.discoveries.includes(id)) {
+          discover(id)
+          audio.play('perfect')
+          const n = saveRef.current.progress.discoveries.filter((x) => x.startsWith('gourd_')).length
+          notify(`Talking pumpkin ${n}/3`, n === 3 ? 'The whole Gourd Council. They will never stop talking now.' : 'More of them are hiding around the kingdom.')
+          if (n >= 3) unlock('gourd_council')
+        }
+        break
+      }
       case 'gate':
       case 'citygate':
-      case 'board':
+      case 'lookout':
+      case 'wardrobe':
       case 'well':
       case 'window':
       case 'arcade':
         if (id === 'well') discover('wish')
+        if (id === 'lookout') discover('lookout')
         setDialogue(DIALOGUE[id])
         break
       case 'seed_1':
@@ -301,6 +329,10 @@ export function GameApp() {
     setDialogue(null)
     world.current?.cooldown()
     if (action === 'gym') void go('gym', { label: 'Entering Chad Gym' })
+    if (action === 'wardrobe') {
+      setEditing(true)
+      void go('creator', { label: 'Opening the wardrobe' })
+    }
   }
 
   /* ── pause world while any UI is up ── */
@@ -547,6 +579,16 @@ export function GameApp() {
               {overlay === 'settings' && <SettingsMenu key="settings" settings={s} onChange={changeSettings} onBack={() => setOverlay(settingsFrom)} onResetProgress={resetProgress} />}
               {overlay === 'achievements' && <AchievementsMenu key="ach" save={save} onBack={() => setOverlay('pause')} />}
               {overlay === 'profile' && <ProfileMenu key="profile" save={save} onBack={() => setOverlay(null)} />}
+              {overlay === 'board' && (
+                <NoticeBoardMenu
+                  key="board"
+                  save={save}
+                  onBack={() => {
+                    setOverlay(null)
+                    world.current?.cooldown()
+                  }}
+                />
+              )}
             </AnimatePresence>
 
             <AnimatePresence>

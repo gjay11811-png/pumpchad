@@ -10,6 +10,20 @@ import type { KingdomStyle, styleMaterials } from './style'
 
 type StyleMats = ReturnType<typeof styleMaterials>
 
+/**
+ * The four plaza benches round the fountain (diagonals, so the road mouths stay clear).
+ * `ry` = the direction a seated person faces (toward the fountain). The bench geometry, b4s's seat and the
+ * player's sit interaction all read these, so the seat anchor always matches the bench.
+ */
+export const PLAZA_BENCHES = [0, 1, 2, 3].map((i) => {
+  const a = (i / 4) * Math.PI * 2 + Math.PI / 4
+  return { x: Math.cos(a) * 8.6, z: Math.sin(a) * 8.6, ry: Math.atan2(-Math.cos(a), -Math.sin(a)), a }
+})
+/** the north-west bench belongs to b4s (he sits there) */
+export const B4S_BENCH = 1
+/** how far in front of a bench's centre the sitter's root goes so the seated clip lands on the seat */
+export const SEAT_FWD = 0.12
+
 /* ───────── ground: base terrain, plaza disc, roads + curbs ───────── */
 export type Road = { x0: number; z0: number; x1: number; z1: number; w: number }
 export const ROADS: Road[] = [
@@ -248,10 +262,7 @@ export function clutter(T: Town) {
 
   // benches facing the fountain
   const benchGeo = boxUV(1.8, 0.12, 0.5, 1)
-  for (let i = 0; i < 4; i++) {
-    const a = (i / 4) * Math.PI * 2 + Math.PI / 4 // diagonals: road mouths stay clear
-    const x = Math.cos(a) * 8.6
-    const z = Math.sin(a) * 8.6
+  for (const { a, x, z } of PLAZA_BENCHES) {
     const ry = -a + Math.PI / 2
     T.batch.put(benchGeo, P.woodLight, x, 0.48, z, ry)
     T.batch.put(new THREE.BoxGeometry(1.8, 0.4, 0.08), P.woodLight, x + Math.cos(a) * 0.25, 0.8, z + Math.sin(a) * 0.25, ry)

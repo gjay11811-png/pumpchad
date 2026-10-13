@@ -206,6 +206,7 @@ export const ACHIEVEMENTS: Record<string, { name: string; desc: string }> = {
   iron_chad: { name: 'Iron Chad', desc: 'Score 800+ in Chad Press.' },
   socialite: { name: 'Town Socialite', desc: 'Talk to every resident of Chad Square.' },
   gourd_whisperer: { name: 'Gourd Whisperer', desc: 'Annoy the suspicious pumpkin.' },
+  gourd_council: { name: 'Gourd Council', desc: 'Find all three talking pumpkins.' },
   kings_stash: { name: 'The King’s Stash', desc: 'Find the hidden switch.' },
   seed_collector: { name: 'Seed Collector', desc: 'Find all 5 golden seeds.' },
   full_circuit: { name: 'Full Circuit', desc: 'Finish a set on every gym station.' },

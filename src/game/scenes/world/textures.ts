@@ -61,37 +61,114 @@ export function cobble(size = 512) {
   return { map: tex(c), bump: tex(b, true, false) }
 }
 
-/** Radial plaza paving: concentric rings of stones with a gold-banded centre. */
-export function plaza(size = 1024) {
+/**
+ * Radial plaza paving (v4): many small, hand-laid-looking stones in concentric courses.
+ * Irregular jittered outlines, per-stone colour gradient + speckle, chipped corners, dark worn seams with moss
+ * and dirt, darker basalt accent courses — plus a bump map with soft bevels. 2048 px over the 23 m plaza (~89 px/m).
+ */
+export function plaza(size = 2048) {
   const [c, g] = canvas(size)
   const [b, gb] = canvas(size)
   const r = rng(21)
   const cx = size / 2
-  g.fillStyle = '#100d10'
+  const pxPerM = size / 23
+  // mortar / dirt between the stones
+  g.fillStyle = '#17120f'
   g.fillRect(0, 0, size, size)
   gb.fillStyle = '#000'
   gb.fillRect(0, 0, size, size)
-  const ringW = size / 2 / 14
-  for (let ring = 2; ring < 14; ring++) {
-    const r0 = ring * ringW
-    const n = Math.floor((Math.PI * 2 * r0) / (ringW * 1.15))
+  const course = 0.42 * pxPerM // ring width (m → px)
+  const startR = 6.2 * pxPerM // under the fountain is never seen
+  const shape = (ctx: CanvasRenderingContext2D, pts: [number, number][]) => {
+    ctx.beginPath()
+    pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)))
+    ctx.closePath()
+  }
+  let ring = 0
+  for (let r0 = startR; r0 < size / 2; r0 += course) {
+    ring++
+    const accent = ring % 6 === 0 // darker basalt course
+    const len = (accent ? 0.34 : 0.45 + r() * 0.15) * pxPerM
+    const n = Math.max(8, Math.floor((Math.PI * 2 * r0) / len))
+    const off = r() * Math.PI * 2
     for (let k = 0; k < n; k++) {
-      const a0 = (k / n) * Math.PI * 2 + ring * 0.37
-      const a1 = ((k + 1) / n) * Math.PI * 2 + ring * 0.37 - 0.02
-      const L = ring % 4 === 0 ? 30 + r() * 6 : 15 + r() * 14
-      g.fillStyle = ring % 4 === 0 ? `hsl(30,18%,${L}%)` : `hsl(${16 + r() * 18},${8 + r() * 8}%,${L}%)`
-      for (const ctx of [g, gb]) {
-        ctx.beginPath()
-        ctx.arc(cx, cx, r0 + ringW - 3, a0, a1)
-        ctx.arc(cx, cx, r0 + 3, a1, a0, true)
-        ctx.closePath()
-      }
+      const a0 = off + (k / n) * Math.PI * 2 + (r() - 0.5) * 0.004
+      const a1 = off + ((k + 1) / n) * Math.PI * 2 - (2.6 + r() * 2) / r0 // seam
+      const ri = r0 + 2 + r() * 1.5
+      const ro = r0 + course - 2 - r() * 1.5
+      // outline: corners + jittered mid-edges, so no stone is a perfect trapezoid
+      const P = (a: number, rad: number): [number, number] => [cx + Math.cos(a) * rad, cx + Math.sin(a) * rad]
+      const am = (a0 + a1) / 2
+      const j = () => (r() - 0.5) * 2.4
+      const pts: [number, number][] = [
+        P(a0 + j() / r0, ri + j()), P(am, ri - 0.8 + j()), P(a1 + j() / r0, ri + j()),
+        P(a1 + 1.2 / ro, (ri + ro) / 2 + j()), P(a1 + j() / ro, ro + j()), P(am, ro + 0.8 + j()), P(a0 + j() / ro, ro + j()), P(a0 - 1.2 / ri, (ri + ro) / 2 + j()),
+      ]
+      // chipped corner on some stones
+      if (r() < 0.18) pts.splice(4, 1, P(a1 - 3 / ro, ro - 2), P(a1, ro - 4))
+      const hue = accent ? 250 + r() * 30 : 18 + r() * 22
+      const sat = accent ? 6 + r() * 5 : 7 + r() * 9
+      const L = accent ? 13 + r() * 6 : 24 + r() * 16
+      const [mx, my] = P(am, (ri + ro) / 2)
+      const grd = g.createRadialGradient(mx - 4, my - 4, 1, mx, my, course * 0.9)
+      grd.addColorStop(0, `hsl(${hue},${sat}%,${L + 6}%)`)
+      grd.addColorStop(1, `hsl(${hue},${sat}%,${L - 6}%)`)
+      g.fillStyle = grd
+      shape(g, pts)
       g.fill()
-      gb.fillStyle = `rgb(${190 + r() * 60},${190 + r() * 60},${190 + r() * 60})`
+      // darkened worn rim
+      g.strokeStyle = 'rgba(10,6,4,0.45)'
+      g.lineWidth = 1.6
+      g.stroke()
+      // bump: soft bevel (blurred fill)
+      gb.save()
+      gb.shadowColor = '#fff'
+      gb.shadowBlur = 5
+      gb.fillStyle = `rgb(${170 + r() * 60},${170 + r() * 60},${170 + r() * 60})`
+      shape(gb, pts)
       gb.fill()
+      gb.restore()
     }
   }
-  return { map: tex(c, false), bump: tex(b, false, false) }
+  // grain, pits and scuffs over everything (keeps big flat colour areas from looking like plastic)
+  for (let i = 0; i < 90000; i++) {
+    const x = r() * size
+    const y = r() * size
+    const k = r()
+    g.fillStyle = k < 0.55 ? `rgba(0,0,0,${0.08 + r() * 0.12})` : `rgba(255,240,220,${0.04 + r() * 0.05})`
+    g.fillRect(x, y, 1.3, 1.3)
+    if (k < 0.04) {
+      gb.fillStyle = 'rgba(0,0,0,0.5)'
+      gb.fillRect(x, y, 2, 2)
+    }
+  }
+  // moss and dirt gathering toward the plaza edge and in the seams
+  for (let i = 0; i < 2600; i++) {
+    const a = r() * Math.PI * 2
+    const rad = (8.5 + Math.pow(r(), 0.6) * 3) * pxPerM
+    const x = cx + Math.cos(a) * rad
+    const y = cx + Math.sin(a) * rad
+    g.fillStyle = r() < 0.6 ? `rgba(54,72,38,${0.18 + r() * 0.25})` : `rgba(40,28,18,${0.2 + r() * 0.2})`
+    g.beginPath()
+    g.arc(x, y, 1 + r() * 3, 0, Math.PI * 2)
+    g.fill()
+  }
+  // a few darker wet patches near the fountain (splash)
+  for (let i = 0; i < 26; i++) {
+    const a = r() * Math.PI * 2
+    const rad = (6.4 + r() * 1.4) * pxPerM
+    const px = cx + Math.cos(a) * rad
+    const py = cx + Math.sin(a) * rad
+    const pr = 40 + r() * 60
+    const grd = g.createRadialGradient(px, py, 0, px, py, pr)
+    grd.addColorStop(0, 'rgba(10,12,16,0.35)')
+    grd.addColorStop(1, 'rgba(10,12,16,0)')
+    g.fillStyle = grd
+    g.fillRect(px - pr, py - pr, pr * 2, pr * 2)
+  }
+  const map = tex(c, false)
+  map.anisotropy = 8
+  return { map, bump: tex(b, false, false) }
 }
 
 /** Dirt + dark grass ground. */

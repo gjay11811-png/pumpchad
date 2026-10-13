@@ -2,6 +2,13 @@ import * as THREE from 'three'
 import { createCharacter, disposeCharacter, type Character } from '../../character/character'
 import type { Appearance } from '../../character/types'
 import type { Pose } from '../../character/build'
+import { B4S_BENCH, PLAZA_BENCHES, SEAT_FWD } from './props'
+
+/** b4s sits on his plaza bench: root a little in front of the bench centre, facing the fountain */
+const B4S_SEAT = (() => {
+  const b = PLAZA_BENCHES[B4S_BENCH]
+  return { x: b.x + Math.sin(b.ry) * SEAT_FWD, z: b.z + Math.cos(b.ry) * SEAT_FWD, face: b.ry }
+})()
 
 const A = (p: Partial<Appearance> & Pick<Appearance, 'species'>): Appearance => ({
   skin: p.species === 'skeleton' ? '#e9e2d0' : p.species === 'demon' ? '#7e1a1a' : '#e8741c',
@@ -20,11 +27,13 @@ export type WalkerDef = { id: string; a: Appearance; path: [number, number][]; s
 
 export const RESIDENTS: ResidentDef[] = [
   { id: 'coach', a: A({ species: 'skeleton', glow: '#19f19a', headwear: 'cap', chain: true }), x: 13.4, z: 0.6, face: -2.2, talk: 'Talk to Coach Gourdon' },
-  { id: 'hodl', a: A({ species: 'demon', outfit: '#2a262c', glow: '#ff4d3d', top: 'armor', headwear: 'horns' }), x: -5.6, z: 6.4, face: 2.4, talk: 'Talk to Sir Hodl' },
+  // id stays 'hodl' (saves + achievements reference it); the visible name is b4s
+  { id: 'hodl', a: A({ species: 'demon', outfit: '#2a262c', glow: '#ff4d3d', top: 'armor', headwear: 'horns' }), x: B4S_SEAT.x, z: B4S_SEAT.z, face: B4S_SEAT.face, talk: 'Talk to b4s', pose: 'sit' },
   { id: 'barkeep', a: A({ species: 'pumpkin', skin: '#c9581a', outfit: '#5a3a26', top: 'hoodie', headwear: 'cap', chain: true }), x: -6.4, z: 21.2, face: Math.PI / 2, talk: 'Talk to Barley' },
   { id: 'smith', a: A({ species: 'demon', skin: '#5b2a86', glow: '#ffb347', headwear: 'horns' }), x: -15.9, z: -11.6, face: 0.9, talk: 'Talk to Anvilus', pose: 'hammer' },
   { id: 'potion', a: A({ species: 'skeleton', skin: '#cfd6dc', outfit: '#4b2a7a', glow: '#9b5cff', top: 'hoodie', eyewear: 'none' }), x: -21, z: -2.6, face: 0, talk: 'Talk to Madame Marrowpot', talkAt: [-21, 0.6] },
   { id: 'captain', a: A({ species: 'skeleton', outfit: '#c89b3c', glow: '#ffb347', top: 'armor', headwear: 'crown' }), x: 3.6, z: -23.4, face: 0.25, talk: 'Talk to Captain Tibia' },
+  { id: 'guide', a: A({ species: 'skeleton', skin: '#e9e2d0', outfit: '#2f4a2c', glow: '#e8b84a', top: 'hoodie', headwear: 'cap' }), x: -27, z: -2.6, face: 0, talk: 'Talk to Pip, the village guide', talkAt: [-27, 0.7] },
   // decorative stall keepers (no dialogue — they just mind their stalls)
   { id: 'grocer', a: A({ species: 'pumpkin', skin: '#e0a23a', outfit: '#2f4a2c', top: 'hoodie' }), x: -15, z: -2.6, face: 0, minQuality: 'medium' },
   { id: 'tailor', a: A({ species: 'demon', skin: '#1f6b5a', outfit: '#e9e4da', top: 'hoodie' }), x: -24, z: 7.6, face: Math.PI, minQuality: 'medium' },
@@ -124,9 +133,12 @@ export class Crowd {
         l.c.pose = speed > 0 ? 'walk' : 'idle'
       } else {
         const def = l.def as ResidentDef
-        if (def.talk && dPlayer < 5 && !paused) l.facing = Math.atan2(player.x - l.pos.x, player.z - l.pos.z)
+        // seated residents stay facing the way their bench faces (no swivelling on the seat)
+        if (def.pose === 'sit') l.facing = def.face
+        else if (def.talk && dPlayer < 5 && !paused) l.facing = Math.atan2(player.x - l.pos.x, player.z - l.pos.z)
         else if (dPlayer > 6) l.facing = def.face
-        if (def.pose === 'hammer') l.c.pose = dPlayer < 3 ? 'idle' : 'hammer'
+        if (def.pose === 'sit') l.c.pose = 'sit'
+        else if (def.pose === 'hammer') l.c.pose = dPlayer < 3 ? 'idle' : 'hammer'
         else l.c.pose = def.talk && dPlayer < 4.2 && dPlayer > 2.4 ? 'wave' : 'idle'
         l.c.speed = 0
       }

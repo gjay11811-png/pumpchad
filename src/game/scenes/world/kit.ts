@@ -106,7 +106,7 @@ export function makePalette(tex: Record<string, THREE.Texture>) {
     stone: std({ map: tex.stone, color: '#a59ca8', roughness: 0.9 }),
     stoneLight: std({ map: tex.stone, color: '#cfc4c0', roughness: 0.85 }),
     cobble: std({ map: tex.cobble, bumpMap: tex.cobbleBump, bumpScale: 2.2, color: '#c9bdb5', roughness: 0.82 }),
-    plaza: std({ map: tex.plaza, bumpMap: tex.plazaBump, bumpScale: 2, color: '#d8cdc6', roughness: 0.7, metalness: 0.08 }),
+    plaza: std({ map: tex.plaza, bumpMap: tex.plazaBump, bumpScale: 3, color: '#e2d6cd', roughness: 0.82, metalness: 0.02 }),
     ground: std({ map: tex.ground, color: '#b8b2a8', roughness: 0.98 }),
     iron: std({ color: '#2a262c', metalness: 0.85, roughness: 0.38 }),
     gold: std({ color: '#e0a83e', metalness: 1, roughness: 0.3 }),

@@ -1,4 +1,4 @@
-export type DialogueOption = { label: string; action: 'close' | 'gym' }
+export type DialogueOption = { label: string; action: 'close' | 'gym' | 'wardrobe' }
 export type Dialogue = { speaker: string; role: string; lines: string[]; options?: DialogueOption[] }
 
 export const DIALOGUE: Record<string, Dialogue> = {
@@ -16,10 +16,10 @@ export const DIALOGUE: Record<string, Dialogue> = {
     ],
   },
   hodl: {
-    speaker: 'Sir Hodl',
+    speaker: 'b4s',
     role: 'Knight of the Diamond Grip',
     lines: [
-      'Halt. I am Sir Hodl, sworn protector of the King’s statue.',
+      'Halt. I am b4s, sworn protector of the King’s statue. I guard it sitting down. Diamond grip, diamond patience.',
       'Legend says the King once held through a candle so red it turned the moon orange.',
       'They also say the castle walls hide a strange rune. Press it and… well. You’ll see.',
     ],
@@ -27,7 +27,59 @@ export const DIALOGUE: Record<string, Dialogue> = {
   statue: {
     speaker: 'Bronze Plaque',
     role: 'Statue of the King',
-    lines: ['PUMPCHAD — FIRST OF HIS NAME, KING OF CHAD SQUARE.', '“Markets dump. Chads pump.”', 'Polished daily. Flexed at hourly.'],
+    lines: [
+      'PUMPCHAD — FIRST OF HIS NAME, KING OF CHAD SQUARE.',
+      '“Markets dump. Chads pump.”',
+      'Below, smaller letters: the fountain was raised on the day the King held through the Great Red Candle. Its water has never stopped running since. Neither has he.',
+      'Polished daily. Flexed at hourly.',
+    ],
+  },
+  guide: {
+    speaker: 'Pip',
+    role: 'Village Guide · Market Row',
+    lines: [
+      'Welcome to Chad Kingdom! First time? Here’s the lay of the land.',
+      'East of the fountain: CHAD GYM. Lift, punch the bag, hit the treadmill — every rep builds strength or stamina.',
+      'The pumpkin cart by the fountain runs PUMPKIN RUSH: forty-five seconds, grab every glowing pumpkin you can.',
+      'Head south through the gate arch to the LOOKOUT. Sit on a bench and watch CHAD CITY glow across the valley. The road is closed… for now.',
+      'North is the castle. The King is busy doing his sets — it opens in a future update. Oh, and some pumpkins round here talk. Don’t tell them I told you.',
+    ],
+  },
+  wardrobe: {
+    speaker: 'Wardrobe Stall',
+    role: 'Market Row · new fits coming soon',
+    lines: [
+      'Mannequins in chains, bolts of cloth, a cracked mirror. The sign says NEW FITS — COMING SOON.',
+      'The stall can’t sell anything yet. But the wardrobe itself is open: change your species, skin, outfit, headwear and shades any time.',
+    ],
+    options: [
+      { label: 'Open the wardrobe', action: 'wardrobe' },
+      { label: 'Maybe later', action: 'close' },
+    ],
+  },
+  lookout: {
+    speaker: 'The Lookout',
+    role: 'South terrace',
+    lines: [
+      'The kingdom ends in a cliff. Below: forest, a winding lamp-lit road, the valley floor.',
+      'Beyond it all, CHAD CITY — towers, a gold-crowned casino, searchlights sweeping the clouds.',
+      'One day the gate lifts and the road opens. Until then, the benches are free.',
+    ],
+  },
+  gourd_1: {
+    speaker: 'Sage Gourd',
+    role: 'A very old pumpkin',
+    lines: ['Psst. Down here. Yes, the pumpkin.', 'I have sat on this step for three hundred harvests. Wisdom for you: never sell the bottom. Also never sit on a pumpkin.'],
+  },
+  gourd_2: {
+    speaker: 'Grumpy Gourd',
+    role: 'Market Row (dead end)',
+    lines: ['What. WHAT. Can’t a gourd sulk in peace?', 'Fine. You found me. Tell the others I’m still mad about the pie incident.'],
+  },
+  gourd_3: {
+    speaker: 'Tiny Gourd',
+    role: 'Castle steps',
+    lines: ['Oh! Hi! I’m guarding the castle! Officially! Probably!', 'The captain says I’m “decorative.” I say I’m UNDERCOVER.'],
   },
   gate: {
     speaker: 'Castle Gate',

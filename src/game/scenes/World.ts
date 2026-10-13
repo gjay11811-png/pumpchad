@@ -8,17 +8,34 @@ import { audio } from '../audio'
 import { disposeObject, type Engine, type GameScene } from '../engine/Engine'
 import type { Input } from '../input'
 import type { Quality } from '../save'
-import { arcade, entranceArch, forge, fountain, hollowHouse, house, stall, stripeMats, tavern, type Collider, type Town } from './world/buildings'
+import { arcade, entranceArch, forge, hollowHouse, house, stripeMats, tavern, type Collider, type Town } from './world/buildings'
 import { Leaves, Particles, type Fire, type Cloth } from './world/fx'
 import { StaticBatch, makePalette } from './world/kit'
 import { Crowd, RESIDENTS } from './world/npcs'
 import { CASTLE_Z, ROADS, buildGround, castle, clutter, fence, gym, lampPosts, poles, stringLights, vegetation } from './world/props'
 import { BENCHES, CITY_SIGN, kingdom, mountains, valleyRoad } from './world/kingdom'
+import { B4S_BENCH, PLAZA_BENCHES, SEAT_FWD } from './world/props'
+
+/** every bench the player can sit on: the lookout benches + the plaza benches b4s isn't using */
+/** the three talking pumpkins (one-time discoveries; all three → Gourd Council) */
+const GOURDS = [
+  { id: 'gourd_1', name: 'Sage Gourd', x: -8.4, z: 16.0, r: 0.36, face: 3, facing: Math.PI / 2 + 0.4 },
+  { id: 'gourd_2', name: 'Grumpy Gourd', x: -30.3, z: -2.4, r: 0.33, face: 1, facing: Math.PI / 4 },
+  { id: 'gourd_3', name: 'Tiny Gourd', x: 3.7, z: -24.6, r: 0.18, face: 2, facing: 0 },
+]
+
+const SEATS = [
+  ...BENCHES.map((b) => ({ x: b.x, z: b.z, ry: b.ry, label: 'Sit and watch Chad City' })),
+  ...PLAZA_BENCHES.filter((_, i) => i !== B4S_BENCH).map((b) => ({ x: b.x, z: b.z, ry: b.ry, label: 'Sit by the fountain' })),
+]
 import { buildChadCity } from './world/skyline'
 import { kingdomStyle, styleMaterials } from './world/style'
 import * as TX from './world/textures'
 import { RushGame } from '../minigames/pumpkinRush'
 import { flowerTexture } from './world/foliage'
+import { fountainV4 } from './world/fountain'
+import { PumpkinBuilder } from './world/pumpkins'
+import { stallV4 } from './world/market'
 
 export type Interactable = { id: string; label: string; pos: THREE.Vector3; radius: number; kind: 'talk' | 'activity' | 'info' | 'collect' | 'secret' }
 export type WorldEvents = {
@@ -29,8 +46,6 @@ export type WorldEvents = {
 const BOUNDS = 34.5
 /** the Pumpkin Rush cart (start point of the mini-game) on the plaza */
 export const RUSH_CART = { x: 10.2, z: 10.4 }
-/** where the player's root stands relative to a bench centre so the seated clip lands on the seat */
-const SEAT_FWD = 0.12
 const PLAYER_R = 0.45
 
 /** Golden seed collectibles (5). Positions reward alleys, dead ends and the spooky corner. */
@@ -98,6 +113,8 @@ export class World implements GameScene {
   /** movement locked while a full-body action plays (picking up a seed) */
   private lockT = 0
   private pendingHide: { g: THREE.Object3D; t: number } | null = null
+  /** sparkle markers over the not-yet-found talking pumpkins */
+  private gourdMarks = new Map<string, THREE.Object3D>()
   /** Pumpkin Rush mini-game (lives in the square; the UI drives start / stop) */
   rush!: RushGame
   cameraSensitivity = 1
@@ -145,7 +162,7 @@ export class World implements GameScene {
     const P = makePalette(tex)
     Object.values(tex).forEach((t) => this.disposables.push(t))
     Object.values(P).forEach((m) => this.disposables.push(m))
-    const T: Town = { batch: new StaticBatch(), P, scene: this.scene, colliders: this.colliders, smoke: [], embers: [], fires: [], cloths: [], lights: [], dynamic: [], disposables: this.disposables }
+    const T: Town = { batch: new StaticBatch(), P, scene: this.scene, colliders: this.colliders, smoke: [], embers: [], fires: [], cloths: [], lights: [], dynamic: [], disposables: this.disposables, pumpkins: new PumpkinBuilder() }
 
     this.buildSky()
     buildGround(T, tex)
@@ -165,7 +182,7 @@ export class World implements GameScene {
     for (let i = 0; i < 30; i++) king.update(0.1)
     const wn = TX.waterNormal()
     this.disposables.push(wn)
-    fountain(T, king.root, wn)
+    fountainV4(T, king.root, wn)
     king.root.traverse((o) => (o as THREE.Mesh).geometry?.dispose())
 
     // ── districts ──
@@ -189,11 +206,11 @@ export class World implements GameScene {
 
     // Market Row
     const stripes = stripeMats(T)
-    stall(T, -15, -1.3, 's', stripes[0], 'pumpkins')
-    stall(T, -21, -1.3, 's', stripes[1], 'potions')
-    stall(T, -27, -1.3, 's', stripes[2], 'crates')
-    stall(T, -18, 6.4, 'n', stripes[3], 'cloth')
-    stall(T, -24, 6.4, 'n', stripes[0], 'pumpkins')
+    stallV4(T, -15, -1.3, 's', stripes[0], 'produce')
+    stallV4(T, -21, -1.3, 's', stripes[1], 'apothecary')
+    stallV4(T, -27, -1.3, 's', stripes[2], 'guide')
+    stallV4(T, -18, 6.4, 'n', stripes[3], 'produce')
+    stallV4(T, -24, 6.4, 'n', stripes[0], 'wardrobe')
     poles(T, [[-12.5, -0.4], [-18, -0.4], [-24, -0.4], [-29.5, -0.4], [-12.5, 5.5], [-21, 5.5], [-27, 5.5], [-29.5, 5.5]])
     stringLights(T, [
       [-12.5, -0.4, -21, 5.5],
@@ -233,7 +250,11 @@ export class World implements GameScene {
       return z < CASTLE_Z + 2
     }
     this.rushCart(T) // before vegetation (nothing grows through it) and before the static batch is built
+    this.pumpkinPatches(T)
     vegetation(T, q, avoid)
+    // every pumpkin in the kingdom → three merged meshes; carved ones flicker together
+    const pk = T.pumpkins!.build(this.scene, this.disposables, q !== 'low')
+    T.dynamic.push({ update: (t) => pk.update(t) })
 
     // merge everything static into a few draw calls
     T.batch.build(this.scene, q !== 'low')
@@ -283,8 +304,8 @@ export class World implements GameScene {
     for (const sx of [-0.92, 0.92]) T.batch.put(wheel, P.iron, x + sx, 0.38, z - 0.15)
     for (const sx of [-0.6, 0.6]) T.batch.put(box, P.timber, x + sx, 1.45, z - 0.45, 0, 0.07, 1.7, 0.07) // sign posts
     T.batch.put(box, P.timber, x, 2.25, z - 0.45, 0, 1.4, 0.07, 0.07)
-    const heap: [number, number, number][] = [[-0.5, 0.92, -0.2], [0, 0.92, 0.15], [0.5, 0.92, -0.15], [-0.25, 1.12, 0.05], [0.28, 1.12, 0.1], [-0.55, 0.92, 0.28], [0.55, 0.92, 0.3]]
-    for (const [dx, y, dz] of heap) T.batch.put(gourd, P.pumpkin, x + dx, y, z + dz, dx * 3)
+    const heap: [number, number, number][] = [[-0.5, 0.68, -0.2], [0, 0.68, 0.15], [0.5, 0.68, -0.15], [-0.25, 0.9, 0.05], [0.28, 0.9, 0.1], [-0.55, 0.68, 0.28], [0.55, 0.68, 0.3]]
+    heap.forEach(([dx, y, dz], i) => T.pumpkins!.add(x + dx, y, z + dz, { r: i > 4 ? 0.2 : 0.26, tint: i === 3 ? 'deep' : 'orange', face: i === 4 ? 3 : undefined, facing: 0 }))
     const signMat = new THREE.MeshStandardMaterial({ map: TX.shopSign('PUMPKIN RUSH', '45-second sprint'), roughness: 0.7, emissive: '#3a1a08', side: THREE.DoubleSide })
     this.disposables.push(signMat, signMat.map!)
     const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.25, 0.62), signMat)
@@ -292,6 +313,39 @@ export class World implements GameScene {
     this.disposables.push(sign.geometry)
     this.scene.add(sign)
     T.colliders.push({ kind: 'box', minX: x - 1.0, maxX: x + 1.0, minZ: z - 0.6, maxZ: z + 0.6, h: 1.2 })
+  }
+
+  /** pumpkin patches: little clusters by the plaza lamps, the road mouths, the castle steps and the tavern */
+  private pumpkinPatches(T: Town) {
+    const PB = T.pumpkins!
+    const spots: [number, number, number, number][] = [
+      // x, z, big radius, carved chance
+      [10.8, 6.2, 0.3, 0.6], [-11.2, 6.6, 0.28, 0.5], [10.9, -6.8, 0.26, 0.4], [-10.6, -7.4, 0.3, 0.6],
+      [3.6, 13.2, 0.24, 0.3], [-3.7, -12.4, 0.26, 0.5], [-3.8, -24.9, 0.32, 0.8],
+      [6.9, 16.9, 0.24, 0.3], [15.6, -2.4, 0.26, 0.5], [-13.4, 1.0, 0.24, 0.2],
+    ]
+    for (const [x, z, big, carved] of spots) PB.cluster(x, z, groundHeight(x, z), big, carved)
+    // the three talking pumpkins: bigger carved faces + a slow sparkle until you find them
+    const sparkMat = new THREE.PointsMaterial({ color: new THREE.Color('#c9a0ff').multiplyScalar(2), size: 0.09, transparent: true, depthWrite: false, toneMapped: false })
+    this.disposables.push(sparkMat)
+    for (const g of GOURDS) {
+      const y = groundHeight(g.x, g.z)
+      PB.add(g.x, y, g.z, { r: g.r, face: g.face, facing: g.facing, v: 0 })
+      const pts: number[] = []
+      for (let i = 0; i < 14; i++) {
+        const a = (i / 14) * Math.PI * 2
+        pts.push(Math.cos(a) * g.r * 1.6, g.r * (0.6 + (i % 3) * 0.45), Math.sin(a) * g.r * 1.6)
+      }
+      const geo = new THREE.BufferGeometry()
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3))
+      this.disposables.push(geo)
+      const spark = new THREE.Points(geo, sparkMat)
+      spark.position.set(g.x, y, g.z)
+      this.scene.add(spark)
+      this.gourdMarks.set(g.id, spark)
+      T.dynamic.push({ update: (t) => (spark.rotation.y = t * 0.6) })
+      T.colliders.push({ kind: 'circle', x: g.x, z: g.z, r: g.r * 0.9, h: 0.6 })
+    }
   }
 
   private buildSky() {
@@ -349,8 +403,11 @@ export class World implements GameScene {
     add('rune', 'Press the strange rune', -24.5, -27, 1.6, 'secret')
     add('pumpkin', 'Poke the suspicious pumpkin', -9.6, 10.4, 2.1, 'info')
     add('citygate', 'Read the Chad City sign', CITY_SIGN.x - 0.4, CITY_SIGN.z - 1.2, 1.9, 'info')
-    BENCHES.forEach((b, i) => add(`bench_${i}`, 'Sit and watch Chad City', b.x, b.z + 0.75, 1.1, 'activity'))
+    SEATS.forEach((b, i) => add(`bench_${i}`, b.label, b.x + Math.sin(b.ry) * 0.75, b.z + Math.cos(b.ry) * 0.75, 1.1, 'activity'))
     add('rush', 'Play Pumpkin Rush', RUSH_CART.x, RUSH_CART.z + 1.3, 1.5, 'activity')
+    add('wardrobe', 'Browse the wardrobe stall', -24, 5.0, 1.3, 'info')
+    add('lookout', 'Take in the view', -5.4, 32.4, 1.5, 'info')
+    for (const g of GOURDS) add(g.id, `Talk to the ${g.name}`, g.x, g.z, 1.35, 'talk')
     // open, walkable plaza ground for rush pumpkins: inside the walls, clear of every collider, roughly level
     const open = (x: number, z: number) => {
       if (Math.hypot(x, z) > 29 || Math.abs(groundHeight(x, z)) > 0.35) return false
@@ -508,14 +565,21 @@ export class World implements GameScene {
       this.pendingHide = { g: s, t: 0.55 }
     } else s.visible = false
   }
+  /** a talking pumpkin was found: its sparkle marker goes out */
+  gourdFound(id: string) {
+    const s = this.gourdMarks.get(id)
+    if (s) s.visible = false
+  }
   /** sit on lookout bench i (plays the sit-down clip, then the seated loop until the player moves) */
   sit(i: number) {
-    const b = BENCHES[i]
+    const b = SEATS[i]
     const p = this.player
     if (!b || !p?.playOnce || this.seat || this.jumper.airborne) return
     this.emoter.cancel(p)
     this.playerVel.set(0, 0, 0)
-    this.playerPos.set(b.x, groundHeight(b.x, b.z), b.z + SEAT_FWD)
+    const sx = b.x + Math.sin(b.ry) * SEAT_FWD
+    const sz = b.z + Math.cos(b.ry) * SEAT_FWD
+    this.playerPos.set(sx, groundHeight(sx, sz), sz)
     this.playerYaw = b.ry
     this.seat = { b: i, phase: 'enter', t: 0, dur: p.playOnce('sitDown', 0.2) }
   }
@@ -742,7 +806,7 @@ export class World implements GameScene {
       else if (seat.phase === 'sit' && wantsUp) this.standUp()
       else if (seat.phase === 'exit' && seat.t >= seat.dur) {
         // stood up: step clear of the bench so the collider doesn't shove the player
-        const b = BENCHES[seat.b]
+        const b = SEATS[seat.b]
         this.playerPos.set(b.x + Math.sin(b.ry) * 0.62, this.playerPos.y, b.z + Math.cos(b.ry) * 0.62)
         this.seat = null
       }
@@ -845,6 +909,8 @@ export class World implements GameScene {
     this.embers?.update(dt, t)
     this.leaves?.update(dt, t, this.playerPos.x, this.playerPos.z)
     this.city?.update(dt)
+    // fountain splash gets louder as you walk up to it
+    audio.setWater(1 - Math.min(1, Math.max(0, (Math.hypot(this.playerPos.x, this.playerPos.z) - 5) / 13)))
     if (!this.paused) this.rush?.update(dt, this.playerPos, groundHeight)
     let mi = 0
     for (const [, m] of this.markers) {

@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import type { PumpkinBuilder } from './pumpkins'
 import { Cloth, Fire } from './fx'
 import { boxUV, gableGeo, type Palette, type StaticBatch } from './kit'
 import { signTexture } from '../textures'
@@ -20,13 +21,15 @@ export type Town = {
   lights: LightSpot[]
   dynamic: { update(t: number, dt: number): void }[]
   disposables: (THREE.Material | THREE.Texture | THREE.BufferGeometry)[]
+  /** shared organic pumpkin builder (v4) — merged into three meshes at the end of the build */
+  pumpkins?: PumpkinBuilder
 }
 
-type Facing = 'n' | 's' | 'e' | 'w'
-const ROT: Record<Facing, number> = { s: 0, e: Math.PI / 2, n: Math.PI, w: -Math.PI / 2 }
+export type Facing = 'n' | 's' | 'e' | 'w'
+export const ROT: Record<Facing, number> = { s: 0, e: Math.PI / 2, n: Math.PI, w: -Math.PI / 2 }
 
 /** Places local-space parts (door on local +Z) into the world for a building at (x,z) facing `f`. */
-function placer(T: Town, x: number, z: number, f: Facing) {
+export function placer(T: Town, x: number, z: number, f: Facing) {
   const r = ROT[f]
   const c = Math.cos(r)
   const s = Math.sin(r)
@@ -152,6 +155,13 @@ export function house(
   L.put(new THREE.PlaneGeometry(1.15, 2.05), P.timber, 0, plinth + 1.02, D / 2 + 0.03, 0, 1, 1, 1, false)
   L.put(new THREE.BoxGeometry(1.45, 0.16, 0.16), P.timber, 0, plinth + 2.12, D / 2 + 0.06)
   L.put(boxUV(1.6, 0.25, 0.7, 1), P.stone, 0, 0.12, D / 2 + 0.45)
+  if (T.pumpkins) {
+    const side = rand() < 0.5 ? -1 : 1
+    const [px, pz] = L.world(side * 0.58, D / 2 + 0.5)
+    T.pumpkins.add(px, 0.245, pz, { r: 0.17 + rand() * 0.05, face: Math.floor(rand() * 4), facing: ROT[o.face] })
+    const [qx, qz] = L.world(side * 0.32, D / 2 + 0.62)
+    T.pumpkins.add(qx, 0.245, qz, { r: 0.09 + rand() * 0.03, tint: rand() < 0.5 ? 'pale' : 'orange' })
+  }
   L.put(new THREE.BoxGeometry(0.16, 0.24, 0.16), P.glowGold, 0.95, plinth + 2.1, D / 2 + 0.22, 0, 1, 1, 1, false)
 
   // roof (ridge along the longer side)
@@ -445,9 +455,16 @@ export function stall(T: Town, x: number, z: number, face: Facing, stripe: THREE
   L.put(valance, stripe, 0, 2.38, 1.13)
   // goods
   if (goods === 'pumpkins') {
-    const pk = new THREE.SphereGeometry(0.2, 10, 8)
-    pk.scale(1.15, 0.8, 1.15)
-    for (let i = 0; i < 6; i++) L.put(pk, P.pumpkin, -1.1 + i * 0.44, 1.08, 0.3 + (i % 2) * 0.25)
+    if (T.pumpkins)
+      for (let i = 0; i < 6; i++) {
+        const [px, pz] = L.world(-1.1 + i * 0.44, 0.3 + (i % 2) * 0.25)
+        T.pumpkins.add(px, 0.97, pz, { r: 0.15 + (i % 3) * 0.03, tint: i === 2 ? 'pale' : i === 4 ? 'green' : 'orange', face: i === 3 ? 0 : undefined, facing: ROT[face] })
+      }
+    else {
+      const pk = new THREE.SphereGeometry(0.2, 10, 8)
+      pk.scale(1.15, 0.8, 1.15)
+      for (let i = 0; i < 6; i++) L.put(pk, P.pumpkin, -1.1 + i * 0.44, 1.08, 0.3 + (i % 2) * 0.25)
+    }
   } else if (goods === 'potions') {
     const bottle = new THREE.CylinderGeometry(0.07, 0.1, 0.3, 8)
     const mats = [P.glowTeal, P.glowPurple, P.glowOrange]
@@ -485,9 +502,12 @@ export function entranceArch(T: Town, z: number) {
     T.batch.put(boxUV(1.2, 5, 1.2, 1.5), P.stone, x, 2.5, z)
     T.batch.put(boxUV(1.5, 0.4, 1.5, 1), P.stoneLight, x, 5.2, z)
     // pumpkin lantern + fire on each pillar
-    const pk = new THREE.SphereGeometry(0.5, 14, 10)
-    pk.scale(1.15, 0.85, 1.15)
-    T.batch.put(pk, P.pumpkin, x, 5.8, z)
+    if (T.pumpkins) T.pumpkins.add(x, 5.4, z, { r: 0.5, face: x < 0 ? 0 : 3, facing: Math.PI, v: 0 })
+    else {
+      const pk = new THREE.SphereGeometry(0.5, 14, 10)
+      pk.scale(1.15, 0.85, 1.15)
+      T.batch.put(pk, P.pumpkin, x, 5.8, z)
+    }
     const f = new Fire(x, 6.2, z, 0.8)
     T.fires.push(f)
     T.scene.add(f.group)

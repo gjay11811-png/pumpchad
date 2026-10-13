@@ -158,6 +158,13 @@ class AudioEngine {
     }
   }
 
+  /** fountain splash level 0..1 (Chad Square only); follows the ambience volume + mute */
+  private water: GainNode | null = null
+  setWater(level: number) {
+    if (!this.water || !this.ctx) return
+    this.water.gain.setTargetAtTime(Math.max(0, Math.min(1, level)) * 0.22, this.ctx.currentTime, 0.25)
+  }
+
   setAmbience(name: Ambience) {
     if (name === this.ambName && this.amb) return
     this.ambName = name
@@ -211,6 +218,34 @@ class AudioEngine {
     n.connect(nf).connect(ng).connect(out)
     n.start()
     nodes.push(n)
+    // Chad Square: splashing water from the Pump Fountain (bright, flickering noise; level set by distance)
+    if (name === 'square') {
+      const w = ctx.createBufferSource()
+      w.buffer = this.noise
+      w.loop = true
+      w.playbackRate.value = 0.83
+      const hp = ctx.createBiquadFilter()
+      hp.type = 'highpass'
+      hp.frequency.value = 900
+      const bp = ctx.createBiquadFilter()
+      bp.type = 'peaking'
+      bp.frequency.value = 2600
+      bp.gain.value = 6
+      const flick = ctx.createGain()
+      flick.gain.value = 0.8
+      const lfo2 = ctx.createOscillator()
+      lfo2.frequency.value = 5.3
+      const lfo2g = ctx.createGain()
+      lfo2g.gain.value = 0.2
+      lfo2.connect(lfo2g).connect(flick.gain)
+      lfo2.start()
+      const wg = ctx.createGain()
+      wg.gain.value = 0
+      w.connect(hp).connect(bp).connect(flick).connect(wg).connect(out)
+      w.start()
+      nodes.push(w, lfo2)
+      this.water = wg
+    } else this.water = null
 
     this.amb = {
       stop: () => {
