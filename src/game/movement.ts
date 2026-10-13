@@ -13,6 +13,27 @@ export function velocityRate(wantsMove: boolean, speed: number, airborne: boolea
   return speed > 4.5 ? 7 : 15
 }
 
+/**
+ * Gait speeds (m/s). Each matches the rig's walk / jog / sprint blend at a natural cadence
+ * (see gaitFor in character/chad.ts), so the feet never look slow-motion or skate.
+ */
+export type Gaits = { walk: number; jog: number; sprint: number }
+export const OUTDOOR: Gaits = { walk: 2.2, jog: 5.2, sprint: 7.6 }
+export const INDOOR: Gaits = { walk: 2.0, jog: 4.2, sprint: 5.6 }
+/**
+ * Target ground speed from input. Keys: walk, or sprint with Shift / the Sprint button.
+ * Analog stick: a gentle push walks, a firmer push breaks into a jog, the far edge sprints.
+ */
+export function targetSpeed(mag: number, sprint: boolean, analog: boolean, g: Gaits) {
+  if (mag < 0.01) return 0
+  if (sprint) return g.sprint
+  if (!analog) return g.walk
+  if (mag <= 0.6) return g.walk * Math.max(0.35, mag / 0.6)
+  return g.walk + (g.jog - g.walk) * Math.min(1, (mag - 0.6) / 0.32)
+}
+/** the rig's speed input is expressed in units of this (m/s) */
+export const SPEED_UNIT = 3.4
+
 /** turn rate: quick pivots at walking pace, wider arcs when sprinting */
 export const turnRate = (speed: number) => THREE.MathUtils.lerp(16, 9, THREE.MathUtils.clamp(speed / 6, 0, 1))
 

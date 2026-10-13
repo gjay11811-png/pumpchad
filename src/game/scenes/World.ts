@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { Emoter, type EmoteId } from '../emotes'
-import { Jumper, leanFor, turnRate, velocityRate } from '../movement'
+import { Jumper, OUTDOOR, SPEED_UNIT, leanFor, targetSpeed, turnRate, velocityRate } from '../movement'
 import { buildCharacter } from '../character/build'
 import { createCharacter, disposeCharacter, type Character } from '../character/character'
 import type { Appearance } from '../character/types'
@@ -26,8 +26,6 @@ export type WorldEvents = {
 }
 
 const BOUNDS = 34.5
-const WALK = 3.4
-const RUN = 6.2
 /** the Pumpkin Rush cart (start point of the mini-game) on the plaza */
 export const RUSH_CART = { x: 10.2, z: 10.4 }
 /** where the player's root stands relative to a bench centre so the seated clip lands on the seat */
@@ -92,6 +90,8 @@ export class World implements GameScene {
   private disposables: (THREE.Material | THREE.Texture | THREE.BufferGeometry)[] = []
   paused = false
   private actionCooldown = 0
+  /** time of the last manual camera drag (auto-follow waits a moment after it) */
+  private lastLookT = -10
   /** sitting on a lookout bench: sit-down clip → seated loop → stand-up clip */
   private seat: { b: number; phase: 'enter' | 'sit' | 'exit'; t: number; dur: number } | null = null
   /** movement locked while a full-body action plays (picking up a seed) */
@@ -684,17 +684,25 @@ export class World implements GameScene {
     this.camera.position.lerp(want, Math.min(1, k * 1.4))
     // hard guarantee: never leave the lens inside a building volume (smoothing can lag into corners)
     const cam = this.camera.position
-    for (const c of [...this.colliders, ...this.camBlockers]) {
-      if (c.kind !== 'box' || !c.h || cam.y > c.h) continue
-      if (cam.x > c.minX - 0.15 && cam.x < c.maxX + 0.15 && cam.z > c.minZ - 0.15 && cam.z < c.maxZ + 0.15) {
+    const boxes = [...this.colliders, ...this.camBlockers]
+    const inBox = (c: (typeof boxes)[number]) => c.kind === 'box' && !!c.h && cam.y <= c.h && cam.x > c.minX - 0.15 && cam.x < c.maxX + 0.15 && cam.z > c.minZ - 0.15 && cam.z < c.maxZ + 0.15
+    // a push out of one box can land in its neighbour (tight alleys): repeat until clear
+    for (let pass = 0; pass < 4; pass++) {
+      let moved = false
+      for (const c of boxes) {
+        if (c.kind !== 'box' || !inBox(c)) continue
         const pen = [cam.x - c.minX + 0.15, c.maxX + 0.15 - cam.x, cam.z - c.minZ + 0.15, c.maxZ + 0.15 - cam.z]
         const i = pen.indexOf(Math.min(...pen))
         if (i === 0) cam.x = c.minX - 0.15
         else if (i === 1) cam.x = c.maxX + 0.15
         else if (i === 2) cam.z = c.minZ - 0.15
         else cam.z = c.maxZ + 0.15
+        moved = true
       }
+      if (!moved) break
     }
+    // still boxed in (a corner between buildings): look over the player's shoulder from just above the head
+    if (boxes.some(inBox)) cam.set(this.camTarget.x, Math.max(cam.y, this.camTarget.y + 0.9), this.camTarget.z)
     this.camera.lookAt(this.camTarget)
   }
 
@@ -716,7 +724,8 @@ export class World implements GameScene {
     this.camYaw -= look.x * 0.006 * this.cameraSensitivity
     this.camPitch = Math.max(0.08, Math.min(1.05, this.camPitch + look.y * 0.004 * this.cameraSensitivity))
 
-    let mv = this.paused ? { x: 0, z: 0, run: false } : this.input.move()
+    let mv = this.paused ? { x: 0, z: 0, run: false, analog: false } : this.input.move()
+    if (look.x || look.y) this.lastLookT = this.t
     let jumpReq = this.input.takeJump()
     this.lockT = Math.max(0, this.lockT - dt)
     if (this.pendingHide && (this.pendingHide.t -= dt) <= 0) {
@@ -737,15 +746,14 @@ export class World implements GameScene {
       }
     }
     if (this.seat || this.lockT > 0) {
-      mv = { x: 0, z: 0, run: false }
+      mv = { x: 0, z: 0, run: false, analog: false }
       jumpReq = false
     }
     const fwd = new THREE.Vector3(-Math.sin(this.camYaw), 0, -Math.cos(this.camYaw))
     const right = new THREE.Vector3(-fwd.z, 0, fwd.x)
     const wish = fwd.multiplyScalar(mv.z).add(right.multiplyScalar(mv.x))
     const mag = Math.min(1, wish.length())
-    const maxSpeed = mv.run ? RUN : WALK
-    const targetVel = mag > 0.01 ? wish.normalize().multiplyScalar(maxSpeed * mag) : new THREE.Vector3()
+    const targetVel = mag > 0.01 ? wish.normalize().multiplyScalar(targetSpeed(mag, mv.run, mv.analog, OUTDOOR)) : new THREE.Vector3()
     // jump (Space / touch button); moving or jumping ends an emote
     if (jumpReq && !this.paused && this.jumper.tryJump(p)) this.emoter.cancel(p)
     if (mag > 0.05 && this.emoter.busy) this.emoter.cancel(p)
@@ -753,8 +761,18 @@ export class World implements GameScene {
     this.emoter.update(dt)
     const nowSpeed = Math.hypot(this.playerVel.x, this.playerVel.z)
     this.playerVel.lerp(targetVel, 1 - Math.exp(-dt * velocityRate(mag > 0.01, nowSpeed, this.jumper.airborne)))
+    const px = this.playerPos.x
+    const pz = this.playerPos.z
     this.playerPos.addScaledVector(this.playerVel, dt)
-    if (!this.seat) this.resolve(this.playerPos, PLAYER_R) // seated = inside the bench's collider on purpose
+    if (!this.seat) {
+      this.resolve(this.playerPos, PLAYER_R) // seated = inside the bench's collider on purpose
+      // walls / hedges / NPCs eat velocity: slide along them instead of sprinting on the spot
+      if (dt > 0) {
+        const ax = (this.playerPos.x - px) / dt
+        const az = (this.playerPos.z - pz) / dt
+        if (Math.hypot(ax, az) < Math.hypot(this.playerVel.x, this.playerVel.z) - 0.05) this.playerVel.set(ax, this.playerVel.y, az)
+      }
+    }
     const gy = groundHeight(this.playerPos.x, this.playerPos.z)
     this.playerPos.y += (gy - this.playerPos.y) * (1 - Math.exp(-dt * 18))
 
@@ -765,7 +783,9 @@ export class World implements GameScene {
       let d = targetYaw - this.playerYaw
       d = Math.atan2(Math.sin(d), Math.cos(d))
       this.playerYaw += d * (1 - Math.exp(-dt * turnRate(speed)))
-      if (!look.x && mv.z > 0.2) {
+      // drift the camera behind the player only when running straight ahead (never while strafing / moving
+      // diagonally — that made the player run in endless circles — and not right after a manual look)
+      if (!look.x && mv.z > 0.2 && Math.abs(mv.x) < 0.25 && this.t - this.lastLookT > 1.2 && !this.input?.mouseLooked) {
         let cd = this.playerYaw + Math.PI - this.camYaw
         cd = Math.atan2(Math.sin(cd), Math.cos(cd))
         this.camYaw += cd * (1 - Math.exp(-dt * 0.9))
@@ -776,7 +796,7 @@ export class World implements GameScene {
       p.root.position.copy(this.playerPos)
       p.root.position.y += this.jumper.y
       p.root.rotation.y = this.playerYaw
-      p.speed = speed / WALK
+      p.speed = speed / SPEED_UNIT
       p.pose = this.seat && this.seat.phase !== 'exit' ? 'sit' : this.emoter.pose() ?? (speed > 0.1 ? 'walk' : 'idle')
       if (p.lean) {
         let dy = this.playerYaw - yaw0
@@ -862,6 +882,7 @@ export class World implements GameScene {
       z: +this.playerPos.z.toFixed(2),
       yaw: +this.playerYaw.toFixed(2),
       camYaw: +this.camYaw.toFixed(3),
+      t: this.t,
       prompt: this.prompt?.id ?? null,
       walked: +this.walkedTime.toFixed(2),
       camDist: +this.camDistNow.toFixed(2),
@@ -884,6 +905,13 @@ export class World implements GameScene {
   }
   teleport(x: number, z: number, yaw?: number) {
     this.playerPos.set(x, groundHeight(x, z), z)
+    this.playerVel.set(0, 0, 0)
+    // QA jump: finish any full-body action (seed pick-up) instantly so prompts come straight back
+    this.lockT = 0
+    if (this.pendingHide) {
+      this.pendingHide.g.visible = false
+      this.pendingHide = null
+    }
     this.resolve(this.playerPos, PLAYER_R)
     if (yaw !== undefined) {
       this.playerYaw = yaw

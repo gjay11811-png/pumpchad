@@ -55,6 +55,68 @@ export type OneShot = 'jab' | 'cross' | 'hook' | 'yes' | 'throw' | 'climb' | 'ju
 /* Measured with scripts/sweep-stride.mjs: zero-slip speeds are walk 0.91, jog 6.2, sprint 9.4 m/s.
    Jog/sprint are set slightly lower (≈8% slip) for a livelier cadence at game speeds. */
 const CLIP_SPEED = { walk: 0.91, jog: 5.8, sprint: 8.8 }
+
+/**
+ * Locomotion blendspace. Each library clip has a fixed stride (metres per cycle, measured with
+ * scripts/measure-stride.mjs) and a natural cadence (cycles per second). Instead of time-stretching ONE
+ * clip to the ground speed (a jog played at 0.55× looks like slow motion), walk / jog / sprint play
+ * together, phase-locked, weighted so that the blended stride × cadence equals the ground speed.
+ * Result: real walking at walking speeds, a natural jog in between, a sprint at the top, no foot sliding.
+ */
+const GAIT = [
+  { key: 'walk', stride: 1.23, cadence: 1.1 }, // Walk_Loop 1.333 s, played a touch brisker (×1.47) → 1.35 m/s
+  { key: 'jog', stride: 5.67, cadence: 1.07 }, // Jog_Fwd_Loop 0.933 s → 6.1 m/s
+  { key: 'sprint', stride: 7.04, cadence: 1.38 }, // Sprint_Loop 0.667 s (×0.92) → 9.7 m/s
+] as const
+const gaitSpeed = (i: number, w: number) => {
+  const a = GAIT[i]
+  const b = GAIT[i + 1]
+  return (a.stride + (b.stride - a.stride) * w) * (a.cadence + (b.cadence - a.cadence) * w)
+}
+/**
+ * Measured correction (scripts/sweep-gait.mjs): blended poses don't stride exactly linearly, so the cadence is
+ * scaled by target ÷ measured planted-foot speed at each sample speed. Keeps foot slide within a few %.
+ */
+const CADENCE_FIX: [number, number][] = [[0.8, 1], [1.35, 0.952], [2.2, 0.891], [3.2, 0.884], [4.2, 0.913], [5.2, 0.948], [6.1, 0.983], [7, 1.007], [7.6, 1.05], [8.6, 1.089], [10, 1.124]]
+function cadenceFix(v: number) {
+  const T = CADENCE_FIX
+  if (v <= T[0][0]) return T[0][1]
+  for (let i = 1; i < T.length; i++)
+    if (v <= T[i][0]) {
+      const u = (v - T[i - 1][0]) / (T[i][0] - T[i - 1][0])
+      return T[i - 1][1] + (T[i][1] - T[i - 1][1]) * u
+    }
+  return T[T.length - 1][1]
+}
+/** clip weights + cycle rate (cycles/s) for a ground speed in m/s */
+export function gaitFor(v: number) {
+  const g = gaitRaw(v)
+  return { weights: g.weights, rate: g.rate * cadenceFix(v) }
+}
+function gaitRaw(v: number): { weights: Record<string, number>; rate: number } {
+  const weights: Record<string, number> = { walk: 0, jog: 0, sprint: 0 }
+  const vWalk = GAIT[0].stride * GAIT[0].cadence
+  if (v <= vWalk) {
+    weights.walk = 1
+    return { weights, rate: Math.max(0.62, v / GAIT[0].stride) } // very slow shuffles keep a believable cadence
+  }
+  const seg = v <= gaitSpeed(0, 1) ? 0 : 1
+  if (seg === 1 && v >= gaitSpeed(1, 1)) {
+    weights.sprint = 1
+    return { weights, rate: v / GAIT[2].stride }
+  }
+  let lo = 0
+  let hi = 1
+  for (let k = 0; k < 14; k++) {
+    const m = (lo + hi) / 2
+    if (gaitSpeed(seg, m) < v) lo = m
+    else hi = m
+  }
+  const w = (lo + hi) / 2
+  weights[GAIT[seg].key] = 1 - w
+  weights[GAIT[seg + 1].key] = w
+  return { weights, rate: v / (GAIT[seg].stride + (GAIT[seg + 1].stride - GAIT[seg].stride) * w) }
+}
 /** the mascot's identity is a BIG pumpkin head */
 const HEAD_SCALE = 1.32
 
@@ -217,6 +279,13 @@ export class PumpkinChad implements Character {
   private actions = new Map<string, THREE.AnimationAction>()
   private current: THREE.AnimationAction | null = null
   private bones = new Map<string, THREE.Bone>()
+  /**
+   * Clean animated pose of every bone, captured right after the mixer runs. three.js only rewrites a bone when
+   * the clip's value CHANGED since last frame, so procedural layers (lean, gym poses, IK) applied on top would
+   * otherwise stack up frame after frame on bones whose clip value holds still (that was the sideways slump).
+   * Restoring this snapshot before the next mixer update keeps every layer a pure per-frame offset.
+   */
+  private pose0: { b: THREE.Bone; q: THREE.Quaternion; p: THREE.Vector3 }[] = []
   private layer = { flex: 0, press: 0, wave: 0, bench: 0, squat: 0, curl: 0, guard: 0, pushup: 0, hips: 0, point: 0, deadlift: 0, pullup: 0 }
   /** body lean set by the scene each frame (turning / accelerating) */
   lean = { turn: 0, accel: 0 }
@@ -234,6 +303,8 @@ export class PumpkinChad implements Character {
   private oneShot: { act: THREE.AnimationAction; end: number } | null = null
   private t = 0
   private lastPhase = 0
+  /** locomotion blendspace state: group weight (fades in/out as a whole), shared gait phase, per-clip phase offsets */
+  private loco = { active: false, w: 0, phase: 0, off: { walk: 0, jog: 0, sprint: 0 } as Record<string, number> }
   private disposables: (THREE.Material | THREE.BufferGeometry | THREE.Texture)[] = []
   private headObj: THREE.Object3D | null = null
   private chainObj: THREE.Object3D | null = null
@@ -292,6 +363,7 @@ export class PumpkinChad implements Character {
     }
     this.persona = PERSONA[a.species] ?? PERSONA.pumpkin
     this.nextFidget = 4 + Math.random() * 5
+    this.calibrateLoco(model)
     this.play('idle', 0)
   }
 
@@ -669,8 +741,107 @@ export class PumpkinChad implements Character {
     return b
   }
 
+  /**
+   * Phase-align the gait clips so blends never cross legs. Each clip is sampled over one cycle and its stride
+   * signal (left foot ahead of right foot) is cross-correlated against the jog clip's; the best shift is the offset.
+   */
+  private calibrateLoco(model: THREE.Object3D) {
+    const fl = this.bones.get('foot_l')
+    const fr = this.bones.get('foot_r')
+    if (!fl || !fr) return
+    const N = 32
+    const a = new THREE.Vector3()
+    const b = new THREE.Vector3()
+    const signal: Record<string, number[]> = {}
+    for (const g of GAIT) {
+      const act = this.actions.get(g.key)
+      if (!act) continue
+      act.reset().setEffectiveWeight(1).setEffectiveTimeScale(0).play()
+      const dur = act.getClip().duration
+      const sig: number[] = []
+      for (let i = 0; i < N; i++) {
+        act.time = (i / N) * dur
+        this.mixer.update(0)
+        model.updateMatrixWorld(true)
+        sig.push(fl.getWorldPosition(a).z - fr.getWorldPosition(b).z)
+      }
+      act.stop()
+      const mean = sig.reduce((x, y) => x + y, 0) / N
+      signal[g.key] = sig.map((x) => x - mean)
+    }
+    const ref = signal.jog
+    if (!ref) return
+    for (const g of GAIT) {
+      const sig = signal[g.key]
+      if (!sig) continue
+      let best = -Infinity
+      for (let k = 0; k < N; k++) {
+        let c = 0
+        for (let i = 0; i < N; i++) c += ref[i] * sig[(i + k) % N]
+        if (c > best) {
+          best = c
+          this.loco.off[g.key] = k / N
+        }
+      }
+    }
+  }
+
+  /** Fade the whole locomotion blend out (another clip is taking over). */
+  private endLoco(fade: number) {
+    if (!this.loco.active) return
+    this.loco.active = false
+    for (const g of GAIT) this.actions.get(g.key)?.fadeOut(fade)
+    this.loco.w = 0
+  }
+
+  /** Drive the walk / jog / sprint blend for ground speed `ms` (m/s). */
+  private updateLoco(ms: number, dt: number) {
+    const L = this.loco
+    if (!L.active) {
+      // entering locomotion: the previous base clip fades out while the blend fades in
+      if (this.current) this.current.fadeOut(0.25)
+      L.active = true
+      // re-entering mid fade-out (stop, then go again): carry on from the weight the blend still has — no snap
+      let carried = 0
+      for (const g of GAIT) {
+        const act = this.actions.get(g.key)
+        if (!act) continue
+        const wNow = act.isRunning() ? act.getEffectiveWeight() : 0
+        carried = Math.max(carried, wNow)
+        act.stopFading()
+        if (!act.isRunning()) act.reset()
+        act.setEffectiveTimeScale(0).play()
+      }
+      L.w = Math.min(1, carried)
+    }
+    L.w = Math.min(1, L.w + dt / 0.25)
+    const { weights, rate } = gaitFor(ms)
+    const prev = L.phase
+    L.phase = (L.phase + rate * dt) % 1
+    // two footfalls per cycle
+    if ((prev < 0.5 && L.phase >= 0.5) || L.phase < prev) this.onStep?.()
+    let top: THREE.AnimationAction | null = null
+    let topW = -1
+    for (const g of GAIT) {
+      const act = this.actions.get(g.key)
+      if (!act) continue
+      const wgt = weights[g.key] * L.w
+      act.setEffectiveWeight(wgt)
+      act.time = ((L.phase + L.off[g.key]) % 1) * act.getClip().duration
+      if (wgt > topW) {
+        topW = wgt
+        top = act
+      }
+    }
+    this.current = top // for QA / inspect: the dominant gait clip
+  }
+
   private play(name: string, fade = 0.25) {
     if (this.oneShot) return // a one-shot clip owns the body until it finishes
+    if (this.loco.active) {
+      this.endLoco(fade)
+      this.current = null
+    }
     const next = this.actions.get(name) ?? this.actions.get('idle')!
     if (next === this.current) return
     next.reset().setEffectiveWeight(1).fadeIn(fade).play()
@@ -683,6 +854,10 @@ export class PumpkinChad implements Character {
     const act = this.actions.get(name)
     if (!act) return 0
     const ts = opts.timeScale ?? 1
+    if (this.loco.active) {
+      this.endLoco(fade)
+      this.current = null
+    }
     act.reset().setLoop(THREE.LoopOnce, 1)
     act.clampWhenFinished = true
     act.setEffectiveTimeScale(ts).setEffectiveWeight(1).fadeIn(fade).play()
@@ -702,6 +877,10 @@ export class PumpkinChad implements Character {
     this.air = 'air'
     this.airT = 0
     const js = this.actions.get('jumpStart')
+    if (this.loco.active) {
+      this.endLoco(0.06)
+      this.current = null
+    }
     if (js) {
       js.reset().setEffectiveTimeScale(0.65).setEffectiveWeight(1).fadeIn(0.06).play() // slow crouch → extension, then sped up in update
       this.current?.fadeOut(0.06)
@@ -897,8 +1076,9 @@ export class PumpkinChad implements Character {
     this.leanNow.turn += (THREE.MathUtils.clamp(this.lean.turn, -1, 1) - this.leanNow.turn) * kl
     this.leanNow.accel += (THREE.MathUtils.clamp(this.lean.accel, -1, 1) - this.leanNow.accel) * kl
     if (kStand && this.air === 'ground') {
-      this.turnBone('spine_01', AX.z, -this.leanNow.turn * 0.16)
-      this.turnBone('spine_01', AX.x, this.leanNow.accel * 0.09)
+      // subtle: a few degrees into turns and with acceleration, never a sideways slump
+      this.turnBone('spine_01', AX.z, -this.leanNow.turn * 0.07)
+      this.turnBone('spine_01', AX.x, this.leanNow.accel * 0.05)
     }
     // fidgets
     if (!still || !this.fidgets) {
@@ -982,6 +1162,10 @@ export class PumpkinChad implements Character {
   }
 
   update(dt: number) {
+    for (const s of this.pose0) {
+      s.b.quaternion.copy(s.q)
+      s.b.position.copy(s.p)
+    }
     this.t += dt
     const k = 1 - Math.exp(-dt * 10)
     this.layer.flex += ((this.pose === 'flex' ? 1 : 0) - this.layer.flex) * k
@@ -1018,17 +1202,26 @@ export class PumpkinChad implements Character {
     else if (this.pose === 'dance') name = 'dance'
     else if (this.pose === 'folded') name = 'folded'
     else if (this.pose === 'sit') name = 'sit'
-    else if (this.pose === 'idle' || this.pose === 'walk') name = ms < 0.15 ? 'idle' : ms < 1.6 ? 'walk' : ms < 4.8 ? 'jog' : 'sprint'
-    this.play(name, name === 'jumpLoop' ? 0.3 : 0.25)
-    if (name === 'walk' || name === 'jog' || name === 'sprint') {
-      const act = this.current!
+    // hysteresis: start the gait above 0.2 m/s, stop below 0.1 (no flicker while coming to a halt)
+    else if (this.pose === 'idle' || this.pose === 'walk') name = ms < (this.loco.active ? 0.1 : 0.2) ? 'idle' : ms < 1.6 ? 'walk' : ms < 4.8 ? 'jog' : 'sprint'
+    const moving = name === 'walk' || name === 'jog' || name === 'sprint'
+    if (moving && this.forceTimeScale === null && !this.oneShot) this.updateLoco(ms, dt)
+    else this.play(name, name === 'jumpLoop' ? 0.3 : 0.25)
+    if (moving && this.forceTimeScale !== null && !this.oneShot && this.current) {
+      // QA path (scripts/measure-stride.mjs): one clip at a forced time scale
+      const act = this.current
       const qa = (globalThis as unknown as { __chadClipSpeed?: Record<string, number> }).__chadClipSpeed
-      act.timeScale = this.forceTimeScale ?? THREE.MathUtils.clamp(ms / (qa?.[name] ?? CLIP_SPEED[name]), 0.4, 2.4)
+      act.timeScale = this.forceTimeScale ?? THREE.MathUtils.clamp(ms / (qa?.[name] ?? CLIP_SPEED[name as keyof typeof CLIP_SPEED]), 0.4, 2.4)
       const ph = (act.time / act.getClip().duration) % 1
       if ((this.lastPhase < 0.5 && ph >= 0.5) || ph < this.lastPhase) this.onStep?.()
       this.lastPhase = ph
-    } else if (this.current && this.current !== this.oneShot?.act && name !== 'jumpStart') this.current.timeScale = name === 'idle' ? this.persona.idleRate : 1
+    } else if (!this.loco.active && this.current && this.current !== this.oneShot?.act && name !== 'jumpStart') this.current.timeScale = name === 'idle' ? this.persona.idleRate : 1
     this.mixer.update(dt)
+    if (this.pose0.length !== this.bones.size) this.pose0 = [...this.bones.values()].map((b) => ({ b, q: new THREE.Quaternion(), p: new THREE.Vector3() }))
+    for (const s of this.pose0) {
+      s.q.copy(s.b.quaternion)
+      s.p.copy(s.b.position)
+    }
     this.root.updateMatrixWorld(true)
     this.applyPersonality(dt)
     this.applyLayers()
@@ -1064,6 +1257,9 @@ export class PumpkinChad implements Character {
       air: this.air,
       fidget: this.fidget?.kind ?? null,
       idleRate: this.persona.idleRate,
+      lean: [+this.leanNow.turn.toFixed(3), +this.leanNow.accel.toFixed(3)],
+      weights: Object.fromEntries([...this.actions].filter(([, a]) => a.isRunning() || (a.getEffectiveWeight() > 0.001 && a.timeScale === 0)).map(([k, a]) => [k, +a.getEffectiveWeight().toFixed(3)])),
+      modelRot: [+this.model.rotation.x.toFixed(3), +this.model.rotation.z.toFixed(3)],
       layers: Object.fromEntries(Object.entries(this.layer).map(([k, v]) => [k, +v.toFixed(3)])),
       parts: parts.sort(),
       tris: Math.round(tris),

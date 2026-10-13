@@ -111,6 +111,9 @@ await w(500)
 
 /* ── running jump: lands into the run without stalling ── */
 if (!mobile) {
+  // open runway down the main street (running into the fountain would rightly stop the run)
+  await p.evaluate(() => window.__chadverse.teleport(0, 9.5, 0))
+  await w(500)
   await p.keyboard.down('w')
   await p.keyboard.down('Shift')
   await w(1200)

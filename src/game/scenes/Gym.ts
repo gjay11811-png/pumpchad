@@ -8,7 +8,7 @@ import { STATIONS, TREADMILL, nextPace, type RepGrade, type StationId } from '..
 import { signTexture } from './textures'
 import type { Interactable } from './World'
 import { Emoter, type EmoteId } from '../emotes'
-import { Jumper, leanFor, turnRate, velocityRate } from '../movement'
+import { INDOOR, Jumper, SPEED_UNIT, leanFor, targetSpeed, turnRate, velocityRate } from '../movement'
 
 export type GymEvents = {
   onPrompt(p: Interactable | null): void
@@ -16,8 +16,6 @@ export type GymEvents = {
 }
 export type GymMode = 'free' | 'press' | StationId
 
-const WALK = 3.0
-const RUN = 5.0
 const PLAYER_R = 0.38
 /** walkable interior (the walls sit just outside) */
 const ROOM = { x0: -8.4, x1: 8.4, z0: -5.4, z1: 7.0 }
@@ -98,6 +96,7 @@ export class Gym implements GameScene {
   private pendingHit = -1
   private jumper = new Jumper()
   private lastSpeed = 0
+  private lastLookT = -10
   emoter = new Emoter()
 
   constructor(engine: Engine, private input: Input | null = null, private events: GymEvents | null = null) {
@@ -665,20 +664,28 @@ export class Gym implements GameScene {
     const look = this.input?.takeLook() ?? { x: 0, y: 0 }
     this.camYaw -= look.x * 0.006 * this.cameraSensitivity
     this.camPitch = THREE.MathUtils.clamp(this.camPitch + look.y * 0.004 * this.cameraSensitivity, 0.12, 0.95)
-    const mv = this.paused || !this.input ? { x: 0, z: 0, run: false } : this.input.move()
+    const mv = this.paused || !this.input ? { x: 0, z: 0, run: false, analog: false } : this.input.move()
+    if (look.x || look.y) this.lastLookT = this.t
     const fwd = new THREE.Vector3(-Math.sin(this.camYaw), 0, -Math.cos(this.camYaw))
     const right = new THREE.Vector3(-fwd.z, 0, fwd.x)
     const wish = fwd.multiplyScalar(mv.z).add(right.multiplyScalar(mv.x))
     const mag = Math.min(1, wish.length())
-    const targetVel = mag > 0.01 ? wish.normalize().multiplyScalar((mv.run ? RUN : WALK) * mag) : new THREE.Vector3()
+    const targetVel = mag > 0.01 ? wish.normalize().multiplyScalar(targetSpeed(mag, mv.run, mv.analog, INDOOR)) : new THREE.Vector3()
     const p0 = this.player
     if (this.input?.takeJump() && !this.paused && this.jumper.tryJump(p0)) this.emoter.cancel(p0)
     if (mag > 0.05 && this.emoter.busy) this.emoter.cancel(p0)
     this.jumper.update(dt, p0)
     this.emoter.update(dt)
     this.vel.lerp(targetVel, 1 - Math.exp(-dt * velocityRate(mag > 0.01, Math.hypot(this.vel.x, this.vel.z), this.jumper.airborne)))
+    const px = this.pos.x
+    const pz = this.pos.z
     this.pos.addScaledVector(this.vel, dt)
     this.collide(this.pos)
+    if (dt > 0) {
+      const ax = (this.pos.x - px) / dt
+      const az = (this.pos.z - pz) / dt
+      if (Math.hypot(ax, az) < Math.hypot(this.vel.x, this.vel.z) - 0.05) this.vel.set(ax, this.vel.y, az)
+    }
     const onPlatform = Math.abs(this.pos.x - PRESS.x) < 1.8 && Math.abs(this.pos.z - PRESS.z) < 1.8
     this.pos.y += ((onPlatform ? 0.12 : 0) - this.pos.y) * (1 - Math.exp(-dt * 18))
     const speed = Math.hypot(this.vel.x, this.vel.z)
@@ -687,7 +694,7 @@ export class Gym implements GameScene {
       let d = Math.atan2(this.vel.x, this.vel.z) - this.yaw
       d = Math.atan2(Math.sin(d), Math.cos(d))
       this.yaw += d * (1 - Math.exp(-dt * turnRate(speed)))
-      if (!look.x && mv.z > 0.2) {
+      if (!look.x && mv.z > 0.2 && Math.abs(mv.x) < 0.25 && this.t - this.lastLookT > 1.2 && !this.input?.mouseLooked) {
         let cd = this.yaw + Math.PI - this.camYaw
         cd = Math.atan2(Math.sin(cd), Math.cos(cd))
         this.camYaw += cd * (1 - Math.exp(-dt * 0.9))
@@ -695,7 +702,7 @@ export class Gym implements GameScene {
     }
     const p = this.player
     if (p) {
-      p.speed = speed / 3.4
+      p.speed = speed / SPEED_UNIT
       p.pose = this.emoter.pose() ?? (speed > 0.1 ? 'walk' : 'idle')
       if (p.lean) {
         let dy = this.yaw - yaw0

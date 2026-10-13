@@ -129,7 +129,8 @@ for (const [id, cfg] of Object.entries(STA)) {
     const pace1 = (await gym()).pace
     const s2 = await ins()
     check(pace1 > pace0, `clean strides speed the belt up (${pace0} → ${pace1} m/s)`)
-    check(/Jog|Sprint/.test(s2.clip ?? ''), `runner switches to a running clip at pace (${s2.clip})`)
+    const runW = (s2.weights?.jog ?? 0) + (s2.weights?.sprint ?? 0)
+    check(/Jog|Sprint/.test(s2.clip ?? '') || runW > 0.25, `runner blends into a run at pace (jog+sprint weight ${runW.toFixed(2)}, ${s2.clip})`)
   }
   if (id === 'bag') check(!!punchClip, `throws a real punch clip (${punchClip || 'none'})`)
   if (id === 'bag') check(lowHead > 1.3, `stays upright while punching (lowest head ${lowHead.toFixed(2)} m)`)
