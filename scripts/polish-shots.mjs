@@ -71,10 +71,12 @@ if (sections.includes('move')) {
   console.log('clip while walking:', anim.clip)
 }
 if (sections.includes('city')) {
-  await tp(-3.2, 33.4, 0.18, 70)
+  await tp(-9.6, 31.0, 0.12, 60)
   await shot('city-lookout')
-  await tp(4.5, 31.5, -0.35, 55)
+  await tp(9.8, 31.0, -0.25, 55)
   await shot('city-wide')
+  await tp(0, 28.5, 0, 45)
+  await shot('city-gate')
 }
 if (sections.includes('veg')) {
   await tp(0, -11, Math.PI, 40)
