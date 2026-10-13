@@ -21,8 +21,9 @@ export type KingdomStyle = {
 }
 
 export const KINGDOM_STYLES: Record<KingdomStyleId, KingdomStyle> = {
-  balanced: { id: 'balanced', stone: '#9d94a3', stoneTrim: '#c9bfbb', roof: '#33293f', spire: 1.45, finials: true, banner: ['#ff7a1a', '#141216'], windowGlow: '#ffb057' },
-  gothic: { id: 'gothic', stone: '#6c6573', stoneTrim: '#8d8592', roof: '#15121b', spire: 2.15, finials: false, banner: ['#8a1424', '#0b0a0d'], windowGlow: '#ff8a4a' },
+  // CHAD CITADEL: warm maintained sandstone, pale dressed trims, dark slate-blue metal roofs, gold finials
+  balanced: { id: 'balanced', stone: '#d4c3a6', stoneTrim: '#efe3cb', roof: '#3a4558', spire: 1.45, finials: true, banner: ['#ff7a1a', '#141216'], windowGlow: '#ffb057' },
+  gothic: { id: 'gothic', stone: '#8f8794', stoneTrim: '#b3abb6', roof: '#262230', spire: 2.15, finials: false, banner: ['#8a1424', '#0b0a0d'], windowGlow: '#ff8a4a' },
   fantasy: { id: 'fantasy', stone: '#d4ccc0', stoneTrim: '#eee6da', roof: '#2a4f93', spire: 1.2, finials: true, banner: ['#1f4ea8', '#f2c14e'], windowGlow: '#ffd27a' },
 }
 
@@ -44,11 +45,12 @@ export function styleMaterials(style: KingdomStyle, tex: { stone?: THREE.Texture
     roof: std({ map: tex.roof, color: style.roof, roughness: 0.7 }),
     finial: std({ color: '#e0a83e', metalness: 1, roughness: 0.3 }),
     // the keep is a landmark seen through the fog from all over town: a dark, fog-free silhouette
-    farStone: std({ map: tex.stone, color: new THREE.Color(style.stone).multiplyScalar(0.42), fog: false, roughness: 0.95 }),
-    farRoof: std({ map: tex.roof, color: new THREE.Color(style.roof).multiplyScalar(0.7), fog: false, roughness: 0.8 }),
+    // the keep: same stone in daylight, slightly cooler so it sits back a little behind the gatehouse
+    farStone: std({ map: tex.stone, color: new THREE.Color(style.stone).multiplyScalar(0.92), roughness: 0.92 }),
+    farRoof: std({ map: tex.roof, color: new THREE.Color(style.roof), roughness: 0.75 }),
     // keep windows read from across town through the fog: unlit, ignores scene fog, a little dimmer to compensate
     farWindow: (() => {
-      const m = new THREE.MeshBasicMaterial({ color: new THREE.Color(style.windowGlow).multiplyScalar(1.1), toneMapped: false, fog: false })
+      const m = new THREE.MeshStandardMaterial({ color: '#253348', roughness: 0.12, metalness: 0.6, emissive: '#0c1422' })
       D.push(m)
       return m
     })(),

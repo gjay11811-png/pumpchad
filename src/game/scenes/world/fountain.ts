@@ -139,9 +139,9 @@ function taperedTube(curve: THREE.Curve<THREE.Vector3>, r0: number, r1: number, 
 }
 
 /** layered water: two scrolling normal-map samples blended, transparent, glossy */
-function waterMaterial(normal: THREE.Texture, D: D) {
+export function waterMaterial(normal: THREE.Texture, D: D, tint = '#2b7d92', glow = '#0e3c48') {
   const m = new THREE.MeshStandardMaterial({
-    color: '#123a44',
+    color: tint,
     roughness: 0.05,
     metalness: 0.15,
     transparent: true,
@@ -149,8 +149,8 @@ function waterMaterial(normal: THREE.Texture, D: D) {
     normalMap: normal,
     normalScale: new THREE.Vector2(0.55, 0.55),
     envMapIntensity: 1.6,
-    emissive: '#0d2f38',
-    emissiveIntensity: 0.55,
+    emissive: glow,
+    emissiveIntensity: 0.35,
     depthWrite: false,
   })
   const uT = { value: 0 }

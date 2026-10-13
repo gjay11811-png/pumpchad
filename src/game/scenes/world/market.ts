@@ -2,6 +2,8 @@ import * as THREE from 'three'
 import { placer, ROT, type Facing, type Town } from './buildings'
 import { boxUV } from './kit'
 import { shopSign } from './textures'
+import { cityMapTexture } from './gateway'
+import { boardTexture } from './signs'
 
 /**
  * Market Row stalls (v4). One sturdy timber build — square posts with knee braces, front/back beams, a planked
@@ -9,13 +11,14 @@ import { shopSign } from './textures'
  * hanging name sign and an iron lantern — dressed four different ways so no two stalls look alike.
  * All static parts go into the town batch (merged by material).
  */
-export type StallKind = 'produce' | 'apothecary' | 'guide' | 'wardrobe'
+export type StallKind = 'produce' | 'apothecary' | 'guide' | 'wardrobe' | 'shakes'
 
 const SIGNS: Record<StallKind, [string, string]> = {
   produce: ['GOURD & GO', 'fresh pumpkins · daily'],
   apothecary: ['MARROWPOT', 'potions · tonics · gains'],
   guide: ['VILLAGE GUIDE', 'maps · directions · lore'],
   wardrobe: ['WARDROBE', 'new fits · coming soon'],
+  shakes: ['PUMP SHAKES', 'protein · banana · pumpkin spice'],
 }
 
 /** awning cloth: subdivided plane, folds across the width, sagging toward the front edge */
@@ -140,8 +143,10 @@ export function stallV4(T: Town, x: number, z: number, face: Facing, stripe: THR
     T.embers.push({ x: L.world(W / 2 + 0.55, 0.2)[0], y: 0.6, z: L.world(W / 2 + 0.55, 0.2)[1] })
   } else if (kind === 'guide') {
     // back panel with a hand-drawn map of the kingdom; a rack of rolled maps on the counter
-    const mapTex = kingdomMapTexture()
-    const mapMat = new THREE.MeshStandardMaterial({ map: mapTex, roughness: 0.85, emissive: '#ffffff', emissiveMap: mapTex, emissiveIntensity: 0.12 })
+    // the real city map (drawn from the layout constants), "you are here" = this stall
+    const [hx, hz] = L.world(0, DEP / 2 + 1)
+    const mapTex = cityMapTexture([], [hx, hz])
+    const mapMat = new THREE.MeshStandardMaterial({ map: mapTex, roughness: 0.85 })
     T.disposables.push(mapTex, mapMat)
     L.put(boxUV(W - 0.2, 1.3, 0.06, 0.8), P.timber, 0, 1.6, -DEP / 2 + 0.05)
     L.put(new THREE.PlaneGeometry(W - 0.4, 1.15), mapMat, 0, 1.6, -DEP / 2 + 0.09, 0, 1, 1, 1, false)
@@ -149,6 +154,28 @@ export function stallV4(T: Town, x: number, z: number, face: Facing, stripe: THR
     for (let i = 0; i < 5; i++) L.put(scroll, P.plaster, -0.8 + (i % 3) * 0.08, 1.03 + Math.floor(i / 3) * 0.08, DEP / 2 - 0.25 + (i % 2) * 0.06, 0.2 * i, 1, 1, 1, false)
     L.put(crate, P.woodLight, W / 2 + 0.5, 0.21, 0.1, 0.3)
     L.put(crate, P.woodLight, W / 2 + 0.55, 0.63, 0.15, 0.1)
+  } else if (kind === 'shakes') {
+    // blenders on the back counter, a row of shaker bottles, stacked cups, a chalk menu board
+    for (const y of [1.25]) L.put(boxUV(W - 0.3, 0.06, 0.34, 0.8), P.timber, 0, y, -DEP / 2 + 0.22)
+    const jug = new THREE.CylinderGeometry(0.1, 0.08, 0.28, 10)
+    const base = new THREE.BoxGeometry(0.2, 0.16, 0.2)
+    const flavours = [P.glowOrange, P.plaster, P.woodLight, P.glowPurple]
+    for (let i = 0; i < 3; i++) {
+      const lx = -1.0 + i * 0.9
+      L.put(base, P.iron, lx, 1.36, -DEP / 2 + 0.22)
+      L.put(jug, flavours[i], lx, 1.58, -DEP / 2 + 0.22, 0, 1, 1, 1, false)
+    }
+    const shaker = new THREE.CylinderGeometry(0.06, 0.055, 0.22, 10)
+    for (let i = 0; i < 8; i++) {
+      L.put(shaker, flavours[i % 4], -1.2 + i * 0.32, 1.13, DEP / 2 - 0.22)
+      L.put(new THREE.CylinderGeometry(0.062, 0.062, 0.05, 10), P.iron, -1.2 + i * 0.32, 1.27, DEP / 2 - 0.22)
+    }
+    for (let i = 0; i < 4; i++) L.put(new THREE.CylinderGeometry(0.06, 0.045, 0.1, 10), P.plaster, W / 2 - 0.35, 1.07 + i * 0.07, DEP / 2 - 0.3)
+    const menuTex = boardTexture('SHAKE MENU', ['Vanilla Gains', 'Banana Bulk', 'Pumpkin Spice Pump', 'Choc Crown'], 1.4, { bg: '#1d2420', ink: '#f4e3b8', sub: '#e8f0e0', rule: '#cfd8c8' }, T.disposables)
+    const menuMat = new THREE.MeshStandardMaterial({ map: menuTex, roughness: 0.9 })
+    T.disposables.push(menuMat)
+    L.put(boxUV(1.3, 0.95, 0.06, 0.8), P.timber, 0, 2.0, -DEP / 2 + 0.06)
+    L.put(new THREE.PlaneGeometry(1.2, 0.86), menuMat, 0, 2.0, -DEP / 2 + 0.1, 0, 1, 1, 1, false)
   } else {
     // wardrobe preview: a dressed mannequin + bolts of cloth (purchases are NOT implemented — the sign says so)
     const mq = new THREE.LatheGeometry([new THREE.Vector2(0, 0), new THREE.Vector2(0.2, 0.02), new THREE.Vector2(0.26, 0.25), new THREE.Vector2(0.18, 0.45), new THREE.Vector2(0.24, 0.62), new THREE.Vector2(0.1, 0.72), new THREE.Vector2(0, 0.74)], 16)
@@ -171,56 +198,3 @@ export function stallV4(T: Town, x: number, z: number, face: Facing, stripe: THR
   T.colliders.push({ kind: 'box', minX: cx - hw, maxX: cx + hw, minZ: cz - hd, maxZ: cz + hd, h: 1 })
 }
 
-/** a hand-drawn parchment map of Chad Kingdom for the guide's stall */
-function kingdomMapTexture() {
-  const c = document.createElement('canvas')
-  c.width = 768
-  c.height = 320
-  const g = c.getContext('2d')!
-  const grd = g.createRadialGradient(384, 160, 40, 384, 160, 420)
-  grd.addColorStop(0, '#e9d9b4')
-  grd.addColorStop(1, '#b8996a')
-  g.fillStyle = grd
-  g.fillRect(0, 0, 768, 320)
-  g.strokeStyle = '#5a3a1a'
-  g.lineWidth = 3
-  g.strokeRect(10, 10, 748, 300)
-  // town circle, roads, labels
-  const cx = 384
-  const cy = 165
-  g.strokeStyle = '#6b4a24'
-  g.lineWidth = 4
-  g.beginPath()
-  g.arc(cx, cy, 120, 0, Math.PI * 2)
-  g.stroke()
-  g.lineWidth = 10
-  g.strokeStyle = 'rgba(110,80,40,0.55)'
-  for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
-    g.beginPath()
-    g.moveTo(cx + dx * 24, cy + dy * 24)
-    g.lineTo(cx + dx * 118, cy + dy * 118)
-    g.stroke()
-  }
-  g.fillStyle = '#3a6a8a'
-  g.beginPath()
-  g.arc(cx, cy, 20, 0, Math.PI * 2)
-  g.fill()
-  g.fillStyle = '#2a1a0a'
-  g.textAlign = 'center'
-  g.font = 'bold 22px Georgia, serif'
-  g.fillText('CHAD KINGDOM', cx, 34)
-  g.font = '16px Georgia, serif'
-  const label = (t: string, x: number, y: number) => g.fillText(t, x, y)
-  label('Castle', cx, cy - 128)
-  label('Lookout ▸ Chad City', cx, cy + 142)
-  label('Market Row', cx - 190, cy + 4)
-  label('Chad Gym', cx + 170, cy + 4)
-  label('Fountain', cx, cy + 44)
-  label('★ you are here', cx - 120, cy + 60)
-  g.font = 'italic 14px Georgia, serif'
-  label('Chad City (coming soon) →', 640, 290)
-  const t = new THREE.CanvasTexture(c)
-  t.colorSpace = THREE.SRGBColorSpace
-  t.anisotropy = 4
-  return t
-}

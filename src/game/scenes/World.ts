@@ -8,12 +8,14 @@ import { audio } from '../audio'
 import { disposeObject, type Engine, type GameScene } from '../engine/Engine'
 import type { Input } from '../input'
 import type { Quality } from '../save'
-import { arcade, entranceArch, forge, hollowHouse, house, stripeMats, tavern, type Collider, type Town } from './world/buildings'
+import { entranceArch, forge, hollowHouse, house, stripeMats, tavern, type Collider, type Town } from './world/buildings'
 import { Leaves, Particles, type Fire, type Cloth } from './world/fx'
 import { StaticBatch, makePalette } from './world/kit'
 import { Crowd, RESIDENTS } from './world/npcs'
-import { CASTLE_Z, ROADS, buildGround, castle, clutter, fence, gym, lampPosts, poles, stringLights, vegetation } from './world/props'
-import { BENCHES, CITY_SIGN, kingdom, mountains, valleyRoad } from './world/kingdom'
+import { CASTLE_Z, ROADS, buildGround, castle, clutter, fence, lampPosts, poles, stringLights, vegetation } from './world/props'
+import { BENCHES, kingdom, mountains, valleyRoad } from './world/kingdom'
+import { SPAWN, bridgeHeight, clampToCity } from './world/city'
+import { buildDaylight, skyPresetFromUrl } from './world/daylight'
 import { B4S_BENCH, PLAZA_BENCHES, SEAT_FWD } from './world/props'
 
 /** every bench the player can sit on: the lookout benches + the plaza benches b4s isn't using */
@@ -24,8 +26,9 @@ const GOURDS = [
   { id: 'gourd_3', name: 'Tiny Gourd', x: 3.7, z: -24.6, r: 0.18, face: 2, facing: 0 },
 ]
 
-const SEATS = [
-  ...BENCHES.map((b) => ({ x: b.x, z: b.z, ry: b.ry, label: 'Sit and watch Chad City' })),
+/** seats from the old town (lookout + plaza benches); the districts add theirs at build time (see World.seats) */
+const BASE_SEATS = [
+  ...BENCHES.map((b) => ({ x: b.x, z: b.z, ry: b.ry, label: 'Sit by the canal' })),
   ...PLAZA_BENCHES.filter((_, i) => i !== B4S_BENCH).map((b) => ({ x: b.x, z: b.z, ry: b.ry, label: 'Sit by the fountain' })),
 ]
 import { buildChadCity } from './world/skyline'
@@ -35,6 +38,17 @@ import { RushGame } from '../minigames/pumpkinRush'
 import { flowerTexture } from './world/foliage'
 import { fountainV4 } from './world/fountain'
 import { fingerpost } from './world/wayfinding'
+import { railingMaterial, waterfront } from './world/waterfront'
+import { arrival } from './world/gateway'
+import { perimeter } from './world/perimeter'
+import { citadel, CITADEL } from './world/citadel'
+import { eastside } from './world/eastside'
+import { westside, type BenchSpot } from './world/westside'
+import { chadRides } from './world/rides'
+import { lawns, PATCH } from './world/lawns'
+import { MAPBOARD, WELCOME } from './world/gateway'
+import { CHAMPIONS, NOTICE, squareExtras, standFor } from './world/square'
+import { ARCADE, CANAL, OVERLOOK, RIDES, insideCity } from './world/city'
 import { PumpkinBuilder } from './world/pumpkins'
 import { stallV4 } from './world/market'
 
@@ -44,7 +58,6 @@ export type WorldEvents = {
   onInteract(id: string): void
 }
 
-const BOUNDS = 34.5
 /** the Pumpkin Rush cart (start point of the mini-game) on the plaza */
 export const RUSH_CART = { x: 10.2, z: 10.4 }
 const PLAYER_R = 0.45
@@ -55,11 +68,13 @@ export const SEEDS: [string, number, number][] = [
   ['seed_2', 26.6, -21.6], // among the Hollow House graves
   ['seed_3', -30.4, -2.3], // behind the crates at the end of Market Row
   ['seed_4', -14.5, -18.3], // behind the forge
-  ['seed_5', 18.6, 21.5], // round the back of the arcade
+  ['seed_5', 44.6, 30.4], // behind the shops on Arcade Street
 ]
 
 /** Walkable height: castle steps, tavern porch, fountain step. */
 export function groundHeight(x: number, z: number) {
+  const bh = bridgeHeight(x, z)
+  if (bh !== null) return bh
   if (x > -4.5 && x < 4.5 && z < -24.4 && z > -29.6) return Math.min(4, Math.floor((-24.4 - z) / 1.05) + 1) * 0.22
   if (x > -8.5 && x < -5.5 && z > 13.8 && z < 24.2) return 0.3
   if (x >= -5.5 && x < -4.9 && z > 17.6 && z < 20.4) return 0.15
@@ -72,9 +87,9 @@ export class World implements GameScene {
   scene = new THREE.Scene()
   // far plane reaches the Chad City skyline (~330 m) and the mountains beyond it
   camera = new THREE.PerspectiveCamera(55, 1, 0.1, 950)
-  bloom = 0.6
+  bloom = 0.22
   player: Character | null = null
-  private playerPos = new THREE.Vector3(0, 0, 19.5)
+  private playerPos = new THREE.Vector3(SPAWN.x, 0, SPAWN.z)
   private playerVel = new THREE.Vector3()
   private playerYaw = Math.PI
   private camYaw = 0
@@ -104,6 +119,7 @@ export class World implements GameScene {
   private embers: Particles | null = null
   private leaves: Leaves | null = null
   private city: ReturnType<typeof buildChadCity> | null = null
+  private daylight: ReturnType<typeof buildDaylight> | null = null
   private disposables: (THREE.Material | THREE.Texture | THREE.BufferGeometry)[] = []
   paused = false
   private actionCooldown = 0
@@ -111,6 +127,8 @@ export class World implements GameScene {
   private lastLookT = -10
   /** sitting on a lookout bench: sit-down clip → seated loop → stand-up clip */
   private seat: { b: number; phase: 'enter' | 'sit' | 'exit'; t: number; dur: number } | null = null
+  /** every bench the player can sit on (old town + districts) */
+  seats: BenchSpot[] = [...BASE_SEATS]
   /** movement locked while a full-body action plays (picking up a seed) */
   private lockT = 0
   private pendingHide: { g: THREE.Object3D; t: number } | null = null
@@ -135,10 +153,9 @@ export class World implements GameScene {
   ) {
     this.quality = quality
     const s = this.scene
-    s.background = new THREE.Color('#0b0912')
-    s.fog = new THREE.FogExp2('#110c16', quality === 'low' ? 0.03 : 0.024)
     s.environment = engine.env
-    s.environmentIntensity = 0.16
+    s.environmentIntensity = 0.5
+    this.bloom = 0.22 // daylight: only the sun glints and a few accents bloom
     this.buildTown(quality)
     this.camYaw = this.playerYaw + Math.PI
   }
@@ -190,17 +207,15 @@ export class World implements GameScene {
     const style = kingdomStyle()
     const SM = styleMaterials(style, tex, this.disposables)
     castle(T, style, SM)
-    gym(T)
+    citadel(T, SM)
     tavern(T, -12, 19, 'e')
     forge(T, -16, -13, 's')
-    arcade(T, 13, 19, 'w')
     hollowHouse(T, 21, -19.5, 'w')
     entranceArch(T, 27.5)
     house(T, { x: -9.5, z: -19, w: 6, d: 5, face: 'e', roof: P.roofSlate, seed: 3 })
     house(T, { x: 9.5, z: -19.5, w: 6, d: 5, face: 'w', roof: P.roofRed, seed: 7 })
     house(T, { x: -25, z: 13.5, w: 6, d: 5, face: 'n', roof: P.roofOrange, seed: 11 })
     house(T, { x: -26, z: -9.5, w: 6, d: 5, face: 's', roof: P.roofRed, seed: 13 })
-    house(T, { x: 26, z: 10, w: 5, d: 6, face: 'w', roof: P.roofSlate, seed: 17 })
     // the two cottages by the south wall moved inland so the Lookout Terrace opens onto the valley
     house(T, { x: -15, z: 27, w: 5, d: 4, floors: 1, face: 'e', roof: P.roofRed, seed: 19 })
     house(T, { x: 16, z: 26.5, w: 5, d: 4, floors: 1, face: 'w', roof: P.roofOrange, seed: 23 })
@@ -228,11 +243,34 @@ export class World implements GameScene {
     // fences: Hollow House front yard (broken), garden at the east house
     fence(T, [[18, -23.6], [15.4, -23.6], [15.4, -21.1]], true)
     fence(T, [[15.4, -17.9], [15.4, -15.6], [18, -15.6]], true)
-    fence(T, [[22.6, 6.8], [22.6, 4.5], [28.4, 4.5]])
     fence(T, [[-22, 10.4], [-28.2, 10.4]])
 
     clutter(T)
     kingdom(T, style, SM, q)
+    // ── CHAD CITY: the canal + bridges, the arrival forecourt + gateway, the balustraded city edge ──
+    const rail = railingMaterial(this.disposables)
+    waterfront(T, wn, SM.stone, SM.trim, rail)
+    arrival(T, SM.stone, SM.trim)
+    perimeter(T, SM.stone, SM.trim, rail)
+    // districts: gym frontage + yard, Arcade Street + PUMP ARCADE (east); social corner, garden, overlook (west)
+    eastside(T, tex.stone)
+    const extraSeats: BenchSpot[] = []
+    const greenery = westside(T, SM.stone, SM.trim, stripes[1], extraSeats)
+    lawns(T, SM.trim, extraSeats, greenery)
+    this.seats.push(...extraSeats)
+    chadRides(T, SM.trim)
+    squareExtras(T, SM.trim)
+    // street trees + bushes for the south + east districts
+    greenery.trees.push([-12.5, 49.6], [12.5, 49.6], [-14, 71], [24.5, 70], [-26, 30.5], [26, 30.5], [33, 1], [52, 2], [56, 31], [36.5, 31.5], [48.6, 31.2])
+    greenery.bushes.push([-13, 66.4], [-12.2, 66.4], [-9.5, 55.2], [9.5, 55.2], [-5.2, 46.6], [5.2, 46.6], [30.6, 2.2], [30.6, 10.5])
+    // lamps along the new streets (same family as the old town's)
+    lampPosts(T, [
+      [-4.4, 48.5], [4.4, 48.5], [-4.4, 56.5], [4.4, 56.5], [-4.4, 69.5], [4.4, 69.5],
+      [-8, 35.8], [8, 35.8], [-15, 35.8], [15, 35.8], [-23, 35.8], [23, 35.8], [-12, 46.4], [12, 46.4], [-24, 46.4], [24, 46.4],
+      [14, 15.6], [22, 15.6], [14, 22.4], [22, 22.4], [29.6, 15.7], [29.6, 22.3], [46.2, 15.7], [46.2, 22.3],
+      [-33.5, 12.4], [-54.5, 12.4], [-33.5, 33.6], [-46, 5.4], [-47, 42], [-58.4, 34],
+      [-7.2, -12.6], [7.2, -12.6],
+    ])
     this.city = buildChadCity(this.scene, q, this.disposables)
     valleyRoad(T, this.city.road)
 
@@ -248,7 +286,20 @@ export class World implements GameScene {
         if (c.kind === 'box' && x > c.minX - 0.8 && x < c.maxX + 0.8 && z > c.minZ - 0.8 && z < c.maxZ + 0.8) return true
         if (c.kind === 'circle' && Math.hypot(x - c.x, z - c.z) < c.r + 0.5) return true
       }
-      return z < CASTLE_Z + 2
+      if (z < CASTLE_Z + 2) return true
+      // the districts' paving, water and yards stay clear of grass tufts + rocks
+      if (z > CANAL.z0 - 4.2 && z < CANAL.z1 + 3.2 && x > -31 && x < 31) return true // canal + promenades
+      if (z > 44 && Math.abs(x) < 15.6) return true // arrival forecourt + avenue
+      if (Math.abs(x - RIDES.x) < 5 && Math.abs(z - RIDES.z) < 4) return true
+      if (z > 15 && z < 23 && x > 2 && x < 48) return true // arcade street
+      if (x > 15 && x < 30 && z > 1.5 && z < 12) return true // gym yard
+      if (x > ARCADE.x - 6 && z > 10 && z < 28) return true
+      if (x < -32 && z > -6 && z < 12) return true // social corner
+      if (x < -32 && z > 12.5 && z < 34) return true // the garden (flowerbeds instead)
+      if (x < -45 && z > 33) return true // overlook terrace
+      if (x > PATCH.x0 - 0.5 && x < PATCH.x1 + 0.5 && z > PATCH.z0 - 0.5 && z < PATCH.z1 + 0.5) return true // pumpkin patch
+      if (z < -11 && z > -24 && Math.abs(x) < 7) return true // citadel forecourt
+      return !insideCity(x, z, 0.3)
     }
     this.rushCart(T) // before vegetation (nothing grows through it) and before the static batch is built
     this.pumpkinPatches(T)
@@ -260,7 +311,7 @@ export class World implements GameScene {
       { label: 'PUMPKIN RUSH', to: [RUSH_CART.x, RUSH_CART.z] },
       { label: 'LOOKOUT · CITY', to: [-5.4, 32.4] },
     ])
-    vegetation(T, q, avoid)
+    vegetation(T, q, avoid, greenery)
     // every pumpkin in the kingdom → three merged meshes; carved ones flicker together
     const pk = T.pumpkins!.build(this.scene, this.disposables, q !== 'low')
     T.dynamic.push({ update: (t) => pk.update(t) })
@@ -272,7 +323,7 @@ export class World implements GameScene {
     this.fires = T.fires
     this.cloths = T.cloths
     this.dynamic = T.dynamic
-    const maxLights = q === 'high' ? 7 : q === 'medium' ? 4 : 1
+    const maxLights = q === 'high' ? 3 : q === 'medium' ? 2 : 0 // daylight: lamps are accents, not light sources
     T.lights
       .sort((a, b) => a.priority - b.priority)
       .slice(0, maxLights)
@@ -287,13 +338,12 @@ export class World implements GameScene {
       })
     if (q !== 'low') {
       this.smoke = new Particles(T.smoke, q === 'high' ? 14 : 9, 'smoke', '#5a5260', false)
-      this.embers = new Particles(T.embers, q === 'high' ? 16 : 10, 'embers', '#ff8a30', true)
-      this.scene.add(this.smoke.points, this.embers.points)
+      this.scene.add(this.smoke.points) // (no embers by day)
     }
     this.leaves = new Leaves(q === 'high' ? 90 : q === 'medium' ? 55 : 25)
     this.scene.add(this.leaves.mesh)
 
-    this.buildLightsAndSky(q)
+    this.daylight = buildDaylight(this.scene, q, this.disposables, skyPresetFromUrl(), this.engine.renderer)
     this.buildInteractables(T)
   }
 
@@ -331,7 +381,7 @@ export class World implements GameScene {
       // x, z, big radius, carved chance
       [10.8, 6.2, 0.3, 0.6], [-11.2, 6.6, 0.28, 0.5], [10.9, -6.8, 0.26, 0.4], [-10.6, -7.4, 0.3, 0.6],
       [3.6, 13.2, 0.24, 0.3], [-3.7, -12.4, 0.26, 0.5], [-3.8, -24.9, 0.32, 0.8],
-      [6.9, 16.9, 0.24, 0.3], [15.6, -2.4, 0.26, 0.5], [-13.4, 1.0, 0.24, 0.2],
+      [-13.4, 1.0, 0.24, 0.2],
     ]
     for (const [x, z, big, carved] of spots) PB.cluster(x, z, groundHeight(x, z), big, carved)
     // the three talking pumpkins: bigger carved faces + a slow sparkle until you find them
@@ -358,64 +408,33 @@ export class World implements GameScene {
   }
 
   private buildSky() {
-    const s = this.scene
-    const moon = new THREE.Mesh(new THREE.SphereGeometry(6, 32, 16), new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffd9a0').multiplyScalar(2.6), toneMapped: false, fog: false }))
-    moon.position.set(-40, 44, -110)
-    s.add(moon)
-    const halo = new THREE.Mesh(new THREE.CircleGeometry(18, 48), new THREE.MeshBasicMaterial({ color: '#ff9a3c', transparent: true, opacity: 0.07, fog: false, depthWrite: false }))
-    halo.position.copy(moon.position).add(new THREE.Vector3(0, 0, 1))
-    halo.lookAt(0, 0, 0)
-    s.add(halo)
-    const N = 900
-    const pos = new Float32Array(N * 3)
-    for (let i = 0; i < N; i++) {
-      const th = Math.random() * Math.PI * 2
-      const ph = 0.06 + Math.random() * 0.42 * Math.PI
-      pos.set([Math.cos(th) * Math.cos(ph) * 880, Math.sin(ph) * 880 + 10, Math.sin(th) * Math.cos(ph) * 880], i * 3)
-    }
-    const g = new THREE.BufferGeometry()
-    g.setAttribute('position', new THREE.BufferAttribute(pos, 3))
-    s.add(new THREE.Points(g, new THREE.PointsMaterial({ color: '#f3ece2', size: 3.4, fog: false, transparent: true, opacity: 0.8 })))
-    mountains(s, this.disposables)
-  }
-
-  private buildLightsAndSky(q: Quality) {
-    const s = this.scene
-    s.add(new THREE.HemisphereLight('#6a5a88', '#22140c', 0.62))
-    const moonLight = new THREE.DirectionalLight('#b9c6ff', 1.15)
-    moonLight.position.set(-14, 26, -10)
-    moonLight.castShadow = q !== 'low'
-    const size = q === 'high' ? 2048 : 1024
-    moonLight.shadow.mapSize.set(size, size)
-    const sc = moonLight.shadow.camera
-    sc.left = sc.bottom = -36
-    sc.right = sc.top = 36
-    sc.near = 1
-    sc.far = 80
-    moonLight.shadow.bias = -0.0006
-    moonLight.shadow.normalBias = 0.04
-    s.add(moonLight)
-    const warm = new THREE.DirectionalLight('#ff9a50', 0.3)
-    warm.position.set(12, 7, 16)
-    s.add(warm)
+    mountains(this.scene, this.disposables)
   }
 
   private buildInteractables(T: Town) {
     const add = (id: string, label: string, x: number, z: number, radius: number, kind: Interactable['kind']) => this.interactables.push({ id, label, pos: new THREE.Vector3(x, 0, z), radius, kind })
     add('statue', 'Read the fountain plaque', 0, 6.7, 1.6, 'info')
-    add('gate', 'Knock on the castle gate', 0, -28.2, 1.8, 'info')
+    add('gate', 'Knock on the citadel doors', 0, -28.2, 1.8, 'info')
     add('gym', 'Enter Chad Gym', 14.4, -4, 2.2, 'activity')
-    add('board', 'Read the notice board', 5.7, 21.5, 1.7, 'info')
+    const nb = standFor(NOTICE)
+    add('board', 'Read the community noticeboard', nb.x, nb.z, 1.5, 'info')
+    const ch = standFor(CHAMPIONS, 1.8)
+    add('champions', 'Look at the Community Champions case', ch.x, ch.z, 1.4, 'info')
+    add('citygate', 'Read the welcome board', WELCOME.x + 0.5, WELCOME.z + 1.3, 1.4, 'info')
+    add('citymap', 'Study the city map', MAPBOARD.x - 0.5, MAPBOARD.z + 1.3, 1.4, 'info')
+    add('rides', 'Look at Chad Rides', RIDES.x - 1.5, RIDES.z - 2.9, 1.6, 'info')
+    add('overlook', 'Take in the view from Chad View', OVERLOOK.x + 1.5, OVERLOOK.z + 0.5, 1.8, 'info')
+    add('lore_citadel', 'Read the citadel plaque', CITADEL.lore.x + 0.5, CITADEL.lore.z + 0.95, 1.2, 'info')
+    add('yard', 'Read the yard board', 17.4, 12.9, 1.3, 'info')
     add('well', 'Toss a coin in the wishing well', -29.4, 2.5, 1.7, 'activity')
     add('window', 'Peer through the window', 16.6, -19.5, 1.8, 'info')
-    add('arcade', 'Pump Arcade — opening soon', 7.8, 19, 1.9, 'info')
+    add('arcade', 'Pump Arcade — opening soon', ARCADE.x - 7.2, ARCADE.z, 2.0, 'info')
     add('rune', 'Press the strange rune', -24.5, -27, 1.6, 'secret')
     add('pumpkin', 'Poke the suspicious pumpkin', -9.6, 10.4, 2.1, 'info')
-    add('citygate', 'Read the Chad City sign', CITY_SIGN.x - 0.4, CITY_SIGN.z - 1.2, 1.9, 'info')
-    SEATS.forEach((b, i) => add(`bench_${i}`, b.label, b.x + Math.sin(b.ry) * 0.75, b.z + Math.cos(b.ry) * 0.75, 1.1, 'activity'))
+    this.seats.forEach((b, i) => add(`bench_${i}`, b.label, b.x + Math.sin(b.ry) * 0.75, b.z + Math.cos(b.ry) * 0.75, 1.1, 'activity'))
     add('rush', 'Play Pumpkin Rush', RUSH_CART.x, RUSH_CART.z + 1.3, 1.5, 'activity')
     add('wardrobe', 'Browse the wardrobe stall', -24, 5.0, 1.3, 'info')
-    add('lookout', 'Take in the view', -5.4, 32.4, 1.5, 'info')
+    add('lookout', 'Look out over the canal', -5.4, 32.4, 1.5, 'info')
     for (const g of GOURDS) add(g.id, `Talk to the ${g.name}`, g.x, g.z, 1.35, 'talk')
     // open, walkable plaza ground for rush pumpkins: inside the walls, clear of every collider, roughly level
     const open = (x: number, z: number) => {
@@ -490,7 +509,7 @@ export class World implements GameScene {
       const m = new THREE.Mesh(markerGeo, it.kind === 'talk' ? T.P.glowGold : T.P.glowOrange)
       const y = it.kind === 'talk' ? 2.55 : it.id === 'gym' ? 4 : 2.2
       m.position.set(it.pos.x, y, it.pos.z)
-      if (it.id === 'gym') m.position.x = 15.6
+      if (it.id === 'gym') m.position.x = 14.2
       if (it.id === 'well') m.position.x = -31
       const res = RESIDENTS.find((r) => r.id === it.id)
       if (res?.talkAt) m.position.set(res.x, y, res.z)
@@ -532,8 +551,9 @@ export class World implements GameScene {
       this.playerPos.set(12.6, 0, -4)
       this.playerYaw = -Math.PI / 2
     } else {
-      this.playerPos.set(0, 0, 19.5)
-      this.playerYaw = Math.PI
+      this.playerPos.set(SPAWN.x, 0, SPAWN.z)
+      this.playerYaw = SPAWN.yaw
+      this.camPitch = 0.1 // a low, looking-up view: the gateway, the avenue and the citadel all in frame
     }
     this.camYaw = this.playerYaw + Math.PI
     this.playerVel.set(0, 0, 0)
@@ -571,7 +591,7 @@ export class World implements GameScene {
   }
   /** sit on lookout bench i (plays the sit-down clip, then the seated loop until the player moves) */
   sit(i: number) {
-    const b = SEATS[i]
+    const b = this.seats[i]
     const p = this.player
     if (!b || !p?.playOnce || this.seat || this.jumper.airborne) return
     this.emoter.cancel(p)
@@ -654,11 +674,7 @@ export class World implements GameScene {
         p.z = l.pos.z + (dz / d) * min
       }
     }
-    const d = Math.hypot(p.x, p.z)
-    if (d > BOUNDS) {
-      p.x *= BOUNDS / d
-      p.z *= BOUNDS / d
-    }
+    clampToCity(p, r + 0.15) // the city's edge: cliff parapets, the canal ends, the overlook rail
   }
 
   /** Distance along target→camera at which a tall collider blocks the view (1 = clear). */
@@ -805,7 +821,7 @@ export class World implements GameScene {
       else if (seat.phase === 'sit' && wantsUp) this.standUp()
       else if (seat.phase === 'exit' && seat.t >= seat.dur) {
         // stood up: step clear of the bench so the collider doesn't shove the player
-        const b = SEATS[seat.b]
+        const b = this.seats[seat.b]
         this.playerPos.set(b.x + Math.sin(b.ry) * 0.62, this.playerPos.y, b.z + Math.cos(b.ry) * 0.62)
         this.seat = null
       }
@@ -873,7 +889,10 @@ export class World implements GameScene {
       p.update(dt)
     }
     this.lastSpeed = speed
-    this.placeCamera(1 - Math.exp(-dt * 9))
+    if (this.shotCam) {
+      this.camera.position.copy(this.shotCam.cam)
+      this.camera.lookAt(this.shotCam.look)
+    } else this.placeCamera(1 - Math.exp(-dt * 9))
 
     this.crowd.update(dt, this.playerPos, this.camera.position, this.paused, groundHeight)
 
@@ -908,6 +927,7 @@ export class World implements GameScene {
     this.embers?.update(dt, t)
     this.leaves?.update(dt, t, this.playerPos.x, this.playerPos.z)
     this.city?.update(dt)
+    this.daylight?.update(dt, this.playerPos)
     // fountain splash gets louder as you walk up to it
     audio.setWater(1 - Math.min(1, Math.max(0, (Math.hypot(this.playerPos.x, this.playerPos.z) - 5) / 13)))
     if (!this.paused) this.rush?.update(dt, this.playerPos, groundHeight)
@@ -970,6 +990,13 @@ export class World implements GameScene {
       walkers: this.crowd.live.filter((l) => l.walker).map((l) => [+l.pos.x.toFixed(2), +l.pos.z.toFixed(2)]),
     }
   }
+  /** QA / marketing stills: a fixed camera (null = gameplay camera) */
+  private shotCam: { cam: THREE.Vector3; look: THREE.Vector3 } | null = null
+  setShotCam(o: { cam: [number, number, number]; look: [number, number, number]; fov?: number } | null) {
+    this.shotCam = o ? { cam: new THREE.Vector3(...o.cam), look: new THREE.Vector3(...o.look) } : null
+    this.camera.fov = o?.fov ?? (this.camera.aspect < 1 ? 66 : 55)
+    this.camera.updateProjectionMatrix()
+  }
   teleport(x: number, z: number, yaw?: number) {
     this.playerPos.set(x, groundHeight(x, z), z)
     this.playerVel.set(0, 0, 0)
@@ -1000,12 +1027,12 @@ export class World implements GameScene {
   }
 }
 
-/** Block-stone texture for castle / plinths (kept here: it's the only user). */
+/** Warm sandstone ashlar for the citadel, walls and plinths: varied blocks, pale mortar, a little weathering. */
 function stoneBlocks(size = 256) {
   const c = document.createElement('canvas')
   c.width = c.height = size
   const g = c.getContext('2d')!
-  g.fillStyle = '#121014'
+  g.fillStyle = '#b9ad9a'
   g.fillRect(0, 0, size, size)
   let seed = 13
   const r = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646
@@ -1013,10 +1040,17 @@ function stoneBlocks(size = 256) {
   const h = size / rows
   for (let y = 0; y < rows; y++)
     for (let x = (y % 2) * -h * 0.8; x < size; x += h * 1.6) {
-      g.fillStyle = `hsl(${250 + r() * 30}, ${4 + r() * 6}%, ${14 + r() * 11}%)`
+      const l = 70 + r() * 14
+      g.fillStyle = `hsl(${32 + r() * 10}, ${16 + r() * 12}%, ${l}%)`
       g.fillRect(x + 2, y * h + 2, h * 1.6 - 4, h - 4)
-      g.fillStyle = 'rgba(255,255,255,0.04)'
+      g.fillStyle = 'rgba(255,255,255,0.10)'
       g.fillRect(x + 3, y * h + 3, h * 1.6 - 6, 3)
+      g.fillStyle = 'rgba(80,60,40,0.10)'
+      g.fillRect(x + 3, y * h + h - 7, h * 1.6 - 6, 4)
+      for (let k = 0; k < 6; k++) {
+        g.fillStyle = `rgba(90,70,50,${r() * 0.12})`
+        g.fillRect(x + 4 + r() * (h * 1.6 - 12), y * h + 4 + r() * (h - 10), 3 + r() * 6, 2 + r() * 4)
+      }
     }
   const t = new THREE.CanvasTexture(c)
   t.wrapS = t.wrapT = THREE.RepeatWrapping

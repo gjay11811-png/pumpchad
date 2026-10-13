@@ -5,7 +5,8 @@ import { signTexture, bannerTexture } from '../textures'
 import type { Town } from './buildings'
 import { Cloth, Fire } from './fx'
 import { boxUV, instanced, rng } from './kit'
-import { grassTuft, noticeBoard } from './textures'
+import { grassTuft } from './textures'
+import { insideCity } from './city'
 import type { KingdomStyle, styleMaterials } from './style'
 
 type StyleMats = ReturnType<typeof styleMaterials>
@@ -27,7 +28,7 @@ export const SEAT_FWD = 0.12
 /* ───────── ground: base terrain, plaza disc, roads + curbs ───────── */
 export type Road = { x0: number; z0: number; x1: number; z1: number; w: number }
 export const ROADS: Road[] = [
-  { x0: 0, z0: 11, x1: 0, z1: 34, w: 5 }, // south road (spawn → plaza)
+  { x0: 0, z0: 11, x1: 0, z1: 37.6, w: 5 }, // south avenue (old arch → canal bridge)
   { x0: 0, z0: -11, x1: 0, z1: -24.4, w: 5 }, // north road (plaza → castle steps)
   { x0: 10.5, z0: -4, x1: 15.4, z1: -4, w: 4.2 }, // east spur (plaza → gym door)
   { x0: -10.5, z0: 2.5, x1: -31, z1: 2.5, w: 5 }, // west road (Market Row)
@@ -37,13 +38,9 @@ export const ROADS: Road[] = [
   { x0: 12, z0: -12.6, x1: 21, z1: -15.6, w: 2.4 }, // overgrown track to the Hollow House
 ]
 
-export function buildGround(T: Town, tex: Record<string, THREE.Texture>) {
+export function buildGround(T: Town, _tex: Record<string, THREE.Texture>) {
   const P = T.P
-  tex.ground.repeat.set(13, 13)
-  const ground = new THREE.Mesh(new THREE.CircleGeometry(36.8, 72), P.ground)
-  ground.rotation.x = -Math.PI / 2
-  ground.receiveShadow = true
-  T.scene.add(ground)
+  // (the lawn is the terrain mesh itself — see kingdom.ts)
 
   const plaza = new THREE.Mesh(new THREE.CircleGeometry(11.5, 72), P.plaza)
   plaza.rotation.x = -Math.PI / 2
@@ -55,7 +52,7 @@ export function buildGround(T: Town, tex: Record<string, THREE.Texture>) {
   inlay.rotation.x = -Math.PI / 2
   inlay.position.y = 0.03
   T.scene.add(inlay)
-  T.disposables.push(ground.geometry, plaza.geometry, inlay.geometry)
+  T.disposables.push(plaza.geometry, inlay.geometry)
 
   // roads: world-UV cobble strips
   const curbs: { x: number; y: number; z: number; ry: number }[] = []
@@ -143,7 +140,7 @@ export function poles(T: Town, spots: [number, number][], h = 4.4) {
 }
 
 /* ───────── vegetation ───────── */
-export function vegetation(T: Town, q: Quality, avoid: (x: number, z: number) => boolean) {
+export function vegetation(T: Town, q: Quality, avoid: (x: number, z: number) => boolean, extra: { trees: [number, number][]; bushes: [number, number][]; hedges: [number, number, number, 'x' | 'z'][] } = { trees: [], bushes: [], hedges: [] }) {
   const P = T.P
   const r = rng(77)
   const F = new FoliageBuilder(77, q === 'high' ? 1 : q === 'medium' ? 0.7 : 0.45)
@@ -151,10 +148,16 @@ export function vegetation(T: Town, q: Quality, avoid: (x: number, z: number) =>
   const autumnCols = [C('#c4561a'), C('#d98a1f'), C('#a8321e'), C('#c96b22'), C('#5c7a2e')]
   const barkCol = C('#3a2a20')
   // autumn trees: trunk + branches + clustered canopies of real leaf cards
-  const autumn: [number, number][] = [[-15, 28], [15, 29], [-30, 8], [29, 2], [-6, -27], [7, -27.5], [-29, -15], [27, 19], [-20, 29], [-31, -4]]
+  const autumn: [number, number][] = [[-15, 28], [15, 29], [-30, 8], [-6, -27], [7, -27.5], [-29, -15], [-20, 29], [-31, -4]]
   const dead: [number, number][] = [[26, -14], [15, -24], [27, -25], [-27, -24]]
   for (const [x, z] of autumn) {
     F.tree(x, z, 0.95 + r() * 0.3, autumnCols, barkCol)
+    T.colliders.push({ kind: 'circle', x, z, r: 0.45, h: 5 })
+  }
+  // the new districts: summer-green street + garden trees, a few turning gold
+  const summerCols = [C('#4f8a3a'), C('#5f9a40'), C('#3f7a34'), C('#7aa848'), C('#d9a42a')]
+  for (const [x, z] of extra.trees) {
+    F.tree(x, z, 0.9 + r() * 0.35, summerCols, barkCol)
     T.colliders.push({ kind: 'circle', x, z, r: 0.45, h: 5 })
   }
   for (const [x, z] of dead) {
@@ -170,26 +173,24 @@ export function vegetation(T: Town, q: Quality, avoid: (x: number, z: number) =>
   }
   // garden bushes: lumpy cores + leaf shells, a few greens (and the odd autumn one)
   const greens = [C('#3d5a33'), C('#4a6b38'), C('#34502f'), C('#6b6a2a')]
-  const bushSpots: [number, number][] = [[-7, -10], [7, -10], [-7, 10.5], [7, 10.5], [-12.5, 6.5], [-12.5, -1.5], [12, 1.5], [12, -9.5], [-4, 27], [4, 27], [-24, 13], [-21, 19.5], [23.5, 8], [24, 15], [-18, -18], [-24, -6], [18, -12], [6, -16], [-6, -16], [-29, 12]]
+  const bushSpots: [number, number][] = [[-7, -10], [7, -10], [-7, 10.5], [7, 10.5], [-12.5, 6.5], [-12.5, -1.5], [12, 1.5], [12, -9.5], [-4, 27], [4, 27], [-24, 13], [-21, 19.5], [-18, -18], [-24, -6], [18, -12], [-29, 12], ...extra.bushes]
   for (const [x, z] of bushSpots)
     for (let k = 0; k < 3; k++) F.bush(x + (r() - 0.5) * 1.6, 0, z + (r() - 0.5) * 1.6, 0.75 + r() * 0.45, greens[Math.floor(r() * greens.length)])
   // clipped hedges along the north road and the plaza mouth (same footprint + colliders as before)
   const hedgeGreen = C('#2f4a2b')
   for (const side of [-1, 1]) {
-    F.hedge(side * 3.4, -17, 9, 0.75, 0.85, 'z', hedgeGreen)
+    // (the north-road hedges made way for the citadel forecourt)
     F.hedge(side * 3.4, 16, 5, 0.75, 0.85, 'z', hedgeGreen)
-    T.colliders.push({ kind: 'box', minX: side * 3.4 - 0.35, maxX: side * 3.4 + 0.35, minZ: -21.5, maxZ: -12.5, h: 0.8 })
     T.colliders.push({ kind: 'box', minX: side * 3.4 - 0.35, maxX: side * 3.4 + 0.35, minZ: 13.5, maxZ: 18.5, h: 0.8 })
   }
+  for (const [x, z, len, axis] of extra.hedges) F.hedge(x, z, len, 0.7, 0.8, axis, hedgeGreen)
   F.build(T.scene, leafTexture(T.disposables), T.disposables, q === 'high') // foliage shadows: high tier only
   // rocks: a scatter along the inside of the walls and by the paths
   const rocks: { x: number; y: number; z: number; ry: number; s: number }[] = []
-  for (let i = 0; i < (q === 'low' ? 18 : 40); i++) {
-    const a = r() * Math.PI * 2
-    const d = 14 + r() * 19
-    const x = Math.cos(a) * d
-    const z = Math.sin(a) * d
-    if (avoid(x, z)) continue
+  for (let i = 0; i < (q === 'low' ? 30 : 70); i++) {
+    const x = (r() - 0.5) * 116
+    const z = -32 + r() * 106
+    if (!insideCity(x, z, 0.5) || avoid(x, z)) continue
     rocks.push({ x, y: 0.02, z, ry: r() * 6, s: 0.12 + r() * 0.28 })
   }
   for (const [i, g] of [rockGeo(3), rockGeo(8)].entries()) {
@@ -204,31 +205,19 @@ export function vegetation(T: Town, q: Quality, avoid: (x: number, z: number) =>
   const cross = tuftGeo.clone().rotateY(Math.PI / 2)
   const { mergeGeometries } = { mergeGeometries: (a: THREE.BufferGeometry[]) => mergeGeos(a) }
   const tuft = mergeGeometries([tuftGeo, cross])
-  const N = q === 'high' ? 650 : q === 'medium' ? 380 : 150
+  const N = q === 'high' ? 1100 : q === 'medium' ? 650 : 240
   const tufts: { x: number; y: number; z: number; ry: number; s: number }[] = []
-  for (let i = 0; i < N * 3 && tufts.length < N; i++) {
-    const a = r() * Math.PI * 2
-    const d = 12 + r() * 22
-    const x = Math.cos(a) * d
-    const z = Math.sin(a) * d
-    if (avoid(x, z)) continue
+  for (let i = 0; i < N * 4 && tufts.length < N; i++) {
+    const x = (r() - 0.5) * 116
+    const z = -32 + r() * 106
+    if (!insideCity(x, z, 0.4) || avoid(x, z)) continue
     tufts.push({ x, y: 0, z, ry: r() * 6, s: 0.7 + r() * 0.7 })
   }
   const tuftMesh = instanced(tuft, tuftMat, tufts, false)
   const tc = new THREE.Color()
   tufts.forEach((_, i) => tuftMesh.setColorAt(i, tc.setHSL(0.22 + r() * 0.08, 0.32 + r() * 0.2, 0.32 + r() * 0.2)))
   T.scene.add(tuftMesh)
-  // glowing mushroom rings (magic accents near the plaza, forge and hollow house)
-  const capMat = new THREE.MeshBasicMaterial({ color: new THREE.Color('#5fe0d0').multiplyScalar(2.2), toneMapped: false })
-  T.disposables.push(capMat)
-  const caps: { x: number; y: number; z: number; s: number }[] = []
-  for (const [cx, cz] of [[-9, -7], [9, 8], [19, -21], [-20, -8], [-22, 23]] as [number, number][])
-    for (let k = 0; k < 7; k++) {
-      const a = (k / 7) * Math.PI * 2
-      caps.push({ x: cx + Math.cos(a) * 0.9, y: 0.12, z: cz + Math.sin(a) * 0.9, s: 0.6 + r() * 0.6 })
-    }
-  const cap = new THREE.SphereGeometry(0.1, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2)
-  T.scene.add(instanced(cap, capMat, caps, false))
+  // (the glowing mushroom rings were a night-time accent; by day the city keeps to flowers)
 }
 
 function mergeGeos(a: THREE.BufferGeometry[]) {
@@ -296,17 +285,7 @@ export function clutter(T: Town) {
   T.batch.put(fallen, P.woodRotten, cx - 1.3, 0.06, cz - 0.9)
   T.colliders.push({ kind: 'circle', x: cx, z: cz, r: 1.2, h: 1 })
 
-  // notice board near the south gate
-  const nbTex = noticeBoard()
-  const nbMat = new THREE.MeshStandardMaterial({ map: nbTex, roughness: 0.9 })
-  T.disposables.push(nbTex, nbMat)
-  T.batch.put(boxUV(2.4, 1.8, 0.15, 1), P.timber, 4.6, 1.7, 21.5, -Math.PI / 2)
-  T.batch.put(new THREE.PlaneGeometry(2.2, 1.6), nbMat, 4.52, 1.7, 21.5, -Math.PI / 2, 1, 1, 1, { cast: false })
-  for (const s of [-1.1, 1.1]) T.batch.put(new THREE.BoxGeometry(0.15, 2.6, 0.15), P.timber, 4.65, 1.3, 21.5 + s)
-  const nbRoof = boxUV(0.9, 0.08, 2.8, 1)
-  nbRoof.rotateZ(0.3)
-  T.batch.put(nbRoof, P.roofRed, 4.7, 2.75, 21.5)
-  T.colliders.push({ kind: 'box', minX: 4.4, maxX: 4.9, minZ: 20.2, maxZ: 22.8, h: 2.6 })
+  // (the community noticeboard moved into Chad Square — see square.ts)
 
   // wishing well at the west end of Market Row
   const wx = -31
@@ -374,10 +353,7 @@ export function castle(T: Town, style: KingdomStyle, SM: StyleMats) {
     T.colliders.push({ kind: 'box', minX: x - w / 2, maxX: x + w / 2, minZ: Z - 1.4, maxZ: Z + 1.4, h: 8 })
     for (let i = -w / 2 + 0.6; i < w / 2; i += 1.6) T.batch.put(boxUV(0.9, 0.9, 2.4, 1), P.stone, x + i, 8.45, Z)
   }
-  T.batch.put(boxUV(8, 11, 3.4, 2.5), P.stone, 0, 5.5, Z - 0.4)
-  T.batch.put(new THREE.BoxGeometry(4, 5.4, 0.3), P.iron, 0, 2.7 + 0.9, Z + 1.35)
-  T.batch.put(new THREE.PlaneGeometry(3.6, 0.08), P.glowOrange, 0, 1.15, Z + 1.52, 0, 1, 1, 1, { cast: false })
-  T.colliders.push({ kind: 'box', minX: -4, maxX: 4, minZ: Z - 2.2, maxZ: Z + 1.6, h: 11 })
+  // (the gatehouse itself is built by citadel.ts: arched surround, recessed timber doors, nameplate)
   // approach steps (walkable: World's height map raises the player)
   for (let i = 0; i < 4; i++) T.batch.put(boxUV(9, 0.22, 1.05, 1.5), P.stoneLight, 0, 0.11 + i * 0.22, -24.95 - i * 1.05, 0, 1, 1 + i * 0, 1)
   for (let i = 0; i < 4; i++) T.batch.put(boxUV(9, 0.22 * (i + 1), 1.05, 1.5), P.stone, 0, (0.22 * (i + 1)) / 2, -24.95 - i * 1.05, 0, 1, 1, 1, { cast: false })

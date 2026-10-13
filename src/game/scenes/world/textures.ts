@@ -173,21 +173,23 @@ export function plaza(size = 2048) {
 
 /** Dirt + dark grass ground. */
 export function ground(size = 512) {
+  // sunlit lawn: mid green base, soft lighter/darker patches, blade strokes, the odd clover + dry spot
   const [c, g] = canvas(size)
   const r = rng(3)
-  g.fillStyle = '#211a17'
+  g.fillStyle = '#5d8a3c'
   g.fillRect(0, 0, size, size)
-  for (let i = 0; i < 1400; i++) {
-    const x = r() * size, y = r() * size, rad = 4 + r() * 22
-    const grass = r() > 0.45
-    g.fillStyle = grass ? `rgba(${36 + r() * 20},${52 + r() * 24},${32 + r() * 12},${0.25 + r() * 0.3})` : `rgba(${50 + r() * 20},${38 + r() * 14},${30 + r() * 10},${0.25 + r() * 0.3})`
+  for (let i = 0; i < 900; i++) {
+    const x = r() * size, y = r() * size, rad = 6 + r() * 26
+    const k = r()
+    g.fillStyle = k < 0.45 ? `rgba(${120 + r() * 30},${165 + r() * 25},${70 + r() * 20},${0.12 + r() * 0.16})` : k < 0.9 ? `rgba(${40 + r() * 20},${80 + r() * 20},${30 + r() * 10},${0.14 + r() * 0.16})` : `rgba(${150 + r() * 30},${140 + r() * 20},${80 + r() * 20},${0.12 + r() * 0.12})`
     g.beginPath()
     g.ellipse(x, y, rad, rad * (0.5 + r() * 0.5), r() * 3, 0, Math.PI * 2)
     g.fill()
   }
-  for (let i = 0; i < 4000; i++) {
-    g.fillStyle = `rgba(${r() > 0.5 ? '70,90,50' : '20,16,14'},${0.3 + r() * 0.4})`
-    g.fillRect(r() * size, r() * size, 1.5, 3)
+  for (let i = 0; i < 9000; i++) {
+    const k = r()
+    g.fillStyle = k < 0.5 ? `rgba(150,200,90,${0.25 + r() * 0.3})` : k < 0.92 ? `rgba(40,80,30,${0.25 + r() * 0.3})` : `rgba(240,235,200,${0.3 + r() * 0.3})`
+    g.fillRect(r() * size, r() * size, 1.2, 2.6 + r() * 2)
   }
   return tex(c)
 }

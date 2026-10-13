@@ -465,6 +465,7 @@ export function GameApp() {
       save: () => saveRef.current,
       world: () => world.current?.debug() ?? null,
       teleport: (x: number, z: number, yaw?: number) => world.current?.teleport(x, z, yaw),
+      shotCam: (o: Parameters<World['setShotCam']>[0]) => world.current?.setShotCam(o),
       stats: () => engine.current?.stats,
       integrity: () => world.current?.integrity() ?? null,
       playerInspect: () => (world.current?.player as unknown as { inspect?: () => unknown } | null)?.inspect?.() ?? null,
