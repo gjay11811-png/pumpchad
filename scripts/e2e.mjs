@@ -122,9 +122,9 @@ for (const [w, h, tag, mobile] of [
   const s2 = await cv(() => window.__chadverse.world())
   check(Math.hypot(s2.x, s2.z) >= 4.3, `statue collision holds (distance ${Math.hypot(s2.x, s2.z).toFixed(2)})`)
   // boundary
-  await cv(() => window.__chadverse.teleport(0, 40))
+  await cv(() => window.__chadverse.teleport(-80, 10)) // far past the west districts' cliff edge
   const s3 = await cv(() => window.__chadverse.world())
-  check(Math.hypot(s3.x, s3.z) <= 36.01, `world boundary clamps (r=${Math.hypot(s3.x, s3.z).toFixed(2)})`)
+  check(s3.x >= -58.05, `world boundary clamps to the city edge (x=${s3.x.toFixed(2)})`)
 
   // 11 NPC interaction
   await cv(() => window.__chadverse.teleport(12.2, 1.6))

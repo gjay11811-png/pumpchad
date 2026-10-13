@@ -247,6 +247,36 @@ class AudioEngine {
       this.water = wg
     } else this.water = null
 
+    // Chad City by day: the odd bird — short chirp phrases, panned, quiet (follows the ambience volume + mute)
+    let birdTimer = 0
+    if (name === 'square') {
+      const bird = () => {
+        if (this.ambName !== 'square' || !this.ctx) return
+        const t0 = ctx.currentTime
+        const pan = ctx.createStereoPanner()
+        pan.pan.value = Math.random() * 1.6 - 0.8
+        pan.connect(out)
+        const notes = 2 + Math.floor(Math.random() * 3)
+        const base = 2300 + Math.random() * 1500
+        for (let k = 0; k < notes; k++) {
+          const t = t0 + k * (0.09 + Math.random() * 0.05)
+          const o = ctx.createOscillator()
+          o.type = 'sine'
+          o.frequency.setValueAtTime(base * (0.9 + Math.random() * 0.25), t)
+          o.frequency.exponentialRampToValueAtTime(base * (1.25 + Math.random() * 0.3), t + 0.07)
+          const g = ctx.createGain()
+          g.gain.setValueAtTime(0.0001, t)
+          g.gain.exponentialRampToValueAtTime(0.018, t + 0.012)
+          g.gain.exponentialRampToValueAtTime(0.0001, t + 0.08)
+          o.connect(g).connect(pan)
+          o.start(t)
+          o.stop(t + 0.1)
+        }
+        birdTimer = window.setTimeout(bird, 3000 + Math.random() * 7000)
+      }
+      birdTimer = window.setTimeout(bird, 1800)
+    }
+
     // Chad Gym: muffled speaker music through the wall + the odd distant plate / dumbbell clank
     let clankTimer = 0
     if (name === 'gym') {
@@ -325,6 +355,7 @@ class AudioEngine {
     this.amb = {
       stop: () => {
         clearTimeout(clankTimer)
+        clearTimeout(birdTimer)
         const t = ctx.currentTime
         out.gain.cancelScheduledValues(t)
         out.gain.setValueAtTime(out.gain.value, t)

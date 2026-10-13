@@ -46,6 +46,7 @@ import { eastside } from './world/eastside'
 import { westside, type BenchSpot } from './world/westside'
 import { chadRides } from './world/rides'
 import { lawns, PATCH } from './world/lawns'
+import { streetDetails } from './world/details'
 import { MAPBOARD, WELCOME } from './world/gateway'
 import { CHAMPIONS, NOTICE, squareExtras, standFor } from './world/square'
 import { ARCADE, CANAL, OVERLOOK, RIDES, insideCity } from './world/city'
@@ -186,7 +187,7 @@ export class World implements GameScene {
 
   private buildTown(q: Quality) {
     const cob = TX.cobble()
-    const plz = TX.plaza()
+    const plz = TX.plaza(q === 'high' ? 2048 : 1024) // the plaza's map + bump are the biggest textures: halve them below High
     const tex: Record<string, THREE.Texture> = {
       cobble: cob.map,
       cobbleBump: cob.bump,
@@ -327,12 +328,22 @@ export class World implements GameScene {
     this.pumpkinPatches(T)
     // spawn fingerpost: the first thing a new player sees on the road tells them where everything is
     fingerpost(T, -3.9, 18.8, [
-      { label: 'FOUNTAIN · CASTLE', to: [0, -20] },
-      { label: 'MARKET ROW', to: [-21, 2.5] },
-      { label: 'CHAD GYM', to: [14.4, -4] },
-      { label: 'PUMPKIN RUSH', to: [RUSH_CART.x, RUSH_CART.z] },
-      { label: 'LOOKOUT · CITY', to: [-5.4, 32.4] },
+      { label: 'SQUARE · CITADEL', to: [0, -20] },
+      { label: 'MARKET · GARDEN', to: [-21, 2.5] },
+      { label: 'PUMP GYM', to: [14.4, -4] },
+      { label: 'ARCADE STREET', to: [30, 19] },
+      { label: 'CANAL · GATEWAY', to: [0, 50] },
     ])
+    // the forecourt fingerpost: every district from where you arrive
+    fingerpost(T, 2.6, 57.6, [
+      { label: 'CHAD SQUARE', to: [0, 0] },
+      { label: 'PUMP GYM', to: [14.4, -4] },
+      { label: 'ARCADE STREET', to: [40, 19] },
+      { label: 'MARKET · GARDEN', to: [-30, 6] },
+      { label: 'CHAD VIEW', to: [-53, 38] },
+      { label: 'CHAD RIDES', to: [12, 66.5] },
+    ])
+    streetDetails(T, SM.trim)
     vegetation(T, q, avoid, greenery)
     // every pumpkin in the kingdom → three merged meshes; carved ones flicker together
     const pk = T.pumpkins!.build(this.scene, this.disposables, q !== 'low')
@@ -451,7 +462,7 @@ export class World implements GameScene {
     add('well', 'Toss a coin in the wishing well', -29.4, 2.5, 1.7, 'activity')
     add('window', 'Peer through the window', 16.6, -19.5, 1.8, 'info')
     add('arcade', 'Pump Arcade — opening soon', ARCADE.x - 7.2, ARCADE.z, 2.0, 'info')
-    add('rune', 'Press the strange rune', -24.5, -27, 1.6, 'secret')
+    add('rune', 'Press the strange rune', -23.6, -25.5, 1.6, 'secret')
     add('pumpkin', 'Poke the suspicious pumpkin', -9.6, 10.4, 2.1, 'info')
     this.seats.forEach((b, i) => add(`bench_${i}`, b.label, b.x + Math.sin(b.ry) * 0.75, b.z + Math.cos(b.ry) * 0.75, 1.1, 'activity'))
     add('rush', 'Play Pumpkin Rush', RUSH_CART.x, RUSH_CART.z + 1.3, 1.5, 'activity')
@@ -483,11 +494,11 @@ export class World implements GameScene {
 
     // rune + hidden stash
     const rune = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, 0.25, 6), T.P.rock)
-    rune.position.set(-24.5, 0.12, -27)
+    rune.position.set(-23.6, 0.12, -25.5)
     this.scene.add(rune)
     const glyph = new THREE.Mesh(new THREE.CircleGeometry(0.18, 6), T.P.glowPurple)
     glyph.rotation.x = -Math.PI / 2
-    glyph.position.set(-24.5, 0.26, -27)
+    glyph.position.set(-23.6, 0.26, -25.5)
     this.scene.add(glyph)
     this.stash = new THREE.Group()
     const coin = new THREE.CylinderGeometry(0.16, 0.16, 0.04, 16)
@@ -499,7 +510,7 @@ export class World implements GameScene {
       c.rotation.set((i % 3) * 0.3, 0, (i % 5) * 0.2)
       this.stash.add(c)
     }
-    this.stash.position.set(-23, 0, -25.5)
+    this.stash.position.set(-21.9, 0, -24.3)
     this.stash.scale.setScalar(0.001)
     this.stash.visible = false
     this.scene.add(this.stash)
@@ -1118,6 +1129,7 @@ export class World implements GameScene {
   dispose() {
     this.disposed = true
     this.rush?.dispose()
+    this.daylight?.dispose()
     if (this.player) disposeCharacter(this.player)
     this.crowd.dispose()
     disposeObject(this.scene)

@@ -38,8 +38,8 @@ for (const [w, h, tag, mobile, quality] of [
 
   // every interaction point shows its prompt when you stand there
   const spots = {
-    statue: [0, 6.7], gate: [0, -28.2], gym: [14.4, -4], board: [5.7, 21.5], well: [-29.4, 2.5], window: [16.6, -19.5],
-    arcade: [7.8, 19], rune: [-24.5, -26.4], pumpkin: [-9.6, 11.6], barkeep: [-5.2, 21.2], smith: [-15.2, -10.6], potion: [-21, 0.6], captain: [3.6, -22.2], coach: [12.4, 1.6], hodl: [-5.6, 7.8],
+    statue: [0, 6.7], gate: [0, -28.2], gym: [14.4, -4], board: [8.55, -7.14], well: [-29.4, 2.5], window: [16.6, -19.5],
+    arcade: [45.3, 19], rune: [-24.5, -26.4], pumpkin: [-9.6, 11.6], barkeep: [-5.2, 21.2], smith: [-15.2, -10.6], potion: [-21, 0.6], captain: [3.6, -22.2], coach: [12.4, 1.6], hodl: [-5.6, 7.8],
   }
   const missing = []
   for (const [id, [x, z]] of Object.entries(spots)) {
@@ -64,7 +64,7 @@ for (const [w, h, tag, mobile, quality] of [
 
   await sleep(700) // let the dialogue-close interaction cooldown expire, like a real player walking over
   // collect all 5 golden seeds
-  const seeds = [[-20.4, 24.8], [26.6, -21.6], [-30.4, -2.3], [-14.5, -18.3], [18.6, 21.5]]
+  const seeds = [[-20.4, 24.8], [26.6, -21.6], [-30.4, -2.3], [-14.5, -18.3], [44.6, 30.4]]
   let collected = 0
   for (const [x, z] of seeds) {
     await cv(([x, z]) => window.__chadverse.teleport(x, z), [x, z])

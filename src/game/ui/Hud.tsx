@@ -205,7 +205,7 @@ export function LevelUpBanner({ level }: { level: number }) {
   )
 }
 
-export type Toast = { id: string; title: string; desc: string; kind?: 'achievement' | 'collect' }
+export type Toast = { id: string; title: string; desc: string; kind?: 'achievement' | 'collect' | 'discover' }
 export function Toasts({ toasts }: { toasts: Toast[] }) {
   return (
     <div className="pointer-events-none absolute inset-x-0 top-[calc(5.5rem+env(safe-area-inset-top))] z-30 flex flex-col items-center gap-2 px-3" aria-live="polite">
@@ -224,7 +224,7 @@ export function Toasts({ toasts }: { toasts: Toast[] }) {
               <Icon.trophy />
             </span>
             <span className="min-w-0">
-              <span className="block font-mono text-[10px] uppercase tracking-[0.22em] text-moon">{t.kind === 'collect' ? 'Collectible found' : 'Achievement unlocked'}</span>
+              <span className="block font-mono text-[10px] uppercase tracking-[0.22em] text-moon">{t.kind === 'collect' ? 'Collectible found' : t.kind === 'discover' ? 'Chad City' : 'Achievement unlocked'}</span>
               <span className="block truncate font-display text-lg uppercase leading-tight">{t.title}</span>
               <span className="block truncate text-[12px] text-bone/60">{t.desc}</span>
             </span>

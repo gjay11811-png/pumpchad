@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import type { Town } from './buildings'
 import { noticeBoard } from './textures'
-import { Frame, boardTexture, plaque, postedBoard, type SignMats } from './signs'
+import { Frame, boardTexture, lectern, plaque, postedBoard, type SignMats } from './signs'
 
 /** Chad Square additions: the community noticeboard + the COMMUNITY CHAMPIONS case (reserved, no winners yet). */
 export const NOTICE = { x: 9.7, z: -8.1 }
@@ -26,6 +26,18 @@ export function squareExtras(T: Town, trim: THREE.Material) {
     const ry = faceCentre(NOTICE.x, NOTICE.z)
     postedBoard(Frame.at(T.batch, NOTICE.x, 0, NOTICE.z, ry), 2.3, 1.6, 1.55, nb, SM, false)
     T.colliders.push({ kind: 'circle', x: NOTICE.x, z: NOTICE.z, r: 1.3, h: 2.6 })
+  }
+
+  // ── the statue plaque: a bronze lectern at the fountain's south edge (read it with the 'statue' prompt) ──
+  {
+    const pl = new THREE.MeshStandardMaterial({
+      map: boardTexture('PUMPCHAD', ['First of his name, King of Chad Square.', '“Markets dump. Chads pump.”'], 1.7, { bg: '#7a5a2a', ink: '#ffe9b8', sub: '#f6e2b4', rule: '#e0b860' }, Dp, true),
+      metalness: 0.7,
+      roughness: 0.4,
+    })
+    Dp.push(pl)
+    lectern(Frame.at(T.batch, 0, 0, 6.95, 0), 0.7, 0.42, pl, SM) // just outside the fountain steps (r 6.45)
+    T.colliders.push({ kind: 'circle', x: 0, z: 6.95, r: 0.42, h: 1.1 })
   }
 
   // ── COMMUNITY CHAMPIONS: a glass display case on a stone plinth, three empty pedestals, an engraved plaque ──

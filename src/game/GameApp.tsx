@@ -163,8 +163,8 @@ export function GameApp() {
   )
 
   /** Non-achievement toast (collectibles etc.), queued with achievements so they never stack. */
-  const notify = (title: string, desc: string) => {
-    toastQueue.current.push({ id: `n-${Date.now()}`, title, desc, kind: 'collect' })
+  const notify = (title: string, desc: string, kind: 'collect' | 'discover' = 'collect') => {
+    toastQueue.current.push({ id: `n-${Date.now()}`, title, desc, kind })
     if (!toastBusy.current) pumpToasts()
   }
 
@@ -177,7 +177,7 @@ export function GameApp() {
     discover(id)
     const names: Record<string, string> = { visit_square: 'Chad Square', visit_gym: 'Pump Gym', visit_arcade: 'Pump Arcade', visit_citadel: 'Chad Citadel', visit_rides: 'Chad Rides' }
     const n = CITY_STEPS.filter((k) => saveRef.current.progress.discoveries.includes(k) || k === id).length
-    notify(`Discovered: ${names[id] ?? id}`, n >= CITY_STEPS.length ? 'Chad City explored. Every district, every landmark.' : `Discover Chad City ${n}/${CITY_STEPS.length}`)
+    notify(`Discovered: ${names[id] ?? id}`, n >= CITY_STEPS.length ? 'Chad City explored. Every district, every landmark.' : `Discover Chad City ${n}/${CITY_STEPS.length}`, 'discover')
     if (n >= CITY_STEPS.length) unlock('city_explorer')
   }
   const handleGymRef = useRef<(id: string) => void>(() => {})
@@ -262,7 +262,7 @@ export function GameApp() {
         // first read of the plaque is a lore discovery
         if (!saveRef.current.progress.discoveries.includes('lore_fountain')) {
           discover('lore_fountain')
-          notify('Lore discovered', 'The Pump Fountain — read the plaque in full.')
+          notify('Lore discovered', 'The Pump Fountain — read the plaque in full.', 'discover')
         }
         setDialogue(DIALOGUE.statue)
         break
@@ -306,7 +306,7 @@ export function GameApp() {
       case 'overlook':
         if (!saveRef.current.progress.discoveries.includes('overlook')) {
           discover('overlook')
-          notify('Discovered: Chad View', 'The best view in the city. Try photo mode.')
+          notify('Discovered: Chad View', 'The best view in the city. Try photo mode.', 'discover')
         }
         setDialogue(DIALOGUE.overlook)
         break

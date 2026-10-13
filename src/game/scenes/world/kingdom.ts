@@ -49,7 +49,7 @@ export function kingdom(T: Town, style: KingdomStyle, M: SM, q: Quality) {
       T.batch.put(boxUV(len / 4 - 0.55, 0.8, 1.25, 1), M.stone, x + Math.cos(ry) * off, H + 0.4, z - Math.sin(ry) * off, ry)
     }
     if (i % 2 === 0) T.batch.put(boxUV(0.7, H * 0.7, 0.8, 1), M.trim, Math.cos(a) * (WALL_R - 0.85), H * 0.35, Math.sin(a) * (WALL_R - 0.85), ry)
-    T.colliders.push({ kind: 'circle', x, z, r: 1.6, h: H })
+    T.colliders.push({ kind: 'circle', x, z, r: 0.7, h: H })
   }
 
   /* ── towers: two along the wall, two closing its ends ── */

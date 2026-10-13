@@ -23,9 +23,10 @@ type Style = 'glass' | 'punched' | 'ribbon'
 const TILE_W = 24
 const TILE_H = 48
 
-function facadeTexture(style: Style, seed: number) {
-  const W = 512
-  const H = 1024
+function facadeTexture(style: Style, seed: number, small = false) {
+  // far-away facades: 256×512 below High (they're seen through haze at 250 m+)
+  const W = small ? 256 : 512
+  const H = small ? 512 : 1024
   const c = document.createElement('canvas')
   c.width = W
   c.height = H
@@ -158,7 +159,8 @@ export function buildChadCity(scene: THREE.Scene, q: Quality, D: Disposable[]) {
   const R = rng(1337)
   const Y = CITY.floorY
   const haze = new THREE.Color('#c3d6ea') // daytime aerial perspective (matches the city fog)
-  const tex: Record<Style, THREE.Texture> = { glass: facadeTexture('glass', 7), punched: facadeTexture('punched', 8), ribbon: facadeTexture('ribbon', 9) }
+  const small = q !== 'high'
+  const tex: Record<Style, THREE.Texture> = { glass: facadeTexture('glass', 7, small), punched: facadeTexture('punched', 8, small), ribbon: facadeTexture('ribbon', 9, small) }
   Object.values(tex).forEach((t) => D.push(t))
 
   const bands = [
@@ -290,7 +292,7 @@ export function buildChadCity(scene: THREE.Scene, q: Quality, D: Disposable[]) {
   // ── CHAD CASINO landmark: curved gold podium, chamfered gold tower, crown, LED screen, neon, searchlights ──
   const cx = 46
   const cz = 326
-  const goldTex = facadeTexture('glass', 99)
+  const goldTex = facadeTexture('glass', 99, small)
   D.push(goldTex)
   const casinoMat = hazeMaterial(goldTex, haze, 0.3, D, new THREE.Color('#ffd27a'))
   const casinoGeos: THREE.BufferGeometry[] = []

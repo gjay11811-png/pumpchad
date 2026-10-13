@@ -26,7 +26,7 @@ const promptText = () => p.evaluate(() => document.querySelector('[data-testid=p
 const dialogues = () => p.locator('[data-testid=dialogue]').count()
 const go = async (x, z, yaw) => {
   await p.evaluate(([x, z, yaw]) => window.__chadverse.teleport(x, z, yaw), [x, z, yaw])
-  await p.waitForTimeout(700)
+  await p.waitForTimeout(1000) // a first-visit discovery toast can delay the prompt's render a moment
 }
 /** walk up, check the prompt, press E, check a single dialogue opened, close it with Escape */
 const talk = async (name, x, z, yaw, label, shot) => {
@@ -56,14 +56,14 @@ s = await save()
 check(s.xp === xp1, `fountain: no repeat XP (${xp0} → ${xp1} → ${s.xp})`)
 
 // ── notice board panel
-await go(5.7, 22.4, Math.PI)
-check((await promptText()).includes('notice board'), 'board: prompt shown')
+await go(8.55, -7.14, Math.PI)
+check((await promptText()).includes('noticeboard'), 'board: prompt shown')
 await p.keyboard.press('e')
 await p.waitForTimeout(700)
 const now = await p.locator('[data-testid=board-now]').innerText().catch(() => '')
 const soon = await p.locator('[data-testid=board-soon]').innerText().catch(() => '')
 check(/Gym/i.test(now) && /Rush/i.test(now), 'board: "what\'s on" lists the gym + Pumpkin Rush')
-check(/Castle/i.test(soon) && /Casino/i.test(soon) && /No real money/i.test(soon), 'board: unreleased places only under "coming soon", casino says no real money')
+check(/Citadel/i.test(soon) && /Casino/i.test(soon) && /No real money/i.test(soon), 'board: unreleased places only under "coming soon", casino says no real money')
 check(!/Casino/i.test(now) && !/Arcade/i.test(now), 'board: nothing unreleased listed as available')
 check((await dialogues()) === 0, 'board: no dialogue overlaps the panel')
 if (out) await p.screenshot({ path: `${out}/int-board.jpg`, quality: 78 })
@@ -98,10 +98,10 @@ check(!t.includes('B4S'), 'b4s: name shown lowercase, exactly "b4s"')
 check(await p.evaluate(() => !document.body.innerText.includes('Sir Hodl')), 'b4s: "Sir Hodl" appears nowhere on screen')
 
 // ── lookout + environmental prompts
-await talk('lookout', -5.4, 33.2, 0, 'view', 'lookout')
+await talk('lookout', -5.4, 33.2, 0, 'canal', 'lookout')
 check((await save()).discoveries.includes('lookout'), 'lookout: discovered')
-await talk('castle gate', 0, -27.4, Math.PI, 'castle gate')
-await talk('city sign', 2.9, 31.0, 0, 'Chad City')
+await talk('citadel doors', 0, -27.4, Math.PI, 'citadel doors')
+await talk('welcome board', -6.3, 60.9, Math.PI, 'welcome board')
 
 // ── plaza bench (the free one at NE), sit + stand
 await go(5.55, 5.55, -Math.PI * 0.75)

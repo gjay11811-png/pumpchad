@@ -106,6 +106,7 @@ export function buildDaylight(scene: THREE.Scene, q: Quality, D: (THREE.Material
   fill.position.set(-sunDir.x * 40, 30, -sunDir.z * 40)
   scene.add(fill)
 
+  let envRT: THREE.WebGLRenderTarget | null = null
   // outdoor reflections: a small gradient world (sky → warm horizon → grass/stone ground) pre-filtered once,
   // so glass, gold, water and metal reflect the afternoon instead of the engine's indoor studio
   if (renderer) {
@@ -121,13 +122,12 @@ export function buildDaylight(scene: THREE.Scene, q: Quality, D: (THREE.Material
     })
     envScene.add(new THREE.Mesh(eg, em))
     const pm = new THREE.PMREMGenerator(renderer)
-    const env = pm.fromScene(envScene, 0.02).texture
+    envRT = pm.fromScene(envScene, 0.02)
     pm.dispose()
     eg.dispose()
     em.dispose()
-    scene.environment = env
+    scene.environment = envRT.texture
     scene.environmentIntensity = 0.85
-    D.push(env)
   }
 
   const texel = (EXT * 2) / size
@@ -135,6 +135,11 @@ export function buildDaylight(scene: THREE.Scene, q: Quality, D: (THREE.Material
   return {
     sunDir,
     preset,
+    /** free the reflection map's render target (disposing only its texture would leak the target) */
+    dispose() {
+      envRT?.dispose()
+      envRT = null
+    },
     /** keep the shadow frustum centred on the player (snapped to shadow texels so edges don't crawl) */
     update(dt: number, player: THREE.Vector3) {
       skyMat.uniforms.uT.value += dt
