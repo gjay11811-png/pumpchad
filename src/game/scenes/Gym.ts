@@ -55,6 +55,8 @@ export class Gym implements GameScene {
   cameraSensitivity = 1
   interactables: Interactable[] = []
   private coach: Character | null = null
+  /** the coach trains too: push-up sets between greetings (only while he isn't waving / cheering) */
+  private coachT = 6
   private bar = new THREE.Group() // Chad Press barbell
   private benchBar = new THREE.Group()
   private squatBar = new THREE.Group()
@@ -540,7 +542,7 @@ export class Gym implements GameScene {
     const p = this.player
     if (!p) return
     p.playOnce?.('yes')
-    if (this.coach) this.coach.pose = 'wave'
+    if (this.coach) this.coach.pose = 'wave' // breaks off a push-up set to cheer you on
     setTimeout(() => {
       if (this.coach && !this.disposed) this.coach.pose = 'idle'
     }, 1800)
@@ -836,7 +838,18 @@ export class Gym implements GameScene {
     else if (this.mode !== 'press') this.placeStationCamera(1 - Math.exp(-dt * 5))
     this.camKick = Math.max(0, this.camKick - dt * 6)
 
-    this.coach?.update(dt)
+    const c = this.coach
+    if (c) {
+      if (c.pose === 'idle' || c.pose === 'pushup') {
+        this.coachT -= dt
+        if (this.coachT <= 0) {
+          const training = c.pose === 'pushup'
+          c.pose = training ? 'idle' : 'pushup'
+          this.coachT = training ? 14 + Math.random() * 8 : 7 // rest, then a 7 s set
+        }
+      }
+      c.update(dt)
+    }
     this.flash = Math.max(0, this.flash - dt * 2.5)
     this.strip.color.set('#ff7a1a').lerp(this.flashColor, this.flash).multiplyScalar(3.4 + this.flash * 4)
     this.ringMat.opacity = this.mode !== 'free' && this.mode !== 'press' ? 0.25 + this.flash * 0.7 : 0
