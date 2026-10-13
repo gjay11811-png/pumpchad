@@ -371,7 +371,7 @@ export function GameApp() {
       integrity: () => world.current?.integrity() ?? null,
       playerInspect: () => (world.current?.player as unknown as { inspect?: () => unknown } | null)?.inspect?.() ?? null,
       gymInspect: () => (gym.current?.player as unknown as { inspect?: () => unknown } | null)?.inspect?.() ?? null,
-      gym: () => (gym.current ? { mode: gym.current.mode, prompt: gym.current.interactables.length } : null),
+      gym: () => (gym.current ? { mode: gym.current.mode, prompt: gym.current.interactables.length, pace: +gym.current.pace.toFixed(2) } : null),
       gymGoto: (id: string) => gym.current?.goto(id),
       anim: () => world.current?.animState() ?? gym.current?.animState() ?? null,
       seat: () => world.current?.seatState() ?? null,

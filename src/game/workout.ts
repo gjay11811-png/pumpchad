@@ -1,7 +1,7 @@
 /** Gym station workouts — pure rules (timing, scoring, rewards) so they are deterministic and testable. */
 import type { Pose } from './character/build'
 
-export type StationId = 'bench' | 'curl' | 'squat' | 'bag'
+export type StationId = 'bench' | 'curl' | 'squat' | 'bag' | 'deadlift' | 'pullup' | 'treadmill'
 export type RepGrade = 'clean' | 'sloppy'
 
 export type StationSpec = {
@@ -27,7 +27,13 @@ export const STATIONS: Record<StationId, StationSpec> = {
   curl: { id: 'curl', name: 'Dumbbell Curls', verb: 'Curl', pose: 'curl', reps: 12, beat: 1.15, window: 0.17, rest: 0, pts: { clean: 3, sloppy: 1 }, tip: 'Elbows pinned. Curl when the ring locks in.' },
   squat: { id: 'squat', name: 'Back Squat', verb: 'Squat', pose: 'squat', reps: 10, beat: 1.7, window: 0.15, rest: 0, pts: { clean: 5, sloppy: 1 }, tip: 'Sit back, drive up through the heels.' },
   bag: { id: 'bag', name: 'Heavy Bag', verb: 'Punch', pose: 'guard', reps: 15, beat: 0.85, window: 0.2, rest: 0, pts: { clean: 2, sloppy: 1 }, tip: 'Jab, jab, cross — hit on the beat for full power.' },
+  deadlift: { id: 'deadlift', name: 'Deadlift', verb: 'Pull', pose: 'deadlift', reps: 8, beat: 1.9, window: 0.15, rest: 0, pts: { clean: 6, sloppy: 1 }, tip: 'Flat back, bar close. Stand it up on the beat.' },
+  pullup: { id: 'pullup', name: 'Pull-Ups', verb: 'Pull', pose: 'pullup', reps: 8, beat: 1.6, window: 0.15, rest: 0, pts: { clean: 5, sloppy: 1 }, tip: 'Dead hang, then chin over the bar on the beat.' },
+  treadmill: { id: 'treadmill', name: 'Treadmill', verb: 'Stride', pose: 'walk', reps: 20, beat: 0.7, window: 0.2, rest: 0, pts: { clean: 2, sloppy: 1 }, tip: 'Stride on the beat to pick up the pace. Miss and the belt slows you down.' },
 }
+/** treadmill belt speed (m/s): clean strides push the pace up, sloppy ones drop it, and it drifts back down if you stop */
+export const TREADMILL = { start: 2.2, min: 1.6, max: 7.6, up: 0.6, down: 0.7, decay: 0.18 }
+export const nextPace = (pace: number, g: RepGrade) => Math.min(TREADMILL.max, Math.max(TREADMILL.min, pace + (g === 'clean' ? TREADMILL.up : -TREADMILL.down)))
 
 /** Position inside the current beat, 0..1 (1 = the ring closes on the target). */
 export const beatPhase = (t: number, beat: number) => (t / beat) % 1

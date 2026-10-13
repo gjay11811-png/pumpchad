@@ -89,7 +89,7 @@ const mem0 = await stats()
 }
 
 /* ── stations ── */
-const STA = { bench: { reps: 10, label: 'Bench press' }, curl: { reps: 12, label: 'Dumbbell curls' }, squat: { reps: 10, label: 'Squat rack' }, bag: { reps: 15, label: 'Heavy bag' } }
+const STA = { bench: { reps: 10, label: 'Bench press' }, curl: { reps: 12, label: 'Dumbbell curls' }, squat: { reps: 10, label: 'Squat rack' }, bag: { reps: 15, label: 'Heavy bag' }, deadlift: { reps: 8, label: 'Deadlift platform' }, pullup: { reps: 8, label: 'Pull-up bar' }, treadmill: { reps: 20, label: 'Treadmill' } }
 for (const [id, cfg] of Object.entries(STA)) {
   console.log(`  -- ${id}`)
   await p.evaluate((id) => window.__chadverse.gymGoto(id), id)
@@ -101,6 +101,9 @@ for (const [id, cfg] of Object.entries(STA)) {
   await w(900)
   const rest = await ins()
   if (id === 'bench') check(rest.headBone[1] < 0.95 && rest.pelvis[1] > 0.4, `lies on the bench (head ${rest.headBone[1].toFixed(2)} m, hips ${rest.pelvis[1].toFixed(2)} m)`)
+  else if (id === 'deadlift') check(rest.headBone[1] < 1.2 && (rest.handL[1] + rest.handR[1]) / 2 < 0.5, `set up over the bar on the floor (head ${rest.headBone[1].toFixed(2)} m, hands ${((rest.handL[1] + rest.handR[1]) / 2).toFixed(2)} m)`)
+  else if (id === 'pullup') check((rest.handL[1] + rest.handR[1]) / 2 > rest.headBone[1] + 0.2, `dead hang: hands above the head (hands ${((rest.handL[1] + rest.handR[1]) / 2).toFixed(2)}, head ${rest.headBone[1].toFixed(2)})`)
+  else if (id === 'treadmill') check(/Walk|Jog|Sprint/.test(rest.clip ?? ''), `on the belt with a real locomotion clip (${rest.clip})`)
   else check(rest.headBone[1] > 1.3, `stands at the ${id} (head ${rest.headBone[1].toFixed(2)} m)`)
   const before = (await save()).progress
   await p.click('[data-testid=workout-start]')
@@ -120,13 +123,22 @@ for (const [id, cfg] of Object.entries(STA)) {
     lowHead = Math.min(lowHead, s.headBone[1])
     await w(60)
   }
+  if (id === 'treadmill') {
+    const pace0 = (await gym()).pace
+    for (let r = 0; r < 3; r++) await tapOnBeat()
+    const pace1 = (await gym()).pace
+    const s2 = await ins()
+    check(pace1 > pace0, `clean strides speed the belt up (${pace0} → ${pace1} m/s)`)
+    check(/Jog|Sprint/.test(s2.clip ?? ''), `runner switches to a running clip at pace (${s2.clip})`)
+  }
   if (id === 'bag') check(!!punchClip, `throws a real punch clip (${punchClip || 'none'})`)
   if (id === 'bag') check(lowHead > 1.3, `stays upright while punching (lowest head ${lowHead.toFixed(2)} m)`)
-  else check(hi - lo > 0.22, `${id}: visible ${id === 'squat' ? 'hip' : 'hand'} travel through the rep (${(hi - lo).toFixed(2)} m)`)
+  else if (id !== 'treadmill') check(hi - lo > 0.22, `${id}: visible ${id === 'squat' ? 'hip' : 'hand'} travel through the rep (${(hi - lo).toFixed(2)} m)`)
   const s1 = await ins()
   check(s1.headAttach !== null ? s1.headAttach < 0.5 : true, `head stays attached during the ${id}`)
   // finish the set on the beat
-  for (let r = 1; r < cfg.reps; r++) await tapOnBeat()
+  const done = id === 'treadmill' ? 4 : 1 // treadmill already took 3 extra strides above
+  for (let r = done; r < cfg.reps; r++) await tapOnBeat()
   await p.waitForSelector('[data-testid=workout-done]', { timeout: 6000 }).catch(() => {})
   const doneTxt = await p.locator('[data-testid=workout-done]').textContent().catch(() => '')
   check(/\+\d+/.test(doneTxt), `set completes with strength reward (${doneTxt?.trim()})`)

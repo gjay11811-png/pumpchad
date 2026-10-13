@@ -27,6 +27,7 @@ export function WorkoutPanel({
   const [last, setLast] = useState<{ g: RepGrade; pts: number; k: number } | null>(null)
   const [xp, setXp] = useState(0)
   const ringRef = useRef<HTMLDivElement>(null)
+  const paceRef = useRef<HTMLSpanElement>(null)
   const t0 = useRef(0)
   const lastTap = useRef(-10)
   const raf = useRef(0)
@@ -43,11 +44,13 @@ export function WorkoutPanel({
         ringRef.current.style.transform = `scale(${1 + (1 - ph) * 1.25})`
         ringRef.current.style.opacity = String(0.35 + ph * 0.65)
       }
+      // treadmill: live belt speed (the runner's clip follows it)
+      if (paceRef.current) paceRef.current.textContent = `${(gym.pace * 3.6).toFixed(1)} km/h`
       raf.current = requestAnimationFrame(loop)
     }
     raf.current = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(raf.current)
-  }, [phase, spec.beat])
+  }, [phase, spec.beat, gym])
 
   const start = () => {
     audio.play('confirm')
@@ -167,6 +170,11 @@ export function WorkoutPanel({
                     <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-ash">
                       Clean {set.clean} · Sloppy {set.sloppy} · Best combo {set.maxCombo}
                     </p>
+                    {spec.id === 'treadmill' && (
+                      <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.18em] text-moon" data-testid="workout-pace">
+                        Pace <span ref={paceRef}>{(gym.pace * 3.6).toFixed(1)} km/h</span>
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="mt-3 flex gap-2">

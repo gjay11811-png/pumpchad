@@ -217,7 +217,7 @@ export class PumpkinChad implements Character {
   private actions = new Map<string, THREE.AnimationAction>()
   private current: THREE.AnimationAction | null = null
   private bones = new Map<string, THREE.Bone>()
-  private layer = { flex: 0, press: 0, wave: 0, bench: 0, squat: 0, curl: 0, guard: 0, pushup: 0, hips: 0, point: 0 }
+  private layer = { flex: 0, press: 0, wave: 0, bench: 0, squat: 0, curl: 0, guard: 0, pushup: 0, hips: 0, point: 0, deadlift: 0, pullup: 0 }
   /** body lean set by the scene each frame (turning / accelerating) */
   lean = { turn: 0, accel: 0 }
   private leanNow = { turn: 0, accel: 0 }
@@ -805,6 +805,32 @@ export class PumpkinChad implements Character {
       }
       this.squatLegs(e * squat)
     }
+    // deadlift: hip hinge with a flat back (hips drop + travel back, torso pitches forward, feet planted by IK),
+    // arms hang straight down to the bar; e = 0 bar on the floor → 1 locked out standing tall
+    const { deadlift, pullup } = this.layer
+    if (deadlift > 0.001) {
+      const d = (1 - e) * deadlift
+      this.squatLegs(d, { drop: 0.4, back: 0.2, lean: 0.9 })
+      this.turnBone('spine_03', AX.x, -0.22 * d) // flat back: chest up against the hinge
+      this.turnBone('neck_01', AX.x, -0.6 * d) // eyes forward, not at the floor
+      this.turnBone('spine_03', AX.x, -0.08 * deadlift * e) // chest proud at lockout
+      for (const side of ['l', 'r'] as const) {
+        const s = side === 'l' ? L : -L
+        arm(side, new THREE.Vector3(s * 0.12, -1, 0.04 * d), new THREE.Vector3(s * 0.05, -1, 0.02), deadlift)
+      }
+    }
+    // pull-ups: hands overhead on the bar (the scene lifts the whole body so the fists stay ON the bar),
+    // e = 0 dead hang → 1 chin over the bar: elbows drive down and back; knees bent, ankles crossed
+    if (pullup > 0.001) {
+      for (const side of ['l', 'r'] as const) {
+        const s = side === 'l' ? L : -L
+        arm(side, mix(new THREE.Vector3(s * 0.34, 1, 0.04), new THREE.Vector3(s * 0.92, -0.32, -0.22), e), mix(new THREE.Vector3(s * 0.14, 1, 0.02), new THREE.Vector3(-s * 0.2, 1, 0.12), e), pullup)
+        this.aim(this.bone(`thigh_${side}`), this.bone(`calf_${side}`), new THREE.Vector3(s * 0.06, -1, 0.18 + e * 0.12), pullup)
+        this.aim(this.bone(`calf_${side}`), this.bone(`foot_${side}`), new THREE.Vector3(-s * 0.14, -0.72, -0.7), pullup)
+      }
+      this.turnBone('spine_01', AX.x, -0.06 * pullup * (1 - e) - 0.12 * pullup * e) // slight arch at the top
+      this.turnBone('neck_01', AX.x, -0.18 * pullup * e) // chin up over the bar
+    }
     // ── emotes ──
     const { hips, point, pushup } = this.layer
     // "Chad pose": fists on hips, chest out
@@ -913,7 +939,7 @@ export class PumpkinChad implements Character {
 
   private ik = { hip: new THREE.Vector3(), knee: new THREE.Vector3(), ankle: new THREE.Vector3(), d: new THREE.Vector3(), bend: new THREE.Vector3() }
   /** Squat: drop the pelvis, lean the torso, then re-solve each leg so the ankles stay where the idle pose planted them. */
-  private squatLegs(depth: number) {
+  private squatLegs(depth: number, shape = { drop: 0.42, back: 0.12, lean: 0.5 }) {
     if (depth < 0.001) return
     const P = this.ik
     const rq = this.root.getWorldQuaternion(new THREE.Quaternion())
@@ -921,13 +947,13 @@ export class PumpkinChad implements Character {
     const ankles = (['l', 'r'] as const).map((s) => this.bone(`foot_${s}`).getWorldPosition(new THREE.Vector3()))
     const pelvis = this.bone('pelvis')
     const pw = pelvis.getWorldPosition(new THREE.Vector3())
-    pw.y -= depth * 0.42
-    pw.addScaledVector(new THREE.Vector3(0, 0, -1).applyQuaternion(rq), depth * 0.12) // hips travel back
+    pw.y -= depth * shape.drop
+    pw.addScaledVector(new THREE.Vector3(0, 0, -1).applyQuaternion(rq), depth * shape.back) // hips travel back
     pelvis.position.copy(pelvis.parent!.worldToLocal(pw))
     pelvis.updateWorldMatrix(false, true)
     // torso leans forward to stay balanced over mid-foot
     const sp = this.bone('spine_01')
-    sp.rotateX(depth * 0.5)
+    sp.rotateX(depth * shape.lean)
     sp.updateWorldMatrix(false, true)
     const fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(rq)
     ;(['l', 'r'] as const).forEach((side, i) => {
@@ -961,7 +987,7 @@ export class PumpkinChad implements Character {
     this.layer.flex += ((this.pose === 'flex' ? 1 : 0) - this.layer.flex) * k
     this.layer.press += ((this.pose === 'press' ? 1 : 0) - this.layer.press) * k
     this.layer.wave += ((this.pose === 'wave' ? 1 : 0) - this.layer.wave) * k
-    for (const key of ['bench', 'squat', 'curl', 'guard', 'hips', 'point'] as const) this.layer[key] += ((this.pose === key ? 1 : 0) - this.layer[key]) * k
+    for (const key of ['bench', 'squat', 'curl', 'guard', 'hips', 'point', 'deadlift', 'pullup'] as const) this.layer[key] += ((this.pose === key ? 1 : 0) - this.layer[key]) * k
     // push-ups blend in a little slower so dropping into the plank reads as a movement, not a snap
     this.layer.pushup += ((this.pose === 'pushup' ? 1 : 0) - this.layer.pushup) * (1 - Math.exp(-dt * 5))
     // lying down for the bench: pitch the whole model onto its back (head toward -Z), raised onto the pad

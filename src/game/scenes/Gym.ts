@@ -4,7 +4,7 @@ import type { Appearance } from '../character/types'
 import { disposeObject, type Engine, type GameScene } from '../engine/Engine'
 import type { Input } from '../input'
 import { audio } from '../audio'
-import { STATIONS, type RepGrade, type StationId } from '../workout'
+import { STATIONS, TREADMILL, nextPace, type RepGrade, type StationId } from '../workout'
 import { signTexture } from './textures'
 import type { Interactable } from './World'
 import { Emoter, type EmoteId } from '../emotes'
@@ -31,7 +31,14 @@ const SPOTS: Record<'press' | StationId, Spot> = {
   curl: { stand: [5.2, -3.0], yaw: 0, use: [5.2, -1.7], useRadius: 1.25, label: 'Dumbbell curls', cam: [1.5, 1.5, 3.0], look: [0, 1.1, 0] },
   squat: { stand: [-5.2, 3.0], yaw: 0, use: [-5.2, 4.4], useRadius: 1.25, label: 'Squat rack', cam: [1.15, 1.4, 3.3], look: [0, 1.0, 0] },
   bag: { stand: [5.2, 4.15], yaw: Math.PI, use: [5.2, 5.2], useRadius: 1.25, label: 'Heavy bag', cam: [-2.6, 1.5, 0.35], look: [0, 1.2, 0.45] },
+  deadlift: { stand: [-2.5, 2.3], yaw: 0, use: [-2.5, 3.65], useRadius: 1.15, label: 'Deadlift platform', cam: [2.2, 1.75, 3.2], look: [0, 0.15, 0] },
+  pullup: { stand: [2.5, 2.3], yaw: 0, use: [2.5, 3.65], useRadius: 1.15, label: 'Pull-up bar', cam: [1.5, 1.7, 3.6], look: [0, 1.75, 0] },
+  treadmill: { stand: [-7.3, 0.2], yaw: Math.PI / 2, use: [-5.75, 0.2], useRadius: 1.0, label: 'Treadmill', cam: [2.9, 1.9, 1.5], look: [0, 1.0, 0.3] },
 }
+/** pull-up bar height (m): the body hangs from it, hands locked to it */
+const PULL_BAR_Y = 2.42
+/** deadlift bar centre height when resting on the floor (big plates are 0.3 m radius) */
+const DL_FLOOR_Y = 0.3
 const BAG = new THREE.Vector3(5.2, 0, 3.35)
 
 type Box = { x0: number; x1: number; z0: number; z1: number }
@@ -54,6 +61,11 @@ export class Gym implements GameScene {
   private bells: THREE.Group[] = []
   private rackBells: THREE.Object3D[] = []
   private bag = new THREE.Group()
+  private deadBar = new THREE.Group()
+  private belt: THREE.Texture | null = null
+  private beltLen = 1.7
+  /** treadmill belt speed (m/s), driven by the tempo strides */
+  pace = 0
   private bagAngle = 0
   private bagVel = 0
   private ring: THREE.Mesh
@@ -172,7 +184,7 @@ export class Gym implements GameScene {
       }
     }
     // rubber mats under each station
-    for (const k of ['bench', 'curl', 'squat', 'bag'] as const) {
+    for (const k of ['bench', 'curl', 'squat', 'bag', 'deadlift'] as const) {
       const [x, z] = SPOTS[k].stand
       const m = mesh(new THREE.BoxGeometry(2.6, 0.02, 3), mat, x, 0.01, z)
       m.receiveShadow = true
@@ -288,6 +300,83 @@ export class Gym implements GameScene {
       this.boxes.push({ x0: BAG.x - 0.32, x1: BAG.x + 0.32, z0: BAG.z - 0.32, z1: BAG.z + 0.32 })
     }
 
+    // ── deadlift platform: wooden lifting platform with rubber side inserts, bar loaded on the floor ──
+    {
+      const [x, z] = SPOTS.deadlift.stand
+      const wood = new THREE.MeshStandardMaterial({ color: '#6b4a2c', roughness: 0.6 })
+      const g = new THREE.Group()
+      g.add(mesh(new THREE.BoxGeometry(1.0, 0.04, 2.4), wood, 0, 0.02, 0.1))
+      for (const sx of [-0.9, 0.9]) g.add(mesh(new THREE.BoxGeometry(0.8, 0.04, 2.4), rubber, sx, 0.02, 0.1))
+      g.position.set(x, 0, z)
+      g.traverse((o) => (o.receiveShadow = true))
+      s.add(g)
+      barbell(this.deadBar, 2.0)
+      this.deadBar.position.set(x, DL_FLOOR_Y, z + 0.28)
+      s.add(this.deadBar)
+    }
+    // ── pull-up station: two uprights + a chrome bar overhead, braced to the floor ──
+    {
+      const [x, z] = SPOTS.pullup.stand
+      const g = new THREE.Group()
+      for (const sx of [-0.62, 0.62]) {
+        g.add(mesh(new THREE.BoxGeometry(0.09, PULL_BAR_Y + 0.12, 0.09), iron, sx, (PULL_BAR_Y + 0.12) / 2, 0))
+        g.add(mesh(new THREE.BoxGeometry(0.09, 0.06, 1.1), iron, sx, 0.03, 0)) // feet
+        const brace = mesh(new THREE.BoxGeometry(0.05, 1.3, 0.05), iron, sx, 0.62, -0.32)
+        brace.rotation.x = 0.5
+        g.add(brace)
+      }
+      const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.019, 0.019, 1.34, 12), chrome)
+      bar.rotation.z = Math.PI / 2
+      bar.position.set(0, PULL_BAR_Y, 0)
+      g.add(bar)
+      g.add(mesh(new THREE.BoxGeometry(1.34, 0.06, 0.06), orange, 0, PULL_BAR_Y + 0.1, 0))
+      g.position.set(x, 0, z)
+      s.add(cast(g))
+      for (const sx of [-0.62, 0.62]) this.boxes.push({ x0: x + sx - 0.08, x1: x + sx + 0.08, z0: z - 0.55, z1: z + 0.55 })
+    }
+    // ── treadmill along the west wall: deck, scrolling belt, side rails, console ──
+    {
+      const [x, z] = SPOTS.treadmill.stand
+      const g = new THREE.Group()
+      const L = 2.1
+      g.add(mesh(new THREE.BoxGeometry(L, 0.16, 0.86), iron, 0, 0.08, 0))
+      // belt: a striped canvas that scrolls with the pace
+      const c = document.createElement('canvas')
+      c.width = 32
+      c.height = 128
+      const cx = c.getContext('2d')!
+      cx.fillStyle = '#1c1b1e'
+      cx.fillRect(0, 0, 32, 128)
+      cx.fillStyle = '#2b292e'
+      for (let i = 0; i < 128; i += 16) cx.fillRect(0, i, 32, 5)
+      const tex = new THREE.CanvasTexture(c)
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping
+      tex.repeat.set(1, 6)
+      tex.colorSpace = THREE.SRGBColorSpace
+      this.belt = tex
+      const belt = new THREE.Mesh(new THREE.PlaneGeometry(0.62, this.beltLen), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 }))
+      belt.rotation.x = -Math.PI / 2
+      belt.rotation.z = Math.PI / 2 // belt runs along the deck (x)
+      belt.position.set(0, 0.165, 0)
+      belt.receiveShadow = true
+      g.add(belt)
+      for (const sz of [-0.4, 0.4]) {
+        g.add(mesh(new THREE.BoxGeometry(0.06, 1.1, 0.06), iron, 0.82, 0.66, sz)) // uprights at the front
+        g.add(mesh(new THREE.BoxGeometry(0.9, 0.05, 0.05), chrome, 0.45, 1.05, sz)) // hand rails
+      }
+      const con = mesh(new THREE.BoxGeometry(0.16, 0.34, 0.86), iron, 0.86, 1.25, 0)
+      con.rotation.z = 0.35
+      g.add(con)
+      const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.18), new THREE.MeshBasicMaterial({ color: new THREE.Color('#ff7a1a').multiplyScalar(2.2), toneMapped: false }))
+      screen.position.set(0.77, 1.29, 0)
+      screen.rotation.set(0, -Math.PI / 2, 0)
+      screen.rotateX(-0.35)
+      g.add(screen)
+      g.position.set(x + 0.2, 0, z)
+      s.add(cast(g))
+      this.boxes.push({ x0: x + 0.2 - L / 2, x1: x + 0.2 + L / 2 - 0.15, z0: z - 0.48, z1: z + 0.48 })
+    }
+
     // rep feedback ring under the active lifter
     this.ringMat = new THREE.MeshBasicMaterial({ color: '#ff7a1a', transparent: true, opacity: 0, toneMapped: false, depthWrite: false })
     this.ring = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.66, 40), this.ringMat)
@@ -313,7 +402,7 @@ export class Gym implements GameScene {
     }
 
     // stations + exit
-    for (const id of ['press', 'bench', 'curl', 'squat', 'bag'] as const) {
+    for (const id of ['press', 'bench', 'curl', 'squat', 'bag', 'deadlift', 'pullup', 'treadmill'] as const) {
       const sp = SPOTS[id]
       this.interactables.push({ id, label: sp.label, pos: new THREE.Vector3(sp.use[0], 0, sp.use[1]), radius: sp.useRadius, kind: 'activity' })
     }
@@ -382,6 +471,10 @@ export class Gym implements GameScene {
     p.pose = spec.pose
     p.pressAmount = spec.rest
     if (id === 'curl') this.rackBells.forEach((b) => (b.visible = false))
+    if (id === 'treadmill') {
+      this.pos.y = 0.165 // stand on the belt
+      this.pace = TREADMILL.start
+    }
     audio.play('clank')
     this.resize(this.w, this.h)
   }
@@ -396,6 +489,7 @@ export class Gym implements GameScene {
       p.pressAmount = 0
     }
     const sp = SPOTS[id]
+    this.pace = 0
     this.pos.set(sp.use[0], 0, sp.use[1])
     this.yaw = Math.atan2(sp.stand[0] - sp.use[0], sp.stand[1] - sp.use[1])
     this.camYaw = this.yaw + Math.PI
@@ -421,6 +515,12 @@ export class Gym implements GameScene {
       p.playOnce?.(mv)
       this.pendingHit = this.t + 0.26
       this.bagHit = grade === 'clean' ? 1 : 0.55
+      return
+    }
+    if (this.mode === 'treadmill') {
+      // every stride on the beat speeds the belt up; the runner's real jog / sprint clip follows the belt speed
+      this.pace = nextPace(this.pace, grade)
+      if (grade === 'clean') this.camKick = 0.5
       return
     }
     this.repDur = Math.min(spec.beat * 0.85, 1.05)
@@ -640,14 +740,19 @@ export class Gym implements GameScene {
         this.events?.onPrompt(null)
       }
       if (p) p.speed = 0
+      if (this.mode === 'treadmill') {
+        this.pace = Math.max(TREADMILL.min, this.pace - TREADMILL.decay * dt)
+        if (p) p.speed = this.pace / 3.4 // the rig plays walk / jog / sprint matched to this ground speed
+      }
     }
+    if (this.belt) this.belt.offset.y -= ((this.mode === 'treadmill' ? this.pace : 0) * dt * this.belt.repeat.y) / this.beltLen
 
     if (p) {
       p.root.position.copy(this.pos)
       if (this.mode === 'free') p.root.position.y += this.jumper.y
       p.root.rotation.y = this.yaw
       if (this.mode === 'press') p.pressAmount += (this.target - p.pressAmount) * (1 - Math.exp(-dt * 12))
-      else if (this.mode !== 'free' && this.mode !== 'bag') {
+      else if (this.mode !== 'free' && this.mode !== 'bag' && this.mode !== 'treadmill') {
         const spec = STATIONS[this.mode]
         let amt = spec.rest
         if (this.repT >= 0) {
@@ -655,7 +760,8 @@ export class Gym implements GameScene {
           const u = Math.min(1, this.repT / this.repDur)
           // real lifts aren't symmetric: bench lowers slowly then drives up, curls snap up then lower under control,
           // squats sink controlled then drive up — eased so each phase accelerates and settles
-          const share = this.mode === 'bench' ? 0.58 : this.mode === 'curl' ? 0.38 : 0.55
+          // deadlift: pull from the floor then a controlled lower; pull-up: up, then a slower negative
+          const share = this.mode === 'bench' ? 0.58 : this.mode === 'curl' ? 0.38 : this.mode === 'deadlift' ? 0.45 : this.mode === 'pullup' ? 0.42 : 0.55
           const f = u < share ? easeInOut(u / share) : 1 - easeInOut((u - share) / (1 - share))
           amt = spec.rest + (1 - 2 * spec.rest) * f // rest → far end → rest
           if (u >= 1) {
@@ -667,8 +773,15 @@ export class Gym implements GameScene {
       }
       p.update(dt)
       p.root.updateMatrixWorld(true)
-      const a = p.fistL.getWorldPosition(new THREE.Vector3())
-      const b = p.fistR.getWorldPosition(new THREE.Vector3())
+      let a = p.fistL.getWorldPosition(new THREE.Vector3())
+      let b = p.fistR.getWorldPosition(new THREE.Vector3())
+      if (this.mode === 'pullup') {
+        // hang from the bar: lift the whole body so the fists sit exactly on it (the arm pose sets the body height)
+        p.root.position.y += Math.max(0, PULL_BAR_Y - (a.y + b.y) / 2)
+        p.root.updateMatrixWorld(true)
+        a = p.fistL.getWorldPosition(new THREE.Vector3())
+        b = p.fistR.getWorldPosition(new THREE.Vector3())
+      }
       const mid = a.clone().add(b).multiplyScalar(0.5)
       // Chad Press bar rides in the fists only during the press
       this.bar.visible = this.mode === 'press' && p.pose === 'press'
@@ -689,6 +802,14 @@ export class Gym implements GameScene {
         this.squatBar.position.copy(mid)
         this.squatBar.rotation.y = this.yaw
       } else this.squatBar.position.set(SPOTS.squat.stand[0], 1.48, SPOTS.squat.stand[1] + 0.5)
+      // deadlift bar: in the hands during the set (never through the floor), loaded on the platform otherwise
+      if (this.mode === 'deadlift') {
+        this.deadBar.position.set(mid.x, Math.max(DL_FLOOR_Y, mid.y), mid.z)
+        this.deadBar.rotation.y = this.yaw
+      } else {
+        this.deadBar.position.set(SPOTS.deadlift.stand[0], DL_FLOOR_Y, SPOTS.deadlift.stand[1] + 0.28)
+        this.deadBar.rotation.y = 0
+      }
       const curling = this.mode === 'curl'
       this.bells.forEach((bell, i) => {
         bell.visible = curling

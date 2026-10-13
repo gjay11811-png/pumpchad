@@ -104,7 +104,7 @@ function sanitizeAppearance(a: unknown): Appearance | null {
 function repMap(v: unknown): Record<string, number> {
   const out: Record<string, number> = {}
   if (!v || typeof v !== 'object') return out
-  for (const k of ['bench', 'curl', 'squat', 'bag']) {
+  for (const k of ['bench', 'curl', 'squat', 'bag', 'deadlift', 'pullup', 'treadmill']) {
     const n = (v as Record<string, unknown>)[k]
     if (typeof n === 'number' && Number.isFinite(n) && n > 0) out[k] = Math.min(1e7, Math.floor(n))
   }
