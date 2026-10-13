@@ -157,7 +157,7 @@ export function stallV4(T: Town, x: number, z: number, face: Facing, stripe: THR
     L.put(new THREE.CylinderGeometry(0.18, 0.2, 0.04, 12), P.iron, -W / 2 + 0.6, 0.02, -DEP / 2 + 0.35)
     L.put(new THREE.TorusGeometry(0.16, 0.03, 6, 16).rotateX(Math.PI / 2), P.gold, -W / 2 + 0.6, 1.66, -DEP / 2 + 0.35) // gold chain on the dummy
     const bolt = new THREE.CylinderGeometry(0.09, 0.09, 0.62, 10).rotateZ(Math.PI / 2)
-    const cloths = [P.roofRed, P.roofSlate, P.roofOrange, P.cloth, P.woodLight]
+    const cloths = [P.roofRed, P.roofSlate, P.roofOrange, stripe, P.woodLight] // stripe: reuses the awning program (P.cloth would compile its own double-sided variant)
     for (let i = 0; i < 5; i++) L.put(bolt, cloths[i], 0.0 + (i % 3) * 0.2 - 0.1, 1.06 + Math.floor(i / 3) * 0.17, DEP / 2 - 0.25 + (i % 2) * 0.1, 0.1 * i, 1, 1, 1, false)
     L.put(boxUV(0.9, 0.5, 0.06, 0.6), P.timber, 0.9, 1.75, -DEP / 2 + 0.08) // mirror frame
     L.put(new THREE.PlaneGeometry(0.78, 0.38), P.windowDark, 0.9, 1.75, -DEP / 2 + 0.12, 0, 1, 1, 1, false)

@@ -1,4 +1,4 @@
-export type DialogueOption = { label: string; action: 'close' | 'gym' | 'wardrobe' }
+export type DialogueOption = { label: string; action: 'close' | 'gym' | 'wardrobe' | 'welltoss' }
 export type Dialogue = { speaker: string; role: string; lines: string[]; options?: DialogueOption[] }
 
 export const DIALOGUE: Record<string, Dialogue> = {
@@ -152,7 +152,11 @@ Object.assign(DIALOGUE, {
   well: {
     speaker: 'Wishing Well',
     role: 'Market Row',
-    lines: ['You toss a coin. It falls for a suspiciously long time.', 'From somewhere below: “thanks.” Wishes are not financial advice.'],
+    lines: ['You toss a coin. It falls for a suspiciously long time.', 'From somewhere below: “thanks.” Wishes are not financial advice.', 'There’s a little bucket hanging halfway down. Bet you can’t land one in it.'],
+    options: [
+      { label: 'Try the coin toss', action: 'welltoss' },
+      { label: 'Leave', action: 'close' },
+    ],
   },
   window: {
     speaker: 'The Hollow House',

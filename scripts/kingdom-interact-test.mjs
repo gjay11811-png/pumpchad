@@ -119,6 +119,55 @@ check((await p.evaluate(() => window.__chadverse.seat())) === null, 'plaza bench
 await go(-5.55, 5.55, Math.PI * 0.75)
 check(!(await promptText()).includes('Sit'), 'b4s bench: no sit prompt (b4s is sitting there)')
 
+// ── wishing well coin toss (optional timing challenge): open, 3 tosses, replay, bounded XP, Escape leaves
+const xpW = (await save()).xp
+await go(-28.4, 3.4, Math.PI)
+check((await promptText()).includes('wishing well'), 'coin toss: well prompt shown')
+await p.keyboard.press('e')
+await p.waitForTimeout(600)
+for (let i = 0; i < 8 && !(await p.getByRole('button', { name: /Try the coin toss/ }).count()); i++) {
+  await p.locator('[data-testid=dialogue]').click()
+  await p.waitForTimeout(350)
+}
+await p.getByRole('button', { name: /Try the coin toss/ }).click()
+await p.waitForTimeout(600)
+check((await p.locator('[data-testid=toss-bar]').count()) === 1 && (await dialogues()) === 0, 'coin toss: panel opens, dialogue closed (no overlap)')
+for (let round = 0; round < 2; round++) {
+  for (let i = 0; i < 3; i++) {
+    if (round === 0) await p.waitForTimeout(500 + Math.random() * 400)
+    // round 2 aims: wait until the marker is inside the gold zone, then toss (proves the hit path pays out once)
+    else
+      await p.waitForFunction(() => {
+        const bar = document.querySelector('[data-testid=toss-bar]')
+        const [, gold, marker] = bar.children
+        const m = parseFloat(marker.style.left)
+        const g0 = parseFloat(gold.style.left)
+        return m > g0 + 0.5 && m < g0 + parseFloat(gold.style.width) - 0.5
+      }, null, { timeout: 10000, polling: 'raf' })
+    await p.keyboard.press('Space')
+    await p.waitForTimeout(800)
+  }
+  check((await p.locator('[data-testid=toss-final]').count()) === 1, `coin toss: round ${round + 1} finishes after 3 tosses`)
+  if (round === 0 && out) await p.screenshot({ path: `${out}/int-cointoss.jpg`, quality: 78 })
+  if (round === 0) await p.locator('[data-testid=toss-again]').click()
+}
+const xpW2 = (await save()).xp
+const hitText = await p.locator('[data-testid=toss-final]').innerText()
+check(!hitText.startsWith('0/'), `coin toss: aimed tosses land in the bucket (${hitText.replace(/\s+/g, ' ').slice(0, 40)})`)
+check((await save()).achievements.includes('bucket_shot'), 'coin toss: bucket_shot achievement unlocked on a hit')
+check(xpW2 - xpW === 25, `coin toss: exactly one +25 XP reward however many hits (${xpW} → ${xpW2})`)
+await p.locator('[data-testid=toss-again]').click()
+for (let i = 0; i < 3; i++) {
+  await p.waitForTimeout(400)
+  await p.keyboard.press('Space')
+  await p.waitForTimeout(800)
+}
+check((await save()).xp === xpW2, 'coin toss: replaying pays nothing more (no farming)')
+await p.keyboard.press('Escape')
+await p.waitForTimeout(500)
+check((await p.locator('[data-testid=toss-bar]').count()) === 0, 'coin toss: Escape leaves')
+check((await p.evaluate(() => window.__chadverse.world()))?.x !== undefined, 'coin toss: back in the world')
+
 // ── wardrobe stall: dialogue, then the option opens the creator (no purchases)
 await go(-24, 5.0, 0)
 check((await promptText()).toLowerCase().includes('wardrobe'), 'wardrobe: prompt shown')

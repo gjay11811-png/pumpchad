@@ -263,7 +263,7 @@ export function fountainV4(T: Town, king: THREE.Object3D, waterNormal: THREE.Tex
   })()
   D.push(flowTex)
   // thin, see-through falling water (the old opaque curtain read as a glowing drum)
-  const sheetMat = new THREE.MeshBasicMaterial({ map: flowTex, transparent: true, depthWrite: false, side: THREE.DoubleSide, color: new THREE.Color('#bfe6ff'), opacity: 0.42 })
+  const sheetMat = new THREE.MeshBasicMaterial({ map: flowTex, transparent: true, depthWrite: false, side: THREE.DoubleSide, forceSinglePass: true, color: new THREE.Color('#bfe6ff'), opacity: 0.42 })
   const jetMat = new THREE.MeshBasicMaterial({ map: flowTex, transparent: true, depthWrite: false, color: new THREE.Color('#d6f2ff').multiplyScalar(1.1), toneMapped: false, opacity: 0.75 })
   D.push(jetMat)
   D.push(sheetMat)

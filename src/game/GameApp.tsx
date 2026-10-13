@@ -22,10 +22,10 @@ import { DialoguePanel } from './ui/DialoguePanel'
 import { Loading, Portal, Title } from './ui/Entrance'
 import { Hud, LevelUpBanner, Toasts, type Toast } from './ui/Hud'
 import { Joystick } from './ui/Joystick'
-import { AchievementsMenu, NoticeBoardMenu, PauseMenu, ProfileMenu, SettingsMenu } from './ui/Menus'
+import { AchievementsMenu, NoticeBoardMenu, PauseMenu, ProfileMenu, SettingsMenu, WellToss } from './ui/Menus'
 
 type Phase = 'boot' | 'title' | 'creator' | 'world' | 'gym' | 'error'
-type Overlay = null | 'pause' | 'settings' | 'achievements' | 'profile' | 'board'
+type Overlay = null | 'pause' | 'settings' | 'achievements' | 'profile' | 'board' | 'welltoss'
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 const ACH_XP = 25
 
@@ -329,6 +329,7 @@ export function GameApp() {
     setDialogue(null)
     world.current?.cooldown()
     if (action === 'gym') void go('gym', { label: 'Entering Chad Gym' })
+    if (action === 'welltoss') setOverlay('welltoss')
     if (action === 'wardrobe') {
       setEditing(true)
       void go('creator', { label: 'Opening the wardrobe' })
@@ -579,6 +580,16 @@ export function GameApp() {
               {overlay === 'settings' && <SettingsMenu key="settings" settings={s} onChange={changeSettings} onBack={() => setOverlay(settingsFrom)} onResetProgress={resetProgress} />}
               {overlay === 'achievements' && <AchievementsMenu key="ach" save={save} onBack={() => setOverlay('pause')} />}
               {overlay === 'profile' && <ProfileMenu key="profile" save={save} onBack={() => setOverlay(null)} />}
+              {overlay === 'welltoss' && (
+                <WellToss
+                  key="welltoss"
+                  onHit={() => unlock('bucket_shot')}
+                  onBack={() => {
+                    setOverlay(null)
+                    world.current?.cooldown()
+                  }}
+                />
+              )}
               {overlay === 'board' && (
                 <NoticeBoardMenu
                   key="board"

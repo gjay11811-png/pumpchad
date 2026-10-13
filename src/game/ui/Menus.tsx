@@ -1,7 +1,8 @@
 import { m } from 'framer-motion'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ACHIEVEMENTS, levelFor, xpForLevel, type SaveData, type Settings } from '../save'
 import { STATIONS, type StationId } from '../workout'
+import { judge, markerAt, type Grade, type RepSpec } from '../chadpress'
 import { fatigueMult, rollDaily, statLevel } from '../progression'
 import { SPECIES } from '../character/types'
 import { Btn, Icon, Label, Segmented, Slider, Toggle } from './kit'
@@ -206,6 +207,112 @@ export function NoticeBoardMenu({ save, onBack }: { save: SaveData; onBack: () =
       <p className="mt-1 text-[13px] text-bone/70">
         WASD / arrows to walk · Shift to sprint · drag to look · E to interact · Space to jump · Q emotes. On phones: stick, Sprint, Jump and GO.
       </p>
+    </Overlay>
+  )
+}
+
+/**
+ * Wishing-well coin toss (optional timing challenge): three tosses, stop the swinging marker in the bucket zone.
+ * Space / E / click / tap to toss, Escape to leave at any time. Only the first ever bucket shot pays out (one
+ * achievement), so it can't be farmed. No money involved: it's a pocket-lint coin.
+ */
+export const TOSSES = 3
+const firstSpec = (): RepSpec => ({ center: 0.3 + Math.random() * 0.4, good: 0.12, perfect: 0.04, speed: 0.7 })
+export function WellToss({ onHit, onBack }: { onHit: () => void; onBack: () => void }) {
+  useEsc(onBack)
+  const [grades, setGrades] = useState<Grade[]>([])
+  const [spec, setSpec] = useState<RepSpec>(firstSpec)
+  const markerRef = useRef<HTMLDivElement>(null)
+  const t0 = useRef(performance.now())
+  const pos = useRef(0)
+  const locked = useRef(false)
+  const done = grades.length >= TOSSES
+  useEffect(() => {
+    if (done) return
+    let raf = 0
+    const loop = () => {
+      if (!locked.current) pos.current = markerAt((performance.now() - t0.current) / 1000, spec.speed)
+      if (markerRef.current) markerRef.current.style.left = `${pos.current * 100}%`
+      raf = requestAnimationFrame(loop)
+    }
+    raf = requestAnimationFrame(loop)
+    return () => cancelAnimationFrame(raf)
+  }, [spec, done])
+  const toss = () => {
+    if (done || locked.current) return
+    locked.current = true
+    const g = judge(pos.current, spec)
+    setGrades((gs) => [...gs, g])
+    if (g !== 'miss') onHit()
+    // a short beat so the result reads, then the next toss (faster, narrower)
+    setTimeout(() => {
+      locked.current = false
+      t0.current = performance.now()
+      setSpec((sp) => ({ center: 0.25 + Math.random() * 0.5, good: Math.max(0.07, sp.good - 0.02), perfect: Math.max(0.025, sp.perfect - 0.005), speed: sp.speed + 0.18 }))
+    }, 650)
+  }
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => {
+      if (e.repeat) return
+      if (e.key === ' ' || e.key === 'e' || e.key === 'E' || e.key === 'Enter') {
+        e.preventDefault()
+        toss()
+      }
+    }
+    window.addEventListener('keydown', k)
+    return () => window.removeEventListener('keydown', k)
+  })
+  const last = grades[grades.length - 1]
+  const hits = grades.filter((g) => g !== 'miss').length
+  const say = (g: Grade) => (g === 'perfect' ? 'Splash! Dead centre.' : g === 'good' ? 'Plink. In the bucket.' : 'Clank. Off the rim.')
+  const again = () => {
+    setGrades([])
+    t0.current = performance.now()
+    setSpec(firstSpec())
+  }
+  return (
+    <Overlay label="Wishing well coin toss">
+      <Header title="Coin toss" onBack={onBack} />
+      <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.22em] text-moon">Wishing well · free play · no real money</p>
+      <p className="mt-3 text-[13px] text-bone/70">Stop the marker over the bucket. Gold is dead centre. Three coins from your pocket lint.</p>
+      <div className="mt-4 rounded-[18px] bg-bone/[0.04] p-4 ring-1 ring-bone/10" onPointerDown={toss}>
+        <div className="relative h-12 overflow-hidden rounded-xl bg-ink ring-1 ring-bone/10" data-testid="toss-bar">
+          <div className="absolute inset-y-0 bg-pump/35" style={{ left: `${(spec.center - spec.good) * 100}%`, width: `${spec.good * 200}%` }} />
+          <div className="absolute inset-y-0 bg-[linear-gradient(180deg,#fff3cf,#e8b84a)] shadow-[0_0_20px_rgba(246,200,112,0.8)]" style={{ left: `${(spec.center - spec.perfect) * 100}%`, width: `${spec.perfect * 200}%` }} />
+          <div ref={markerRef} className="absolute inset-y-1 w-1.5 -translate-x-1/2 rounded-full bg-bone shadow-[0_0_12px_#fff]" style={{ left: '0%' }} />
+        </div>
+        <p className="mt-3 min-h-6 text-center font-display text-xl uppercase text-moon" aria-live="polite" data-testid="toss-result">
+          {last ? say(last) : `Coin 1 of ${TOSSES}`}
+        </p>
+      </div>
+      {done ? (
+        <div className="mt-4" data-testid="toss-final">
+          <p className="text-center font-display text-3xl uppercase">
+            {hits}/{TOSSES} in the bucket
+          </p>
+          <div className="mt-3 flex gap-2">
+            <Btn className="flex-1" onClick={again} data-testid="toss-again">
+              Toss again
+            </Btn>
+            <Btn variant="ghost" className="flex-1" onClick={onBack}>
+              Done
+            </Btn>
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onPointerDown={(e) => {
+            e.stopPropagation()
+            toss()
+          }}
+          className="btn-primary mt-4 flex min-h-16 w-full items-center justify-center rounded-2xl font-display text-3xl uppercase tracking-wider"
+          data-testid="toss-button"
+        >
+          Toss
+        </button>
+      )}
+      <p className="mt-3 text-center font-mono text-[10px] uppercase tracking-[0.2em] text-ash">Space / E / tap to toss · Esc to leave</p>
     </Overlay>
   )
 }

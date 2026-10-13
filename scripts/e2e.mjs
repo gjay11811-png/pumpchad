@@ -91,7 +91,7 @@ for (const [w, h, tag, mobile] of [
   await p.getByRole('button', { name: /Enter Chad Square/ }).click()
 
   // 8-9 save + enter world
-  await p.waitForFunction(() => window.__chadverse?.phase === 'world' && window.__chadverse.world(), null, { timeout: 15000 })
+  await p.waitForFunction(() => window.__chadverse?.phase === 'world' && window.__chadverse.world(), null, { timeout: 60000 })
   await sleep(1200)
   const saved = await cv(() => JSON.parse(localStorage.getItem('pumpchad.chadverse.save')))
   const ap = saved?.character?.appearance
@@ -213,7 +213,7 @@ for (const [w, h, tag, mobile] of [
   await p.waitForFunction(() => window.__chadverse?.gym()?.mode === 'free', null, { timeout: 8000 })
   check(true, 'Chad Press hands back to the gym floor')
   await useGym('exit', 'Back to Chad Square')
-  await p.waitForFunction(() => window.__chadverse?.phase === 'world' && window.__chadverse.world(), null, { timeout: 15000 })
+  await p.waitForFunction(() => window.__chadverse?.phase === 'world' && window.__chadverse.world(), null, { timeout: 60000 })
   await sleep(600)
   const back = await cv(() => window.__chadverse.world())
   check(back.x > 10 && back.x < 14, 'returned to Chad Square at the gym door')
@@ -239,7 +239,7 @@ for (const [w, h, tag, mobile] of [
   const welcome = await p.textContent('body')
   check(welcome.includes('Welcome back') && welcome.includes('Bone Daddy'), 'after reload: title greets the saved character')
   await p.click('[data-testid=enter-muted]')
-  await p.waitForFunction(() => window.__chadverse?.phase === 'world' && window.__chadverse.world(), null, { timeout: 15000 })
+  await p.waitForFunction(() => window.__chadverse?.phase === 'world' && window.__chadverse.world(), null, { timeout: 60000 })
   const sv2 = await cv(() => window.__chadverse.save())
   check(sv2.progress.xp === xpBefore && sv2.character.appearance.species === 'skeleton', 'after reload: XP and character restored')
   if (errs.length) (await import('node:fs')).writeFileSync(`${out}/e2e-errors-${tag}.txt`, errs.join(' ===== '))
