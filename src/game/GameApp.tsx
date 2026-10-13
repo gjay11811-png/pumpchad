@@ -55,6 +55,12 @@ export function GameApp() {
   const [error, setError] = useState('')
   const [touch] = useState(() => window.matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window)
   const [levelUp, setLevelUp] = useState<number | null>(null)
+  const [sprint, setSprint] = useState(false)
+  const toggleSprint = () =>
+    setSprint((v) => {
+      if (input.current) input.current.sprint = !v
+      return !v
+    })
   /** Pumpkin Rush: null = not playing; 'ready' / 'done' cards pause the world, 'run' lets you move */
   const [rush, setRush] = useState<null | 'ready' | 'run' | 'done'>(null)
   const rushRef = useRef(rush)
@@ -467,6 +473,8 @@ export function GameApp() {
                   onEmote={(id) => world.current?.emote(id)}
                   onJump={() => input.current?.queueJump()}
                   emotesDisabled={!!overlay || !!dialogue}
+                  sprint={sprint}
+                  onSprint={toggleSprint}
                 />
                 {rush && world.current?.rush && (
                   <RushPanel
@@ -498,6 +506,8 @@ export function GameApp() {
                   onEmote={(id) => gym.current?.emote(id)}
                   onJump={() => input.current?.queueJump()}
                   emotesDisabled={!!overlay}
+                  sprint={sprint}
+                  onSprint={toggleSprint}
                 />
               </>
             )}

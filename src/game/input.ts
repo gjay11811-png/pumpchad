@@ -21,6 +21,8 @@ export class Input {
   private lastX = 0
   private lastY = 0
   enabled = true
+  /** touch Sprint toggle (on-screen button): run whenever moving while it's on */
+  sprint = false
   /** the UI layer sits on top of the canvas, so presses are caught on the shared container and filtered */
   private surface: HTMLElement
 
@@ -105,7 +107,7 @@ export class Input {
       x /= len
       z /= len
     }
-    return { x, z, run: k.has('shift') || (this.stick.active && len > 0.92) }
+    return { x, z, run: k.has('shift') || (this.sprint && len > 0.1) || (this.stick.active && len > 0.92) }
   }
 
   takeLook() {

@@ -28,6 +28,8 @@ export function Hud({
   onEmote,
   onJump,
   emotesDisabled = false,
+  sprint = false,
+  onSprint,
 }: {
   save: SaveData
   prompt: Interactable | null
@@ -40,6 +42,9 @@ export function Hud({
   onEmote?: (id: EmoteId) => void
   onJump?: () => void
   emotesDisabled?: boolean
+  /** touch: Sprint toggle state + handler */
+  sprint?: boolean
+  onSprint?: () => void
 }) {
   const xp = save.progress.xp
   const lvl = levelFor(xp)
@@ -104,6 +109,26 @@ export function Hud({
           </m.div>
         )}
       </AnimatePresence>
+
+      {/* touch sprint toggle (sits above the emote button, left of Jump) */}
+      {touch && onSprint && (
+        <button
+          type="button"
+          aria-label="Sprint"
+          aria-pressed={sprint}
+          onPointerDown={(e) => {
+            e.preventDefault()
+            onSprint()
+          }}
+          data-testid="sprint"
+          className={`pointer-events-auto absolute bottom-[calc(max(28px,env(safe-area-inset-bottom))+6.5rem)] right-[calc(max(24px,env(safe-area-inset-right))+7rem)] flex h-16 w-16 flex-col items-center justify-center rounded-full font-display text-[13px] uppercase leading-none tracking-wide backdrop-blur-sm transition-all duration-150 active:scale-90 ${
+            sprint ? 'btn-primary shadow-[0_0_24px_rgba(255,122,26,0.7)]' : 'border border-bone/20 bg-ink/55 text-bone'
+          }`}
+        >
+          <span aria-hidden className="text-lg leading-none">»</span>
+          Sprint
+        </button>
+      )}
 
       {/* touch action button */}
       {touch && (
