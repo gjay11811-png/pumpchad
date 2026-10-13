@@ -430,21 +430,11 @@ export class World implements GameScene {
 
     // the suspicious pumpkin
     this.oddPumpkin = new THREE.Group()
-    const odd = new THREE.Mesh(new THREE.SphereGeometry(0.7, 24, 16), new THREE.MeshPhysicalMaterial({ color: '#e8741c', roughness: 0.5, sheen: 0.4 }))
-    odd.scale.set(1.15, 0.85, 1.15)
-    odd.position.y = 0.6
-    odd.castShadow = true
-    this.oddPumpkin.add(odd)
-    const eyeMat = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffb347').multiplyScalar(4), toneMapped: false })
-    for (const sx of [-0.22, 0.22]) {
-      const e = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), eyeMat)
-      e.position.set(sx, 0.72, 0.68)
-      e.scale.set(1, 0.6, 0.4)
-      this.oddPumpkin.add(e)
-    }
-    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.09, 0.3, 6), T.P.foliage)
-    stem.position.y = 1.25
-    this.oddPumpkin.add(stem)
+    // same organic, ribbed, carved pumpkin as the rest of the kingdom (own builder: it squashes and hops when poked)
+    const oddPB = new PumpkinBuilder()
+    oddPB.add(0, 0, 0, { r: 0.72, face: 2, facing: 0, v: 1 })
+    const oddFx = oddPB.build(this.oddPumpkin, this.disposables, true)
+    T.dynamic.push({ update: (t) => oddFx.update(t + 1.3) })
     this.oddPumpkin.position.set(-9.6, 0, 10.4)
     this.oddPumpkin.rotation.y = 0.9
     this.scene.add(this.oddPumpkin)
