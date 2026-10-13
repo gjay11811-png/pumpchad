@@ -24,8 +24,8 @@ const GATE_HALF = 7.5 * DEG
 export const GATE = { x: 0, z: 36.6 }
 export const CITY_SIGN = { x: 3.3, z: 33.1 }
 export const BENCHES: { x: number; z: number; ry: number }[] = [
-  { x: -6.2, z: 32.4, ry: Math.PI },
-  { x: 6.6, z: 31.8, ry: Math.PI },
+  { x: -9.6, z: 32.1, ry: 0 }, // seat faces south: you sit looking out at Chad City, clear of the gatehouse towers
+  { x: 9.8, z: 32.0, ry: 0 },
 ]
 
 /** Terrain outside the walls: gentle lip, steep cliff into the valley, flat valley floor (y = −32). */

@@ -13,7 +13,7 @@ import { Leaves, Particles, type Fire, type Cloth } from './world/fx'
 import { StaticBatch, makePalette } from './world/kit'
 import { Crowd, RESIDENTS } from './world/npcs'
 import { CASTLE_Z, ROADS, buildGround, castle, clutter, fence, gym, lampPosts, poles, stringLights, vegetation } from './world/props'
-import { CITY_SIGN, kingdom, mountains, valleyRoad } from './world/kingdom'
+import { BENCHES, CITY_SIGN, kingdom, mountains, valleyRoad } from './world/kingdom'
 import { buildChadCity } from './world/skyline'
 import { kingdomStyle, styleMaterials } from './world/style'
 import * as TX from './world/textures'
@@ -27,6 +27,8 @@ export type WorldEvents = {
 const BOUNDS = 34.5
 const WALK = 3.4
 const RUN = 6.2
+/** where the player's root stands relative to a bench centre so the seated clip lands on the seat */
+const SEAT_FWD = 0.12
 const PLAYER_R = 0.45
 
 /** Golden seed collectibles (5). Positions reward alleys, dead ends and the spooky corner. */
@@ -87,6 +89,11 @@ export class World implements GameScene {
   private disposables: (THREE.Material | THREE.Texture | THREE.BufferGeometry)[] = []
   paused = false
   private actionCooldown = 0
+  /** sitting on a lookout bench: sit-down clip → seated loop → stand-up clip */
+  private seat: { b: number; phase: 'enter' | 'sit' | 'exit'; t: number; dur: number } | null = null
+  /** movement locked while a full-body action plays (picking up a seed) */
+  private lockT = 0
+  private pendingHide: { g: THREE.Object3D; t: number } | null = null
   cameraSensitivity = 1
   private t = 0
   private disposed = false
@@ -307,6 +314,7 @@ export class World implements GameScene {
     add('rune', 'Press the strange rune', -24.5, -27, 1.6, 'secret')
     add('pumpkin', 'Poke the suspicious pumpkin', -9.6, 10.4, 2.1, 'info')
     add('citygate', 'Read the Chad City sign', CITY_SIGN.x - 0.4, CITY_SIGN.z - 1.2, 1.9, 'info')
+    BENCHES.forEach((b, i) => add(`bench_${i}`, 'Sit and watch Chad City', b.x, b.z + 0.75, 1.1, 'activity'))
     for (const r of RESIDENTS) if (r.talk) add(r.id, r.talk, r.talkAt?.[0] ?? r.x, r.talkAt?.[1] ?? r.z, r.talkAt ? 1.6 : 2.2, 'talk')
 
     // the suspicious pumpkin
@@ -442,10 +450,41 @@ export class World implements GameScene {
     const m = this.markers.get(id)
     if (m) m.visible = false
   }
-  collect(id: string) {
+  collect(id: string, animate = false) {
     const s = this.seeds.get(id)
-    if (s) s.visible = false
     this.interactables = this.interactables.filter((i) => i.id !== id)
+    if (!s) return
+    if (animate && this.player?.playOnce && !this.jumper.airborne) {
+      // crouch down and pick it up (library clip); the seed vanishes as the hand reaches it
+      this.emoter.cancel(this.player)
+      this.playerYaw = Math.atan2(s.position.x - this.playerPos.x, s.position.z - this.playerPos.z)
+      this.playerVel.set(0, 0, 0)
+      this.lockT = this.player.playOnce('pickup', 0.15, { timeScale: 1.35, maxDur: 1.5 })
+      this.pendingHide = { g: s, t: 0.55 }
+    } else s.visible = false
+  }
+  /** sit on lookout bench i (plays the sit-down clip, then the seated loop until the player moves) */
+  sit(i: number) {
+    const b = BENCHES[i]
+    const p = this.player
+    if (!b || !p?.playOnce || this.seat || this.jumper.airborne) return
+    this.emoter.cancel(p)
+    this.playerVel.set(0, 0, 0)
+    this.playerPos.set(b.x, groundHeight(b.x, b.z), b.z + SEAT_FWD)
+    this.playerYaw = b.ry
+    this.seat = { b: i, phase: 'enter', t: 0, dur: p.playOnce('sitDown', 0.2) }
+  }
+  private standUp() {
+    const s = this.seat
+    const p = this.player
+    if (!s || s.phase !== 'sit') return
+    s.phase = 'exit'
+    s.t = 0
+    s.dur = p?.playOnce?.('standUp', 0.2) ?? 0
+  }
+  /** QA */
+  seatState() {
+    return this.seat ? { ...this.seat } : null
   }
   cooldown(s = 0.4) {
     this.actionCooldown = s
@@ -634,7 +673,30 @@ export class World implements GameScene {
     this.camYaw -= look.x * 0.006 * this.cameraSensitivity
     this.camPitch = Math.max(0.08, Math.min(1.05, this.camPitch + look.y * 0.004 * this.cameraSensitivity))
 
-    const mv = this.paused ? { x: 0, z: 0, run: false } : this.input.move()
+    let mv = this.paused ? { x: 0, z: 0, run: false } : this.input.move()
+    let jumpReq = this.input.takeJump()
+    this.lockT = Math.max(0, this.lockT - dt)
+    if (this.pendingHide && (this.pendingHide.t -= dt) <= 0) {
+      this.pendingHide.g.visible = false
+      this.pendingHide = null
+    }
+    const seat = this.seat
+    if (seat) {
+      seat.t += dt
+      const wantsUp = Math.hypot(mv.x, mv.z) > 0.3 || jumpReq || this.input.takeAction()
+      if (seat.phase === 'enter' && seat.t >= seat.dur) seat.phase = 'sit'
+      else if (seat.phase === 'sit' && wantsUp) this.standUp()
+      else if (seat.phase === 'exit' && seat.t >= seat.dur) {
+        // stood up: step clear of the bench so the collider doesn't shove the player
+        const b = BENCHES[seat.b]
+        this.playerPos.set(b.x + Math.sin(b.ry) * 0.62, this.playerPos.y, b.z + Math.cos(b.ry) * 0.62)
+        this.seat = null
+      }
+    }
+    if (this.seat || this.lockT > 0) {
+      mv = { x: 0, z: 0, run: false }
+      jumpReq = false
+    }
     const fwd = new THREE.Vector3(-Math.sin(this.camYaw), 0, -Math.cos(this.camYaw))
     const right = new THREE.Vector3(-fwd.z, 0, fwd.x)
     const wish = fwd.multiplyScalar(mv.z).add(right.multiplyScalar(mv.x))
@@ -642,14 +704,14 @@ export class World implements GameScene {
     const maxSpeed = mv.run ? RUN : WALK
     const targetVel = mag > 0.01 ? wish.normalize().multiplyScalar(maxSpeed * mag) : new THREE.Vector3()
     // jump (Space / touch button); moving or jumping ends an emote
-    if (this.input.takeJump() && !this.paused && this.jumper.tryJump(p)) this.emoter.cancel(p)
+    if (jumpReq && !this.paused && this.jumper.tryJump(p)) this.emoter.cancel(p)
     if (mag > 0.05 && this.emoter.busy) this.emoter.cancel(p)
     this.jumper.update(dt, p)
     this.emoter.update(dt)
     const nowSpeed = Math.hypot(this.playerVel.x, this.playerVel.z)
     this.playerVel.lerp(targetVel, 1 - Math.exp(-dt * velocityRate(mag > 0.01, nowSpeed, this.jumper.airborne)))
     this.playerPos.addScaledVector(this.playerVel, dt)
-    this.resolve(this.playerPos, PLAYER_R)
+    if (!this.seat) this.resolve(this.playerPos, PLAYER_R) // seated = inside the bench's collider on purpose
     const gy = groundHeight(this.playerPos.x, this.playerPos.z)
     this.playerPos.y += (gy - this.playerPos.y) * (1 - Math.exp(-dt * 18))
 
@@ -672,7 +734,7 @@ export class World implements GameScene {
       p.root.position.y += this.jumper.y
       p.root.rotation.y = this.playerYaw
       p.speed = speed / WALK
-      p.pose = this.emoter.pose() ?? (speed > 0.1 ? 'walk' : 'idle')
+      p.pose = this.seat && this.seat.phase !== 'exit' ? 'sit' : this.emoter.pose() ?? (speed > 0.1 ? 'walk' : 'idle')
       if (p.lean) {
         let dy = this.playerYaw - yaw0
         dy = Math.atan2(Math.sin(dy), Math.cos(dy))
@@ -690,7 +752,7 @@ export class World implements GameScene {
     // interaction prompt
     let best: Interactable | null = null
     let bestD = Infinity
-    if (!this.paused)
+    if (!this.paused && !this.seat && this.lockT === 0)
       for (const it of this.interactables) {
         const d = Math.hypot(it.pos.x - this.playerPos.x, it.pos.z - this.playerPos.z)
         if (d < it.radius + PLAYER_R && d < bestD) {
@@ -705,6 +767,7 @@ export class World implements GameScene {
     this.actionCooldown = Math.max(0, this.actionCooldown - dt)
     if (this.input.takeAction() && this.prompt && !this.paused && this.actionCooldown === 0) {
       audio.play('interact')
+      if (this.prompt.id.startsWith('bench_')) this.sit(+this.prompt.id.slice(6))
       this.events.onInteract(this.prompt.id)
     }
 

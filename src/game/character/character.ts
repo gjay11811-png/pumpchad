@@ -21,7 +21,7 @@ export interface Character {
   kind: 'procedural' | 'model'
   update(dt: number): void
   /** real models only: play a library clip once (punches, celebrate...), returns its length in seconds */
-  playOnce?(name: OneShot): number
+  playOnce?(name: OneShot, fade?: number, opts?: { timeScale?: number; maxDur?: number }): number
   cancelOneShot?(): void
   /** real models: start a jump (crouch → take-off clip); the scene owns the physics */
   jump?(): void

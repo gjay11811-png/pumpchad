@@ -220,7 +220,7 @@ export function GameApp() {
       case 'seed_3':
       case 'seed_4':
       case 'seed_5': {
-        w.collect(id)
+        w.collect(id, true)
         discover(id)
         audio.play('perfect')
         const n = saveRef.current.progress.discoveries.filter((x) => x.startsWith('seed_')).length
@@ -374,6 +374,7 @@ export function GameApp() {
       gym: () => (gym.current ? { mode: gym.current.mode, prompt: gym.current.interactables.length } : null),
       gymGoto: (id: string) => gym.current?.goto(id),
       anim: () => world.current?.animState() ?? gym.current?.animState() ?? null,
+      seat: () => world.current?.seatState() ?? null,
       character: () => (world.current?.player ?? null)?.kind ?? null,
       showroom: () => showroom.current,
     }

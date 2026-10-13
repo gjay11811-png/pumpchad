@@ -53,9 +53,9 @@ if (want('body')) {
 // only what the game uses; add clip names here when a feature needs them. Both libraries share the 65-bone rig.
 const PACKS = [
   ['Universal Animation Library[Standard]/Unreal-Godot/UAL1_Standard.glb', 'chad_anims.glb',
-    ['Idle_Loop', 'Walk_Loop', 'Jog_Fwd_Loop', 'Sprint_Loop', 'Dance_Loop', 'Interact', 'Idle_Talking_Loop', 'Jump_Start', 'Jump_Loop', 'Jump_Land', 'Punch_Jab', 'Punch_Cross']],
+    ['Idle_Loop', 'Walk_Loop', 'Jog_Fwd_Loop', 'Sprint_Loop', 'Dance_Loop', 'Interact', 'Idle_Talking_Loop', 'Jump_Start', 'Jump_Loop', 'Jump_Land', 'Punch_Jab', 'Punch_Cross', 'Sitting_Enter', 'Sitting_Idle_Loop', 'Sitting_Exit']],
   ['ual2/Universal Animation Library 2[Standard]/Unreal-Godot/UAL2_Standard.glb', 'chad_anims2.glb',
-    ['Melee_Hook', 'Yes', 'Idle_FoldArms_Loop', 'OverhandThrow', 'ClimbUp_1m', 'Slide_Start', 'Slide_Loop', 'Slide_Exit']],
+    ['Melee_Hook', 'Yes', 'Idle_FoldArms_Loop', 'OverhandThrow', 'ClimbUp_1m', 'Slide_Start', 'Slide_Loop', 'Slide_Exit', 'Farm_Harvest']],
 ]
 if (want('anims')) for (const [file, outName, keep] of PACKS) {
   const KEEP = new Set(keep)

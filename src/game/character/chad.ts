@@ -47,10 +47,11 @@ export async function loadChadAssets(species: Appearance['species'] = 'pumpkin')
 const CLIPS = {
   idle: 'Idle_Loop', walk: 'Walk_Loop', jog: 'Jog_Fwd_Loop', sprint: 'Sprint_Loop', dance: 'Dance_Loop', interact: 'Interact', talk: 'Idle_Talking_Loop',
   jumpStart: 'Jump_Start', jumpLoop: 'Jump_Loop', jumpLand: 'Jump_Land', jab: 'Punch_Jab', cross: 'Punch_Cross', hook: 'Melee_Hook',
+  sitDown: 'Sitting_Enter', sit: 'Sitting_Idle_Loop', standUp: 'Sitting_Exit', pickup: 'Farm_Harvest',
   yes: 'Yes', folded: 'Idle_FoldArms_Loop', throw: 'OverhandThrow', climb: 'ClimbUp_1m', slideStart: 'Slide_Start', slide: 'Slide_Loop', slideExit: 'Slide_Exit',
 }
 /** clips that play once and hand back to the pose-driven base clip */
-export type OneShot = 'jab' | 'cross' | 'hook' | 'yes' | 'throw' | 'climb' | 'jumpStart' | 'jumpLand' | 'interact'
+export type OneShot = 'jab' | 'cross' | 'hook' | 'yes' | 'throw' | 'climb' | 'jumpStart' | 'jumpLand' | 'interact' | 'sitDown' | 'standUp' | 'pickup'
 /* Measured with scripts/sweep-stride.mjs: zero-slip speeds are walk 0.91, jog 6.2, sprint 9.4 m/s.
    Jog/sprint are set slightly lower (≈8% slip) for a livelier cadence at game speeds. */
 const CLIP_SPEED = { walk: 0.91, jog: 5.8, sprint: 8.8 }
@@ -990,6 +991,7 @@ export class PumpkinChad implements Character {
     else if (this.pose === 'hammer') name = 'interact'
     else if (this.pose === 'dance') name = 'dance'
     else if (this.pose === 'folded') name = 'folded'
+    else if (this.pose === 'sit') name = 'sit'
     else if (this.pose === 'idle' || this.pose === 'walk') name = ms < 0.15 ? 'idle' : ms < 1.6 ? 'walk' : ms < 4.8 ? 'jog' : 'sprint'
     this.play(name, name === 'jumpLoop' ? 0.3 : 0.25)
     if (name === 'walk' || name === 'jog' || name === 'sprint') {
