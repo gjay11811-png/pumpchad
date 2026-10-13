@@ -51,7 +51,8 @@ export function DialoguePanel({ d, onDone, reduced }: { d: Dialogue; onDone: (o:
     >
       <div className="panel mx-auto max-w-2xl rounded-[24px] p-5 md:p-6" onClick={advance} data-testid="dialogue">
         <div className="flex items-baseline justify-between gap-3">
-          <p className="font-display text-2xl uppercase tracking-wide text-molten">{d.speaker}</p>
+          {/* all-lowercase names (b4s) are stylised that way on purpose: keep their case */}
+          <p className={`font-display text-2xl tracking-wide text-molten ${d.speaker === d.speaker.toLowerCase() ? '' : 'uppercase'}`}>{d.speaker}</p>
           <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ash">{d.role}</p>
         </div>
         <p className="mt-3 min-h-[3.5rem] text-[17px] leading-relaxed text-bone md:text-lg" aria-live="polite">

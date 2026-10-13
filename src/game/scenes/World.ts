@@ -20,7 +20,7 @@ import { B4S_BENCH, PLAZA_BENCHES, SEAT_FWD } from './world/props'
 /** the three talking pumpkins (one-time discoveries; all three → Gourd Council) */
 const GOURDS = [
   { id: 'gourd_1', name: 'Sage Gourd', x: -8.4, z: 16.0, r: 0.36, face: 3, facing: Math.PI / 2 + 0.4 },
-  { id: 'gourd_2', name: 'Grumpy Gourd', x: -30.3, z: -2.4, r: 0.33, face: 1, facing: Math.PI / 4 },
+  { id: 'gourd_2', name: 'Grumpy Gourd', x: -28.8, z: -5.2, r: 0.33, face: 1, facing: Math.PI / 4 },
   { id: 'gourd_3', name: 'Tiny Gourd', x: 3.7, z: -24.6, r: 0.18, face: 2, facing: 0 },
 ]
 
