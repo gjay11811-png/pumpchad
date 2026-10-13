@@ -8,6 +8,8 @@ export type StationSpec = {
   id: StationId
   /** stat this station trains (STR / STA on the HUD) */
   stat: 'strength' | 'stamina'
+  /** timing UI: the tempo ring (default) or the Chad Press-style horizontal bar */
+  timing?: 'ring' | 'bar'
   name: string
   /** button label for one rep */
   verb: string
@@ -28,7 +30,7 @@ export const STATIONS: Record<StationId, StationSpec> = {
   bench: { id: 'bench', stat: 'strength', name: 'Bench Press', verb: 'Press', pose: 'bench', reps: 10, beat: 1.5, window: 0.16, rest: 1, pts: { clean: 4, sloppy: 1 }, tip: 'Lower the bar, then drive it up on the beat.' },
   curl: { id: 'curl', stat: 'strength', name: 'Dumbbell Curls', verb: 'Curl', pose: 'curl', reps: 12, beat: 1.15, window: 0.17, rest: 0, pts: { clean: 3, sloppy: 1 }, tip: 'Elbows pinned. Curl when the ring locks in.' },
   squat: { id: 'squat', stat: 'strength', name: 'Back Squat', verb: 'Squat', pose: 'squat', reps: 10, beat: 1.7, window: 0.15, rest: 0, pts: { clean: 5, sloppy: 1 }, tip: 'Sit back, drive up through the heels.' },
-  bag: { id: 'bag', stat: 'stamina', name: 'Heavy Bag', verb: 'Punch', pose: 'guard', reps: 15, beat: 0.85, window: 0.2, rest: 0, pts: { clean: 2, sloppy: 1 }, tip: 'Jab, jab, cross — hit on the beat for full power.' },
+  bag: { id: 'bag', stat: 'stamina', timing: 'bar', name: 'Heavy Bag', verb: 'Punch', pose: 'guard', reps: 15, beat: 0.85, window: 0.2, rest: 0, pts: { clean: 2, sloppy: 1 }, tip: 'Jab, jab, cross. Punch while the marker is in the zone for full power.' },
   deadlift: { id: 'deadlift', stat: 'strength', name: 'Deadlift', verb: 'Pull', pose: 'deadlift', reps: 8, beat: 1.9, window: 0.15, rest: 0, pts: { clean: 6, sloppy: 1 }, tip: 'Flat back, bar close. Stand it up on the beat.' },
   pullup: { id: 'pullup', stat: 'strength', name: 'Pull-Ups', verb: 'Pull', pose: 'pullup', reps: 8, beat: 1.6, window: 0.15, rest: 0, pts: { clean: 5, sloppy: 1 }, tip: 'Dead hang, then chin over the bar on the beat.' },
   treadmill: { id: 'treadmill', stat: 'stamina', name: 'Treadmill', verb: 'Stride', pose: 'walk', reps: 20, beat: 0.7, window: 0.2, rest: 0, pts: { clean: 2, sloppy: 1 }, tip: 'Stride on the beat to pick up the pace. Miss and the belt slows you down.' },
@@ -36,6 +38,13 @@ export const STATIONS: Record<StationId, StationSpec> = {
 /** treadmill belt speed (m/s): clean strides push the pace up, sloppy ones drop it, and it drifts back down if you stop */
 export const TREADMILL = { start: 2.2, min: 1.6, max: 7.6, up: 0.6, down: 0.7, decay: 0.18 }
 export const nextPace = (pace: number, g: RepGrade) => Math.min(TREADMILL.max, Math.max(TREADMILL.min, pace + (g === 'clean' ? TREADMILL.up : -TREADMILL.down)))
+
+/**
+ * Timing-bar stations (heavy bag) reuse the Chad Press bar: a marker sweeps across, punch inside the zone.
+ * Steadier and roomier than the Chad Press itself — the bag is a workout, not the hard mode.
+ */
+export const BAR = { good: 0.17, perfect: 0.065, speed: 0.85 }
+export const barZone = (rand: () => number = Math.random) => ({ center: 0.22 + rand() * 0.56, good: BAR.good, perfect: BAR.perfect, speed: BAR.speed })
 
 /** Position inside the current beat, 0..1 (1 = the ring closes on the target). */
 export const beatPhase = (t: number, beat: number) => (t / beat) % 1

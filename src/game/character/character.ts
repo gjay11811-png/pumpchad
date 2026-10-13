@@ -31,6 +31,14 @@ export interface Character {
   lean?: { turn: number; accel: number }
   /** real models: allow personality fidgets while standing idle */
   fidgets?: boolean
+  /** real models: arm IK — put each WRIST so the palm lands on a world-space grip point (call after update) */
+  grip?(targetL: THREE.Vector3 | null, targetR: THREE.Vector3 | null): void
+  /** real models: world-space point between the two palms (where a held bar sits) */
+  palmCenter?(out?: THREE.Vector3): THREE.Vector3
+  /** real models: world-space palm position of one hand */
+  palm?(side: 'l' | 'r', out?: THREE.Vector3): THREE.Vector3
+  /** real models: world-space point between the shoulder joints */
+  shoulderCenter?(out?: THREE.Vector3): THREE.Vector3
 }
 
 const loader = new GLTFLoader()

@@ -2,7 +2,7 @@
 //   SHOTS=dir node scripts/gym-new.mjs [stations] [Species]
 import { chromium } from 'playwright'
 const out = process.env.SHOTS
-const stations = (process.argv[2] || 'deadlift,pullup,treadmill').split(',')
+const stations = (process.argv[2] || 'bench,curl,squat,bag,deadlift,pullup,treadmill').split(',')
 const species = process.argv[3] || 'Pumpkin'
 const b = await chromium.launch({ executablePath: process.env.LOCALAPPDATA + '/ms-playwright/chromium-1228/chrome-win64/chrome.exe' })
 const p = await b.newPage({ viewport: { width: 1100, height: 760 } })
@@ -42,11 +42,13 @@ for (const id of stations) {
   await w(300)
   let lo = { y: Infinity }
   let hi = { y: -Infinity }
+  let asym = 0
   for (let rep = 0; rep < (id === 'treadmill' ? 8 : 1); rep++) {
-    await p.click('[data-testid=workout-rep]').catch(() => {})
+    if (rep === 0 || id === 'treadmill') await p.click('[data-testid=workout-rep]').catch(() => {})
     for (let k = 0; k < (id === 'treadmill' ? 6 : 22); k++) {
       const s = await ins()
       const y = (s.handL[1] + s.handR[1]) / 2
+      if (id !== 'bag' && id !== 'treadmill') asym = Math.max(asym, Math.abs(s.handL[1] - s.handR[1]))
       if (y < lo.y) lo = { y, s }
       if (y > hi.y) hi = { y, s }
       if (id !== 'treadmill' && k === 7) await p.screenshot({ path: `${out}/gn-${id}-mid.jpg`, quality: 78 })
@@ -54,7 +56,7 @@ for (const id of stations) {
     }
   }
   const s = await ins()
-  console.log(id, 'hand y range', lo.y.toFixed(2), '→', hi.y.toFixed(2), '| pelvis at low', fmt(lo.s.pelvis), 'at high', fmt(hi.s.pelvis), '| feet low', fmt(lo.s.footL), '| clip now', s.clip, '| pace', await p.evaluate(() => window.__chadverse.gym()?.pace ?? null))
+  console.log(id, 'max hand height difference', asym.toFixed(3), '| hand y range', lo.y.toFixed(2), '→', hi.y.toFixed(2), '| pelvis at low', fmt(lo.s.pelvis), 'at high', fmt(hi.s.pelvis), '| feet low', fmt(lo.s.footL), '| clip now', s.clip, '| pace', await p.evaluate(() => window.__chadverse.gym()?.pace ?? null))
   await p.screenshot({ path: `${out}/gn-${id}-end.jpg`, quality: 78 })
   await p.click('[data-testid=workout-stop]')
   await w(700)

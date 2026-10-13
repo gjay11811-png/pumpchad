@@ -41,6 +41,22 @@ const tapOnBeatNow = () =>
     () =>
       new Promise((res) => {
         const btn = document.querySelector('[data-testid=workout-rep]')
+        const bar = document.querySelector('[data-testid=workout-bar]')
+        if (bar) {
+          // timing-bar station: wait for the marker to sit inside the zone, then punch
+          const t0b = performance.now() + 380 // the station ignores taps < 0.3 s apart: let the next zone appear first
+          const tickb = () => {
+            if (performance.now() < t0b) return requestAnimationFrame(tickb)
+            const c = +bar.dataset.center
+            const g = +bar.dataset.good
+            const m = parseFloat(document.querySelector('[data-testid=workout-marker]').style.left) / 100
+            if (Math.abs(m - c) < g * 0.6 || performance.now() - t0b > 4000) {
+              btn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+              res(m)
+            } else requestAnimationFrame(tickb)
+          }
+          return tickb()
+        }
         const ring = btn?.closest('.panel')?.querySelector('[class*="ring-bone"]')
         const t0 = performance.now()
         let armed = false // wait for the ring to open again, then tap as it closes (one tap per beat)
@@ -102,7 +118,7 @@ for (const [id, cfg] of Object.entries(STA)) {
   const rest = await ins()
   if (id === 'bench') check(rest.headBone[1] < 0.95 && rest.pelvis[1] > 0.4, `lies on the bench (head ${rest.headBone[1].toFixed(2)} m, hips ${rest.pelvis[1].toFixed(2)} m)`)
   else if (id === 'deadlift') check(rest.headBone[1] < 1.2 && (rest.handL[1] + rest.handR[1]) / 2 < 0.5, `set up over the bar on the floor (head ${rest.headBone[1].toFixed(2)} m, hands ${((rest.handL[1] + rest.handR[1]) / 2).toFixed(2)} m)`)
-  else if (id === 'pullup') check((rest.handL[1] + rest.handR[1]) / 2 > rest.headBone[1] + 0.2, `dead hang: hands above the head (hands ${((rest.handL[1] + rest.handR[1]) / 2).toFixed(2)}, head ${rest.headBone[1].toFixed(2)})`)
+  else if (id === 'pullup') check((rest.handL[1] + rest.handR[1]) / 2 > (rest.shoulderL[1] + rest.shoulderR[1]) / 2 + 0.4, `dead hang: hands well above the shoulders (hands ${((rest.handL[1] + rest.handR[1]) / 2).toFixed(2)}, shoulders ${((rest.shoulderL[1] + rest.shoulderR[1]) / 2).toFixed(2)})`)
   else if (id === 'treadmill') check(/Walk|Jog|Sprint/.test(rest.clip ?? ''), `on the belt with a real locomotion clip (${rest.clip})`)
   else check(rest.headBone[1] > 1.3, `stands at the ${id} (head ${rest.headBone[1].toFixed(2)} m)`)
   const before = (await save()).progress

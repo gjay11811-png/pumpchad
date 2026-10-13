@@ -1117,6 +1117,62 @@ export class PumpkinChad implements Character {
     }
   }
 
+  /* ── grip IK: hands on bars / handles ── */
+  private gk = { s: new THREE.Vector3(), e: new THREE.Vector3(), w: new THREE.Vector3(), t: new THREE.Vector3(), d: new THREE.Vector3(), bend: new THREE.Vector3(), f: new THREE.Vector3(), q: new THREE.Quaternion() }
+  /** how far the palm (where a bar sits) is from the wrist bone, along the forearm */
+  private static PALM = 0.075
+  /** world-space palm of one hand: wrist + a few cm along the forearm */
+  palm(side: 'l' | 'r', out = new THREE.Vector3()) {
+    const e = this.bone(`lowerarm_${side}`).getWorldPosition(this.gk.e)
+    const w = this.bone(`hand_${side}`).getWorldPosition(out)
+    return w.add(this.gk.f.subVectors(w, e).normalize().multiplyScalar(PumpkinChad.PALM))
+  }
+  shoulderCenter(out = new THREE.Vector3()) {
+    this.bone('upperarm_l').getWorldPosition(out)
+    return out.add(this.bone('upperarm_r').getWorldPosition(this.gk.t)).multiplyScalar(0.5)
+  }
+  palmCenter(out = new THREE.Vector3()) {
+    this.palm('l', out)
+    return out.add(this.palm('r', this.gk.t)).multiplyScalar(0.5)
+  }
+  /**
+   * Two-bone arm IK. Each palm is placed on its grip point (world space); the elbow keeps its current bend
+   * plane so arms never flip. Applied on top of the posed skeleton after update(); the next frame starts clean.
+   */
+  grip(targetL: THREE.Vector3 | null, targetR: THREE.Vector3 | null) {
+    this.root.updateMatrixWorld(true)
+    const inv = this.root.getWorldQuaternion(this.gk.q).invert()
+    for (const [side, target] of [['l', targetL], ['r', targetR]] as const) {
+      if (!target) continue
+      const K = this.gk
+      const upper = this.bone(`upperarm_${side}`)
+      const lower = this.bone(`lowerarm_${side}`)
+      const hand = this.bone(`hand_${side}`)
+      upper.getWorldPosition(K.s)
+      lower.getWorldPosition(K.e)
+      hand.getWorldPosition(K.w)
+      // wrist target: back off from the grip point by the palm offset along the current forearm
+      K.f.subVectors(K.w, K.e).normalize()
+      K.t.copy(target).addScaledVector(K.f, -PumpkinChad.PALM)
+      const l1 = K.s.distanceTo(K.e)
+      const l2 = K.e.distanceTo(K.w)
+      K.d.subVectors(K.t, K.s)
+      const dist = THREE.MathUtils.clamp(K.d.length(), Math.abs(l1 - l2) + 1e-3, l1 + l2 - 1e-3)
+      K.d.normalize()
+      const a = Math.acos(THREE.MathUtils.clamp((l1 * l1 + dist * dist - l2 * l2) / (2 * l1 * dist), -1, 1))
+      // keep the elbow's current bend direction (perpendicular to shoulder→wrist), fall back to "down and out"
+      K.bend.subVectors(K.e, K.s)
+      K.bend.addScaledVector(K.d, -K.bend.dot(K.d))
+      if (K.bend.lengthSq() < 1e-6) K.bend.set(0, -1, 0)
+      K.bend.normalize()
+      const elbow = K.s.clone().addScaledVector(K.d, Math.cos(a) * l1).addScaledVector(K.bend, Math.sin(a) * l1)
+      this.aim(upper, lower, elbow.sub(K.s).applyQuaternion(inv), 1)
+      lower.getWorldPosition(K.e)
+      const wrist = K.s.clone().addScaledVector(K.d, dist)
+      this.aim(lower, hand, wrist.sub(K.e).applyQuaternion(inv), 1)
+    }
+  }
+
   private ik = { hip: new THREE.Vector3(), knee: new THREE.Vector3(), ankle: new THREE.Vector3(), d: new THREE.Vector3(), bend: new THREE.Vector3() }
   /** Squat: drop the pelvis, lean the torso, then re-solve each leg so the ankles stay where the idle pose planted them. */
   private squatLegs(depth: number, shape = { drop: 0.42, back: 0.12, lean: 0.5 }) {

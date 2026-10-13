@@ -2,7 +2,8 @@ import { AnimatePresence, m } from 'framer-motion'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Gym } from '../scenes/Gym'
 import { audio } from '../audio'
-import { applyRep, beatPhase, judgeTap, newSet, type RepGrade, type SetState, type StationSpec } from '../workout'
+import { applyRep, barZone, beatPhase, judgeTap, newSet, type RepGrade, type SetState, type StationSpec } from '../workout'
+import { judge, markerAt } from '../chadpress'
 import { Btn, Label } from './kit'
 
 type Phase = 'ready' | 'playing' | 'done'
@@ -28,6 +29,12 @@ export function WorkoutPanel({
   const [reward, setReward] = useState({ xp: 0, stat: 0, mult: 1 })
   const statTag = spec.stat === 'stamina' ? 'STA' : 'STR'
   const ringRef = useRef<HTMLDivElement>(null)
+  const isBar = spec.timing === 'bar'
+  const [zone, setZone] = useState(() => barZone())
+  const zoneRef = useRef(zone)
+  zoneRef.current = zone
+  const markerRef = useRef<HTMLDivElement>(null)
+  const markerPos = useRef(0)
   const paceRef = useRef<HTMLSpanElement>(null)
   const t0 = useRef(0)
   const lastTap = useRef(-10)
@@ -40,7 +47,12 @@ export function WorkoutPanel({
     if (phase !== 'playing') return
     t0.current = performance.now()
     const loop = () => {
-      const ph = beatPhase((performance.now() - t0.current) / 1000, spec.beat)
+      const now = (performance.now() - t0.current) / 1000
+      if (isBar) {
+        markerPos.current = markerAt(now, zoneRef.current.speed)
+        if (markerRef.current) markerRef.current.style.left = `${markerPos.current * 100}%`
+      }
+      const ph = beatPhase(now, spec.beat)
       if (ringRef.current) {
         ringRef.current.style.transform = `scale(${1 + (1 - ph) * 1.25})`
         ringRef.current.style.opacity = String(0.35 + ph * 0.65)
@@ -51,7 +63,7 @@ export function WorkoutPanel({
     }
     raf.current = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(raf.current)
-  }, [phase, spec.beat, gym])
+  }, [phase, spec.beat, gym, isBar])
 
   const start = () => {
     audio.play('confirm')
@@ -67,7 +79,11 @@ export function WorkoutPanel({
     const now = (performance.now() - t0.current) / 1000
     if (now - lastTap.current < spec.beat * (spec.id === 'bag' ? 0.35 : 0.55)) return // no spamming through a rep
     lastTap.current = now
-    const g = judgeTap(beatPhase(now, spec.beat), spec)
+    // bar stations: inside the zone = a clean, full-power hit; a new zone each punch
+    const barGrade = isBar ? judge(markerPos.current, zoneRef.current) : null
+    const g: RepGrade = isBar ? (barGrade === 'miss' ? 'sloppy' : 'clean') : judgeTap(beatPhase(now, spec.beat), spec)
+    if (isBar) setZone(barZone())
+    if (barGrade === 'perfect') gym.perfectFlash()
     const { state, points } = applyRep(setRef.current, g, spec)
     setSet(state)
     setLast({ g, pts: points, k: state.reps })
@@ -81,7 +97,7 @@ export function WorkoutPanel({
         setPhase('done')
       }, 650)
     }
-  }, [phase, spec, gym, onSetDone])
+  }, [phase, spec, gym, onSetDone, isBar])
 
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
@@ -130,7 +146,15 @@ export function WorkoutPanel({
             <p className="font-display text-3xl uppercase">{spec.reps} reps on the beat</p>
             <p className="mt-2 text-[15px] text-bone/75">{spec.tip}</p>
             <p className="mt-2 text-[15px] text-bone/75">
-              Tap <span className="text-moon">{spec.verb}</span> (or Space / E) as the ring closes: <span className="text-moon">clean</span> reps build strength fast and chain combos.
+              {isBar ? (
+                <>
+                  Tap <span className="text-moon">{spec.verb}</span> (or Space / E) while the marker is inside the <span className="text-pump">orange</span> zone — <span className="text-moon">gold</span> centre for a perfect hit. Clean hits chain combos.
+                </>
+              ) : (
+                <>
+                  Tap <span className="text-moon">{spec.verb}</span> (or Space / E) as the ring closes: <span className="text-moon">clean</span> reps build strength fast and chain combos.
+                </>
+              )}
             </p>
             <p className="mt-3 font-mono text-[11px] uppercase tracking-[0.2em] text-ash">Lifetime reps here: {lifetimeReps}</p>
             <div className="mt-5 flex gap-2">
@@ -158,12 +182,21 @@ export function WorkoutPanel({
                 </AnimatePresence>
               </div>
               <div className="panel rounded-[22px] p-4">
+                {isBar && (
+                  <div className="relative mb-3 h-12 overflow-hidden rounded-xl bg-ink ring-1 ring-bone/10" data-testid="workout-bar" data-center={zone.center} data-good={zone.good}>
+                    <div className="absolute inset-y-0 bg-pump/40" style={{ left: `${(zone.center - zone.good) * 100}%`, width: `${zone.good * 200}%` }} />
+                    <div className="absolute inset-y-0 bg-[linear-gradient(180deg,#fff3cf,#e8b84a)] shadow-[0_0_20px_rgba(246,200,112,0.8)]" style={{ left: `${(zone.center - zone.perfect) * 100}%`, width: `${zone.perfect * 200}%` }} />
+                    <div ref={markerRef} className="absolute inset-y-1 w-1.5 -translate-x-1/2 rounded-full bg-bone shadow-[0_0_12px_#fff]" style={{ left: '0%' }} data-testid="workout-marker" />
+                  </div>
+                )}
                 <div className="flex items-center gap-4">
                   {/* tempo ring */}
-                  <div className="relative h-20 w-20 shrink-0" aria-hidden>
-                    <div className="absolute inset-[18%] rounded-full bg-[radial-gradient(circle,#fff3cf,#e8b84a)] shadow-[0_0_24px_rgba(246,200,112,0.75)]" />
-                    <div ref={ringRef} className="absolute inset-[18%] rounded-full ring-[3px] ring-bone" />
-                  </div>
+                  {!isBar && (
+                    <div className="relative h-20 w-20 shrink-0" aria-hidden>
+                      <div className="absolute inset-[18%] rounded-full bg-[radial-gradient(circle,#fff3cf,#e8b84a)] shadow-[0_0_24px_rgba(246,200,112,0.75)]" />
+                      <div ref={ringRef} className="absolute inset-[18%] rounded-full ring-[3px] ring-bone" />
+                    </div>
+                  )}
                   <div className="min-w-0 flex-1">
                     <div className="h-2 overflow-hidden rounded-full bg-bone/10" role="progressbar" aria-label="Set progress" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
                       <div className="h-full rounded-full bg-[linear-gradient(90deg,#f6c870,#ff7a1a)] transition-[width] duration-300" style={{ width: `${pct}%` }} />

@@ -37,6 +37,10 @@ const SPOTS: Record<'press' | StationId, Spot> = {
 const PULL_BAR_Y = 2.42
 /** deadlift bar centre height when resting on the floor (big plates are 0.3 m radius) */
 const DL_FLOOR_Y = 0.3
+/** the pull-up bar sits this far in front of the hanging body, so the head clears it at the top */
+const PULL_BAR_FWD = 0.24
+/** half the grip width (m) on each barbell: hands go exactly this far either side of the bar centre */
+const GRIP = { press: 0.3, bench: 0.36, squat: 0.4, deadlift: 0.24, pullup: 0.33 } as const
 const BAG = new THREE.Vector3(5.2, 0, 3.35)
 
 type Box = { x0: number; x1: number; z0: number; z1: number }
@@ -331,9 +335,9 @@ export class Gym implements GameScene {
       bar.position.set(0, PULL_BAR_Y, 0)
       g.add(bar)
       g.add(mesh(new THREE.BoxGeometry(1.34, 0.06, 0.06), orange, 0, PULL_BAR_Y + 0.1, 0))
-      g.position.set(x, 0, z)
+      g.position.set(x, 0, z + PULL_BAR_FWD) // frame + bar just in front of where the lifter hangs
       s.add(cast(g))
-      for (const sx of [-0.62, 0.62]) this.boxes.push({ x0: x + sx - 0.08, x1: x + sx + 0.08, z0: z - 0.55, z1: z + 0.55 })
+      for (const sx of [-0.62, 0.62]) this.boxes.push({ x0: x + sx - 0.08, x1: x + sx + 0.08, z0: z + PULL_BAR_FWD - 0.55, z1: z + PULL_BAR_FWD + 0.55 })
     }
     // ── treadmill along the west wall: deck, scrolling belt, side rails, console ──
     {
@@ -782,17 +786,46 @@ export class Gym implements GameScene {
       }
       p.update(dt)
       p.root.updateMatrixWorld(true)
-      let a = p.fistL.getWorldPosition(new THREE.Vector3())
-      let b = p.fistR.getWorldPosition(new THREE.Vector3())
+      const hasGrip = !!(p.grip && p.palmCenter && p.palm)
       if (this.mode === 'pullup') {
-        // hang from the bar: lift the whole body so the fists sit exactly on it (the arm pose sets the body height)
-        p.root.position.y += Math.max(0, PULL_BAR_Y - (a.y + b.y) / 2)
+        // hang from the bar: lift the whole body so the palms reach the bar (the arm pose sets the body height)
+        const c = hasGrip ? p.palmCenter!() : p.fistL.getWorldPosition(new THREE.Vector3()).add(p.fistR.getWorldPosition(new THREE.Vector3())).multiplyScalar(0.5)
+        let lift = PULL_BAR_Y - c.y
+        if (hasGrip && p.shoulderCenter) {
+          // the bar is a little in front of the body: raise the shoulders until the arms' current reach meets it
+          const sh = p.shoulderCenter()
+          const reach = sh.distanceTo(c)
+          const h = Math.hypot(SPOTS.pullup.stand[0] - sh.x, SPOTS.pullup.stand[1] + PULL_BAR_FWD - sh.z)
+          lift = PULL_BAR_Y - sh.y - Math.sqrt(Math.max(0, reach * reach - h * h))
+        }
+        p.root.position.y += Math.max(0, lift)
         p.root.updateMatrixWorld(true)
-        a = p.fistL.getWorldPosition(new THREE.Vector3())
-        b = p.fistR.getWorldPosition(new THREE.Vector3())
       }
-      const mid = a.clone().add(b).multiplyScalar(0.5)
-      // Chad Press bar rides in the fists only during the press
+      // ── grips: both palms locked onto the bar, level and symmetric about the body (arm IK) ──
+      const grip = GRIP[this.mode as keyof typeof GRIP]
+      let mid: THREE.Vector3
+      if (grip && hasGrip && p.pose !== 'flex') {
+        mid = this.mode === 'pullup' ? new THREE.Vector3(SPOTS.pullup.stand[0], PULL_BAR_Y, SPOTS.pullup.stand[1] + PULL_BAR_FWD) : p.palmCenter!()
+        if (this.mode === 'deadlift') mid.y = Math.max(DL_FLOOR_Y, mid.y) // the bar never sinks into the floor
+        const axis = new THREE.Vector3(Math.cos(this.yaw), 0, -Math.sin(this.yaw)) // the body's left-right line
+        const lSide = Math.sign(p.palm!('l').sub(mid).dot(axis)) || 1
+        p.grip!(mid.clone().addScaledVector(axis, lSide * grip), mid.clone().addScaledVector(axis, -lSide * grip))
+      } else if (this.mode === 'curl' && hasGrip) {
+        // dumbbells: mirror the two hands so they rise level together
+        const L = p.palm!('l')
+        const R = p.palm!('r')
+        const c = L.clone().add(R).multiplyScalar(0.5)
+        const axis = new THREE.Vector3(Math.cos(this.yaw), 0, -Math.sin(this.yaw))
+        const half = Math.abs(L.clone().sub(R).dot(axis)) / 2
+        const lSide = Math.sign(L.clone().sub(c).dot(axis)) || 1
+        p.grip!(c.clone().addScaledVector(axis, lSide * half), c.clone().addScaledVector(axis, -lSide * half))
+        mid = c
+      } else {
+        mid = hasGrip ? p.palmCenter!() : p.fistL.getWorldPosition(new THREE.Vector3()).add(p.fistR.getWorldPosition(new THREE.Vector3())).multiplyScalar(0.5)
+      }
+      const a = hasGrip ? p.palm!('l') : p.fistL.getWorldPosition(new THREE.Vector3())
+      const b = hasGrip ? p.palm!('r') : p.fistR.getWorldPosition(new THREE.Vector3())
+      // Chad Press bar rides in the palms only during the press
       this.bar.visible = this.mode === 'press' && p.pose === 'press'
       if (this.bar.visible) {
         this.bar.position.copy(mid)
@@ -811,9 +844,9 @@ export class Gym implements GameScene {
         this.squatBar.position.copy(mid)
         this.squatBar.rotation.y = this.yaw
       } else this.squatBar.position.set(SPOTS.squat.stand[0], 1.48, SPOTS.squat.stand[1] + 0.5)
-      // deadlift bar: in the hands during the set (never through the floor), loaded on the platform otherwise
+      // deadlift bar: in the hands during the set, loaded on the platform otherwise
       if (this.mode === 'deadlift') {
-        this.deadBar.position.set(mid.x, Math.max(DL_FLOOR_Y, mid.y), mid.z)
+        this.deadBar.position.copy(mid)
         this.deadBar.rotation.y = this.yaw
       } else {
         this.deadBar.position.set(SPOTS.deadlift.stand[0], DL_FLOOR_Y, SPOTS.deadlift.stand[1] + 0.28)
@@ -833,7 +866,7 @@ export class Gym implements GameScene {
     // heavy bag: damped pendulum, kicked by punches
     if (this.pendingHit >= 0 && this.t >= this.pendingHit) {
       this.pendingHit = -1
-      this.bagVel -= 2.6 * this.bagHit
+      this.bagVel -= 0.42 * this.bagHit // a heavy bag sways ~20–30 cm per hit, it does not fly
       audio.play('thud')
       if (this.bagHit > 0.9) this.camKick = 1
     }
