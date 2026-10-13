@@ -86,6 +86,7 @@ export class Engine {
     const pmrem = new THREE.PMREMGenerator(this.renderer)
     const room = new RoomEnvironment()
     this.env = pmrem.fromScene(room, 0.04).texture
+    this.env.userData.shared = true // owned by the engine: scenes may reference it (gym mirrors) but never dispose it
     room.traverse((o) => (o as THREE.Mesh).geometry?.dispose())
     pmrem.dispose()
     this.ro = new ResizeObserver(() => this.resize())
