@@ -7,7 +7,8 @@ import type { Appearance } from './character/types'
 import { DIALOGUE, PUMPKIN_LINES, type Dialogue, type DialogueOption } from './dialogue'
 import { Engine } from './engine/Engine'
 import { Input } from './input'
-import { ACHIEVEMENTS, defaultSave, loadSave, writeSave, type SaveData, type Settings } from './save'
+import { ACHIEVEMENTS, defaultSave, levelFor, loadSave, writeSave, type SaveData, type Settings } from './save'
+import { STAT_FOR, levelsGained, rollDaily, setRewards } from './progression'
 import { Gym, type GymMode } from './scenes/Gym'
 import { STATIONS, setXp, type SetState, type StationId } from './workout'
 import { WorkoutPanel } from './ui/WorkoutPanel'
@@ -17,12 +18,12 @@ import { ChadPress } from './ui/ChadPress'
 import { Creator } from './ui/Creator'
 import { DialoguePanel } from './ui/DialoguePanel'
 import { Loading, Portal, Title } from './ui/Entrance'
-import { Hud, Toasts, type Toast } from './ui/Hud'
+import { Hud, LevelUpBanner, Toasts, type Toast } from './ui/Hud'
 import { Joystick } from './ui/Joystick'
-import { AchievementsMenu, PauseMenu, SettingsMenu } from './ui/Menus'
+import { AchievementsMenu, PauseMenu, ProfileMenu, SettingsMenu } from './ui/Menus'
 
 type Phase = 'boot' | 'title' | 'creator' | 'world' | 'gym' | 'error'
-type Overlay = null | 'pause' | 'settings' | 'achievements'
+type Overlay = null | 'pause' | 'settings' | 'achievements' | 'profile'
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 const ACH_XP = 25
 
@@ -51,6 +52,18 @@ export function GameApp() {
   const [gymMode, setGymMode] = useState<GymMode>('free')
   const [error, setError] = useState('')
   const [touch] = useState(() => window.matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window)
+  const [levelUp, setLevelUp] = useState<number | null>(null)
+  const lastXp = useRef(save.progress.xp)
+  // level-up moment: fires for every XP source (sets, Chad Press, achievements, mini-games)
+  useEffect(() => {
+    const gained = levelsGained(lastXp.current, save.progress.xp, levelFor)
+    lastXp.current = save.progress.xp
+    if (!gained.length) return
+    setLevelUp(gained[gained.length - 1])
+    audio.play('achievement')
+    const t = setTimeout(() => setLevelUp(null), 3000)
+    return () => clearTimeout(t)
+  }, [save.progress.xp])
 
   const pumpToasts = () => {
     const t = toastQueue.current.shift()
@@ -332,15 +345,29 @@ export function GameApp() {
 
   const finishSet = useCallback(
     (station: StationId, set: SetState) => {
-      const xp = setXp(set, STATIONS[station])
-      setSave((s) => ({
-        ...s,
-        progress: { ...s.progress, xp: s.progress.xp + xp, strength: s.progress.strength + set.strength, reps: { ...s.progress.reps, [station]: (s.progress.reps[station] ?? 0) + set.reps } },
-      }))
+      // daily fatigue: the first sets at a station pay in full, repeats pay less (stops XP farming)
+      const r = setRewards(setXp(set, STATIONS[station]), set.strength, rollDaily(saveRef.current.progress.daily).sets[station] ?? 0)
+      const stat = STAT_FOR[station]
+      setSave((s) => {
+        const d = rollDaily(s.progress.daily)
+        const p = s.progress
+        return {
+          ...s,
+          progress: {
+            ...p,
+            xp: p.xp + r.xp,
+            strength: p.strength + (stat === 'strength' ? r.stat : 0),
+            stamina: p.stamina + (stat === 'stamina' ? r.stat : 0),
+            reps: { ...p.reps, [station]: (p.reps[station] ?? 0) + set.reps },
+            stats: { sets: p.stats.sets + 1, clean: p.stats.clean + set.clean, bestCombo: Math.max(p.stats.bestCombo, set.maxCombo) },
+            daily: { day: d.day, sets: { ...d.sets, [station]: (d.sets[station] ?? 0) + 1 } },
+          },
+        }
+      })
       const reps = saveRef.current.progress.reps
       if ((Object.keys(STATIONS) as StationId[]).every((k) => (reps[k] ?? 0) >= STATIONS[k].reps)) unlock('full_circuit')
       if (Object.values(reps).reduce((a, b) => a + b, 0) >= 100) unlock('century')
-      return xp
+      return r
     },
     [setSave, unlock],
   )
@@ -400,6 +427,7 @@ export function GameApp() {
                   prompt={dialogue || overlay ? null : prompt}
                   touch={touch}
                   onPause={() => setOverlay('pause')}
+                  onProfile={() => setOverlay('profile')}
                   onToggleSound={() => changeSettings({ muted: !s.muted })}
                   onAction={() => input.current?.queueAction()}
                   onEmote={(id) => world.current?.emote(id)}
@@ -418,6 +446,7 @@ export function GameApp() {
                   prompt={overlay ? null : prompt}
                   touch={touch}
                   onPause={() => setOverlay('pause')}
+                  onProfile={() => setOverlay('profile')}
                   onToggleSound={() => changeSettings({ muted: !s.muted })}
                   onAction={() => input.current?.queueAction()}
                   onEmote={(id) => gym.current?.emote(id)}
@@ -439,6 +468,7 @@ export function GameApp() {
             )}
 
             <Toasts toasts={toasts} />
+            <AnimatePresence>{levelUp !== null && (phase === 'world' || phase === 'gym') && <LevelUpBanner key={levelUp} level={levelUp} />}</AnimatePresence>
 
             <AnimatePresence>
               {overlay === 'pause' && (
@@ -451,6 +481,7 @@ export function GameApp() {
                     setOverlay('settings')
                   }}
                   onAchievements={() => setOverlay('achievements')}
+                  onProfile={() => setOverlay('profile')}
                   onEditCharacter={() => {
                     setEditing(true)
                     void go('creator', { label: 'Opening the wardrobe' })
@@ -459,6 +490,7 @@ export function GameApp() {
               )}
               {overlay === 'settings' && <SettingsMenu key="settings" settings={s} onChange={changeSettings} onBack={() => setOverlay(settingsFrom)} onResetProgress={resetProgress} />}
               {overlay === 'achievements' && <AchievementsMenu key="ach" save={save} onBack={() => setOverlay('pause')} />}
+              {overlay === 'profile' && <ProfileMenu key="profile" save={save} onBack={() => setOverlay(null)} />}
             </AnimatePresence>
 
             <AnimatePresence>

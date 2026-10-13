@@ -1,6 +1,9 @@
 import { m } from 'framer-motion'
 import { useEffect, useState } from 'react'
-import { ACHIEVEMENTS, type SaveData, type Settings } from '../save'
+import { ACHIEVEMENTS, levelFor, xpForLevel, type SaveData, type Settings } from '../save'
+import { STATIONS, type StationId } from '../workout'
+import { fatigueMult, rollDaily, statLevel } from '../progression'
+import { SPECIES } from '../character/types'
 import { Btn, Icon, Label, Segmented, Slider, Toggle } from './kit'
 
 const WEBSITE = import.meta.env.BASE_URL
@@ -11,12 +14,14 @@ export function PauseMenu({
   onEditCharacter,
   onSettings,
   onAchievements,
+  onProfile,
 }: {
   save: SaveData
   onResume: () => void
   onEditCharacter: () => void
   onSettings: () => void
   onAchievements: () => void
+  onProfile: () => void
 }) {
   useEsc(onResume)
   const got = save.progress.achievements.length
@@ -30,6 +35,9 @@ export function PauseMenu({
       <div className="mt-6 grid gap-2.5">
         <Btn size="lg" onClick={onResume} sound="confirm">
           Resume
+        </Btn>
+        <Btn variant="ghost" onClick={onProfile} data-testid="pause-profile">
+          Profile &amp; stats
         </Btn>
         <Btn variant="ghost" onClick={onAchievements}>
           Achievements · {got}/{Object.keys(ACHIEVEMENTS).length}
@@ -45,6 +53,105 @@ export function PauseMenu({
         </a>
       </div>
     </Overlay>
+  )
+}
+
+/** Player profile: level, stats, workout totals, records. All local and cosmetic. */
+export function ProfileMenu({ save, onBack }: { save: SaveData; onBack: () => void }) {
+  useEsc(onBack)
+  const p = save.progress
+  const lvl = levelFor(p.xp)
+  const lo = xpForLevel(lvl)
+  const hi = xpForLevel(lvl + 1)
+  const pct = Math.round(((p.xp - lo) / (hi - lo)) * 100)
+  const daily = rollDaily(p.daily)
+  const totalReps = Object.values(p.reps).reduce((a, b) => a + b, 0)
+  const seeds = p.discoveries.filter((d) => d.startsWith('seed_')).length
+  const species = SPECIES.find((s) => s.id === save.character?.appearance.species)?.name ?? 'Chad'
+  const stat = (label: string, pts: number) => {
+    const l = statLevel(pts)
+    const a = 20 * (l - 1) ** 2
+    const b = 20 * l ** 2
+    return (
+      <div className="rounded-2xl bg-bone/[0.04] p-3 ring-1 ring-bone/10">
+        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ash">{label}</p>
+        <p className="font-display text-3xl leading-none">
+          Lv {l} <span className="font-mono text-[11px] text-bone/50">{pts} pts</span>
+        </p>
+        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-bone/10">
+          <div className="h-full rounded-full bg-[linear-gradient(90deg,#f6c870,#ff7a1a)]" style={{ width: `${Math.round(((pts - a) / (b - a)) * 100)}%` }} />
+        </div>
+      </div>
+    )
+  }
+  return (
+    <Overlay label="Profile">
+      <Header title="Profile" onBack={onBack} />
+      <div className="mt-3 flex items-center gap-3" data-testid="profile">
+        <div className="flex h-14 w-14 flex-col items-center justify-center rounded-2xl bg-[linear-gradient(160deg,#ff9a3c,#c2540c)] text-ink">
+          <span className="font-mono text-[9px] font-semibold leading-none">LVL</span>
+          <span className="font-display text-2xl leading-none" data-testid="profile-level">{lvl}</span>
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-display text-2xl uppercase leading-tight">{save.character?.name}</p>
+          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ash">
+            {species} · {p.xp} XP · {hi - p.xp} to level {lvl + 1}
+          </p>
+          <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-bone/10">
+            <div className="h-full rounded-full bg-[linear-gradient(90deg,#f6c870,#ff7a1a)]" style={{ width: `${pct}%` }} />
+          </div>
+        </div>
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        {stat('Strength', p.strength)}
+        {stat('Stamina', p.stamina)}
+      </div>
+      <p className="mt-5 font-mono text-[10px] uppercase tracking-[0.22em] text-moon">Workouts</p>
+      <div className="mt-2 grid grid-cols-4 gap-2 text-center">
+        {(
+          [
+            ['Sets', p.stats.sets],
+            ['Reps', totalReps],
+            ['Clean', p.stats.clean],
+            ['Best combo', p.stats.bestCombo],
+          ] as const
+        ).map(([k, v]) => (
+          <div key={k} className="rounded-xl bg-bone/[0.04] py-2 ring-1 ring-bone/10">
+            <p className="font-display text-xl">{v}</p>
+            <p className="font-mono text-[9px] uppercase tracking-[0.12em] text-ash">{k}</p>
+          </div>
+        ))}
+      </div>
+      <ul className="mt-2 grid gap-1">
+        {(Object.keys(STATIONS) as StationId[]).map((id) => {
+          const m = fatigueMult(daily.sets[id] ?? 0)
+          return (
+            <li key={id} className="flex items-center justify-between rounded-xl px-3 py-1.5 text-[13px] odd:bg-bone/[0.03]">
+              <span>{STATIONS[id].name}</span>
+              <span className="font-mono text-[11px] text-bone/60">
+                {p.reps[id] ?? 0} reps · <span className={m < 1 ? 'text-alarm' : 'text-moon'}>{m < 1 ? `${Math.round(m * 100)}% today` : 'fresh'}</span>
+              </span>
+            </li>
+          )
+        })}
+      </ul>
+      <p className="mt-5 font-mono text-[10px] uppercase tracking-[0.22em] text-moon">Records &amp; exploring</p>
+      <div className="mt-2 grid grid-cols-2 gap-2 text-[13px]">
+        <Row k="Chad Press best" v={p.gymBest ? String(p.gymBest) : '—'} />
+        <Row k="Pumpkin Rush best" v={p.records.pumpkin_rush ? String(p.records.pumpkin_rush) : '—'} />
+        <Row k="Golden seeds" v={`${seeds}/5`} />
+        <Row k="Achievements" v={`${p.achievements.length}/${Object.keys(ACHIEVEMENTS).length}`} />
+      </div>
+      <p className="mt-4 text-[12px] text-bone/45">Progress lives on this device only. XP, levels and stats are just for fun — no cash value, nothing to withdraw.</p>
+    </Overlay>
+  )
+}
+function Row({ k, v }: { k: string; v: string }) {
+  return (
+    <div className="flex items-center justify-between rounded-xl bg-bone/[0.04] px-3 py-2 ring-1 ring-bone/10">
+      <span className="text-bone/70">{k}</span>
+      <span className="font-display text-lg">{v}</span>
+    </div>
   )
 }
 

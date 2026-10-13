@@ -29,8 +29,16 @@ export type Progress = {
   discoveries: string[]
   /** lifetime strength points from gym stations */
   strength: number
-  /** lifetime reps per station (bench / curl / squat / bag) */
+  /** lifetime reps per station */
   reps: Record<string, number>
+  /** lifetime stamina points from cardio stations (treadmill, heavy bag) */
+  stamina: number
+  /** lifetime workout stats */
+  stats: { sets: number; clean: number; bestCombo: number }
+  /** per-station sets finished today (anti-farm fatigue) */
+  daily: { day: string; sets: Record<string, number> }
+  /** mini-game personal bests (Chad Press best stays in gymBest) */
+  records: Record<string, number>
 }
 
 export type SaveData = {
@@ -57,7 +65,7 @@ export const defaultSettings = (): Settings => ({
 export const defaultSave = (): SaveData => ({
   version: SAVE_VERSION,
   character: null,
-  progress: { xp: 0, achievements: [], gymBest: 0, gymRuns: 0, discoveries: [], strength: 0, reps: {} },
+  progress: { xp: 0, achievements: [], gymBest: 0, gymRuns: 0, discoveries: [], strength: 0, reps: {}, stamina: 0, stats: { sets: 0, clean: 0, bestCombo: 0 }, daily: { day: '', sets: {} }, records: {} },
   settings: defaultSettings(),
 })
 
@@ -100,16 +108,20 @@ function sanitizeAppearance(a: unknown): Appearance | null {
   }
 }
 
-/** station → rep count, only known stations, whole non-negative numbers */
-function repMap(v: unknown): Record<string, number> {
+const STATION_KEYS = ['bench', 'curl', 'squat', 'bag', 'deadlift', 'pullup', 'treadmill']
+/** whitelisted key → whole non-negative number */
+function countMap(v: unknown, keys: string[], max = 1e7): Record<string, number> {
   const out: Record<string, number> = {}
   if (!v || typeof v !== 'object') return out
-  for (const k of ['bench', 'curl', 'squat', 'bag', 'deadlift', 'pullup', 'treadmill']) {
+  for (const k of keys) {
     const n = (v as Record<string, unknown>)[k]
-    if (typeof n === 'number' && Number.isFinite(n) && n > 0) out[k] = Math.min(1e7, Math.floor(n))
+    if (typeof n === 'number' && Number.isFinite(n) && n > 0) out[k] = Math.min(max, Math.floor(n))
   }
   return out
 }
+/** station → rep count, only known stations */
+const repMap = (v: unknown) => countMap(v, STATION_KEYS)
+export const RECORD_KEYS = ['pumpkin_rush']
 
 export function sanitizeSave(raw: unknown): SaveData {
   const d = defaultSave()
@@ -139,6 +151,17 @@ export function sanitizeSave(raw: unknown): SaveData {
       discoveries: strList(p.discoveries),
       strength: Math.floor(num(p.strength, 0, 1e7, 0)),
       reps: repMap(p.reps),
+      stamina: Math.floor(num(p.stamina, 0, 1e7, 0)),
+      stats: (() => {
+        const st = (p.stats ?? {}) as Record<string, unknown>
+        return { sets: Math.floor(num(st.sets, 0, 1e6, 0)), clean: Math.floor(num(st.clean, 0, 1e7, 0)), bestCombo: Math.floor(num(st.bestCombo, 0, 1000, 0)) }
+      })(),
+      daily: (() => {
+        const dl = (p.daily ?? {}) as Record<string, unknown>
+        const day = typeof dl.day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dl.day) ? dl.day : ''
+        return { day, sets: countMap(dl.sets, STATION_KEYS, 1000) }
+      })(),
+      records: countMap(p.records, RECORD_KEYS, 1e6),
     },
     settings: {
       quality: oneOf(s.quality, ['low', 'medium', 'high'] as const, d.settings.quality),

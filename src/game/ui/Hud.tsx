@@ -22,6 +22,7 @@ export function Hud({
   prompt,
   touch,
   onPause,
+  onProfile,
   onToggleSound,
   onAction,
   onEmote,
@@ -32,6 +33,8 @@ export function Hud({
   prompt: Interactable | null
   touch: boolean
   onPause: () => void
+  /** open the player profile (tap the level badge) */
+  onProfile?: () => void
   onToggleSound: () => void
   onAction: () => void
   onEmote?: (id: EmoteId) => void
@@ -48,7 +51,7 @@ export function Hud({
     <div className="pointer-events-none absolute inset-0">
       {/* top bar */}
       <div className="flex items-start justify-between gap-3 safe-t safe-x">
-        <div className="panel pointer-events-auto flex items-center gap-3 rounded-2xl py-2 pl-2 pr-4">
+        <button type="button" onClick={onProfile} aria-label="Open profile" data-testid="hud-profile" className="panel pointer-events-auto flex items-center gap-3 rounded-2xl py-2 pl-2 pr-4 text-left transition-transform active:scale-[0.97]">
           <div className="flex h-11 w-11 flex-col items-center justify-center rounded-xl bg-[linear-gradient(160deg,#ff9a3c,#c2540c)] text-ink">
             <span className="font-mono text-[9px] font-semibold leading-none">LVL</span>
             <span className="font-display text-xl leading-none">{lvl}</span>
@@ -62,7 +65,7 @@ export function Hud({
               <span className="font-mono text-[10px] text-moon">{xp} XP</span>
             </div>
           </div>
-        </div>
+        </button>
         <div className="pointer-events-auto flex gap-2">
           <IconBtn label={save.settings.muted ? 'Turn sound on' : 'Mute sound'} onClick={onToggleSound}>
             {save.settings.muted ? <Icon.mute /> : <Icon.sound />}
@@ -123,6 +126,28 @@ export function Hud({
       )}
       {onEmote && onJump && <EmoteWheel touch={touch} disabled={emotesDisabled} onEmote={onEmote} onJump={onJump} />}
     </div>
+  )
+}
+
+/** big centred "LEVEL UP" moment */
+export function LevelUpBanner({ level }: { level: number }) {
+  return (
+    <m.div
+      initial={{ opacity: 0, scale: 0.7 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 1.08 }}
+      transition={{ type: 'spring', stiffness: 260, damping: 18 }}
+      className="pointer-events-none absolute inset-x-0 top-[28%] z-30 flex flex-col items-center"
+      role="status"
+      aria-live="assertive"
+      data-testid="level-up"
+    >
+      <p className="font-mono text-[12px] uppercase tracking-[0.45em] text-moon">Level up</p>
+      <p className="font-display text-[clamp(4rem,14vw,8rem)] uppercase leading-[0.9] text-transparent [-webkit-text-stroke:0] bg-[linear-gradient(180deg,#fff3cf,#f6c870_45%,#ff7a1a)] bg-clip-text drop-shadow-[0_0_30px_rgba(255,122,26,0.55)]">
+        Level {level}
+      </p>
+      <p className="mt-1 text-[14px] text-bone/75">Bigger. Stronger. Chaddier.</p>
+    </m.div>
   )
 }
 

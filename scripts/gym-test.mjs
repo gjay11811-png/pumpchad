@@ -143,7 +143,8 @@ for (const [id, cfg] of Object.entries(STA)) {
   const doneTxt = await p.locator('[data-testid=workout-done]').textContent().catch(() => '')
   check(/\+\d+/.test(doneTxt), `set completes with strength reward (${doneTxt?.trim()})`)
   const after = (await save()).progress
-  check(after.strength > before.strength && (after.reps[id] ?? 0) === (before.reps[id] ?? 0) + cfg.reps, `saved: strength ${before.strength}→${after.strength}, ${id} reps ${before.reps[id] ?? 0}→${after.reps[id]}`)
+  const stat = id === 'bag' || id === 'treadmill' ? 'stamina' : 'strength' // cardio stations train stamina
+  check(after[stat] > before[stat] && (after.reps[id] ?? 0) === (before.reps[id] ?? 0) + cfg.reps, `saved: ${stat} ${before[stat]}→${after[stat]}, ${id} reps ${before.reps[id] ?? 0}→${after.reps[id]}`)
   const grades = await p.locator('[data-testid=workout-count]').textContent()
   check(after.xp > before.xp, `XP awarded (${before.xp}→${after.xp})`)
   await p.click('[data-testid=workout-again]')

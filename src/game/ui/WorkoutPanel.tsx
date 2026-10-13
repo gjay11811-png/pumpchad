@@ -18,14 +18,15 @@ export function WorkoutPanel({
   gym: Gym
   spec: StationSpec
   lifetimeReps: number
-  /** called once per finished set; returns the XP actually awarded */
-  onSetDone: (s: SetState) => number
+  /** called once per finished set; returns the rewards actually awarded (after daily fatigue) */
+  onSetDone: (s: SetState) => { xp: number; stat: number; mult: number }
   onStop: () => void
 }) {
   const [phase, setPhase] = useState<Phase>('ready')
   const [set, setSet] = useState<SetState>(newSet())
   const [last, setLast] = useState<{ g: RepGrade; pts: number; k: number } | null>(null)
-  const [xp, setXp] = useState(0)
+  const [reward, setReward] = useState({ xp: 0, stat: 0, mult: 1 })
+  const statTag = spec.stat === 'stamina' ? 'STA' : 'STR'
   const ringRef = useRef<HTMLDivElement>(null)
   const paceRef = useRef<HTMLSpanElement>(null)
   const t0 = useRef(0)
@@ -76,7 +77,7 @@ export function WorkoutPanel({
       setTimeout(() => {
         gym.setDone()
         audio.play('achievement')
-        setXp(onSetDone(state))
+        setReward(onSetDone(state))
         setPhase('done')
       }, 650)
     }
@@ -116,7 +117,7 @@ export function WorkoutPanel({
             <span className="text-bone/40">/{spec.reps}</span>
           </p>
           <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ash">
-            Reps · +{set.strength} STR{set.combo >= 3 ? ` · ×${set.combo}` : ''}
+            Reps · +{set.strength} {statTag}{set.combo >= 3 ? ` · ×${set.combo}` : ''}
           </p>
         </div>
       </div>
@@ -202,7 +203,7 @@ export function WorkoutPanel({
           <Card key="done">
             <Label className="text-moon/80">Set complete</Label>
             <p className="mt-1 font-display text-6xl leading-none" data-testid="workout-done">
-              +{set.strength} <span className="text-3xl text-bone/60">STR</span>
+              +{reward.stat} <span className="text-3xl text-bone/60">{statTag}</span>
             </p>
             <div className="mt-4 grid grid-cols-3 gap-2 text-center">
               {[
@@ -216,7 +217,12 @@ export function WorkoutPanel({
                 </div>
               ))}
             </div>
-            <p className="mt-4 text-center font-display text-2xl uppercase text-molten">+{xp} XP</p>
+            <p className="mt-4 text-center font-display text-2xl uppercase text-molten">+{reward.xp} XP</p>
+            {reward.mult < 1 && (
+              <p className="mt-1 text-center font-mono text-[11px] uppercase tracking-[0.16em] text-ash" data-testid="workout-fatigue">
+                Fatigued · {Math.round(reward.mult * 100)}% rewards here today — try another station
+              </p>
+            )}
             <div className="mt-4 flex gap-2">
               <Btn className="flex-1" onClick={start} sound={null} data-testid="workout-again">
                 Go again
