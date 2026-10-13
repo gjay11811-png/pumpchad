@@ -17,6 +17,7 @@ import { BENCHES, CITY_SIGN, kingdom, mountains, valleyRoad } from './world/king
 import { buildChadCity } from './world/skyline'
 import { kingdomStyle, styleMaterials } from './world/style'
 import * as TX from './world/textures'
+import { RushGame } from '../minigames/pumpkinRush'
 
 export type Interactable = { id: string; label: string; pos: THREE.Vector3; radius: number; kind: 'talk' | 'activity' | 'info' | 'collect' | 'secret' }
 export type WorldEvents = {
@@ -27,6 +28,8 @@ export type WorldEvents = {
 const BOUNDS = 34.5
 const WALK = 3.4
 const RUN = 6.2
+/** the Pumpkin Rush cart (start point of the mini-game) on the plaza */
+export const RUSH_CART = { x: 10.2, z: 10.4 }
 /** where the player's root stands relative to a bench centre so the seated clip lands on the seat */
 const SEAT_FWD = 0.12
 const PLAYER_R = 0.45
@@ -94,6 +97,8 @@ export class World implements GameScene {
   /** movement locked while a full-body action plays (picking up a seed) */
   private lockT = 0
   private pendingHide: { g: THREE.Object3D; t: number } | null = null
+  /** Pumpkin Rush mini-game (lives in the square; the UI drives start / stop) */
+  rush!: RushGame
   cameraSensitivity = 1
   private t = 0
   private disposed = false
@@ -225,6 +230,7 @@ export class World implements GameScene {
       }
       return z < CASTLE_Z + 2
     }
+    this.rushCart(T) // before vegetation (nothing grows through it) and before the static batch is built
     vegetation(T, q, avoid)
 
     // merge everything static into a few draw calls
@@ -257,6 +263,33 @@ export class World implements GameScene {
 
     this.buildLightsAndSky(q)
     this.buildInteractables(T)
+  }
+
+  /** Pumpkin Rush cart: a market barrow heaped with pumpkins under a hanging sign (start of the mini-game) */
+  private rushCart(T: Town) {
+    const { x, z } = RUSH_CART
+    const P = T.P
+    const box = new THREE.BoxGeometry(1, 1, 1)
+    const wheel = new THREE.CylinderGeometry(0.38, 0.38, 0.08, 16)
+    wheel.rotateZ(Math.PI / 2)
+    const gourd = new THREE.SphereGeometry(0.26, 14, 10)
+    gourd.scale(1, 0.8, 1)
+    this.disposables.push(box, wheel, gourd)
+    T.batch.put(box, P.woodLight, x, 0.62, z, 0, 1.7, 0.12, 1.0) // bed
+    for (const sx of [-0.86, 0.86]) T.batch.put(box, P.timber, x + sx, 0.82, z, 0, 0.06, 0.42, 1.0) // sides
+    for (const sz of [-0.5, 0.5]) T.batch.put(box, P.timber, x, 0.82, z + sz, 0, 1.7, 0.42, 0.06)
+    for (const sx of [-0.92, 0.92]) T.batch.put(wheel, P.iron, x + sx, 0.38, z - 0.15)
+    for (const sx of [-0.6, 0.6]) T.batch.put(box, P.timber, x + sx, 1.45, z - 0.45, 0, 0.07, 1.7, 0.07) // sign posts
+    T.batch.put(box, P.timber, x, 2.25, z - 0.45, 0, 1.4, 0.07, 0.07)
+    const heap: [number, number, number][] = [[-0.5, 0.92, -0.2], [0, 0.92, 0.15], [0.5, 0.92, -0.15], [-0.25, 1.12, 0.05], [0.28, 1.12, 0.1], [-0.55, 0.92, 0.28], [0.55, 0.92, 0.3]]
+    for (const [dx, y, dz] of heap) T.batch.put(gourd, P.pumpkin, x + dx, y, z + dz, dx * 3)
+    const signMat = new THREE.MeshStandardMaterial({ map: TX.shopSign('PUMPKIN RUSH', '45-second sprint'), roughness: 0.7, emissive: '#3a1a08', side: THREE.DoubleSide })
+    this.disposables.push(signMat, signMat.map!)
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.25, 0.62), signMat)
+    sign.position.set(x, 1.86, z - 0.42)
+    this.disposables.push(sign.geometry)
+    this.scene.add(sign)
+    T.colliders.push({ kind: 'box', minX: x - 1.0, maxX: x + 1.0, minZ: z - 0.6, maxZ: z + 0.6, h: 1.2 })
   }
 
   private buildSky() {
@@ -315,6 +348,16 @@ export class World implements GameScene {
     add('pumpkin', 'Poke the suspicious pumpkin', -9.6, 10.4, 2.1, 'info')
     add('citygate', 'Read the Chad City sign', CITY_SIGN.x - 0.4, CITY_SIGN.z - 1.2, 1.9, 'info')
     BENCHES.forEach((b, i) => add(`bench_${i}`, 'Sit and watch Chad City', b.x, b.z + 0.75, 1.1, 'activity'))
+    add('rush', 'Play Pumpkin Rush', RUSH_CART.x, RUSH_CART.z + 1.3, 1.5, 'activity')
+    // open, walkable plaza ground for rush pumpkins: inside the walls, clear of every collider, roughly level
+    const open = (x: number, z: number) => {
+      if (Math.hypot(x, z) > 29 || Math.abs(groundHeight(x, z)) > 0.35) return false
+      for (const c of this.colliders) {
+        if (c.kind === 'circle' ? Math.hypot(x - c.x, z - c.z) < c.r + 0.9 : x > c.minX - 0.9 && x < c.maxX + 0.9 && z > c.minZ - 0.9 && z < c.maxZ + 0.9) return false
+      }
+      return true
+    }
+    this.rush = new RushGame(this.scene, open, { r: 29 })
     for (const r of RESIDENTS) if (r.talk) add(r.id, r.talk, r.talkAt?.[0] ?? r.x, r.talkAt?.[1] ?? r.z, r.talkAt ? 1.6 : 2.2, 'talk')
 
     // the suspicious pumpkin
@@ -780,6 +823,7 @@ export class World implements GameScene {
     this.embers?.update(dt, t)
     this.leaves?.update(dt, t, this.playerPos.x, this.playerPos.z)
     this.city?.update(dt)
+    if (!this.paused) this.rush?.update(dt, this.playerPos, groundHeight)
     let mi = 0
     for (const [, m] of this.markers) {
       m.position.y += Math.sin(t * 2.4 + mi++) * 0.004
@@ -850,6 +894,7 @@ export class World implements GameScene {
 
   dispose() {
     this.disposed = true
+    this.rush?.dispose()
     if (this.player) disposeCharacter(this.player)
     this.crowd.dispose()
     disposeObject(this.scene)

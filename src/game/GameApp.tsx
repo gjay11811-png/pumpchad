@@ -12,6 +12,8 @@ import { STAT_FOR, levelsGained, rollDaily, setRewards } from './progression'
 import { Gym, type GymMode } from './scenes/Gym'
 import { STATIONS, setXp, type SetState, type StationId } from './workout'
 import { WorkoutPanel } from './ui/WorkoutPanel'
+import { RushPanel, type RushResult } from './ui/RushPanel'
+import { rushXp, type RushStats } from './minigames/pumpkinRush'
 import { Showroom } from './scenes/Showroom'
 import { World, type Interactable } from './scenes/World'
 import { ChadPress } from './ui/ChadPress'
@@ -53,6 +55,10 @@ export function GameApp() {
   const [error, setError] = useState('')
   const [touch] = useState(() => window.matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window)
   const [levelUp, setLevelUp] = useState<number | null>(null)
+  /** Pumpkin Rush: null = not playing; 'ready' / 'done' cards pause the world, 'run' lets you move */
+  const [rush, setRush] = useState<null | 'ready' | 'run' | 'done'>(null)
+  const rushRef = useRef(rush)
+  rushRef.current = rush
   const lastXp = useRef(save.progress.xp)
   // level-up moment: fires for every XP source (sets, Chad Press, achievements, mini-games)
   useEffect(() => {
@@ -206,7 +212,12 @@ export function GameApp() {
   handleInteractRef.current = (id: string) => {
     const w = world.current
     if (!w) return
+    if (rushRef.current === 'run') return // mid-sprint: nothing else steals the E key
     switch (id) {
+      case 'rush':
+        input.current?.clear()
+        setRush('ready')
+        break
       case 'coach':
       case 'hodl':
       case 'barkeep':
@@ -288,19 +299,19 @@ export function GameApp() {
 
   /* ── pause world while any UI is up ── */
   useEffect(() => {
-    const blocked = !!overlay || !!dialogue || !!portal
+    const blocked = !!overlay || !!dialogue || !!portal || rush === 'ready' || rush === 'done'
     if (world.current) world.current.paused = blocked
     if (gym.current) gym.current.paused = blocked
     if (input.current) {
       input.current.enabled = !blocked
       if (blocked) input.current.clear()
     }
-  }, [overlay, dialogue, portal, phase])
+  }, [overlay, dialogue, portal, phase, rush])
 
   /* ── keyboard: Esc opens pause in the world ── */
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && (phase === 'world' || (phase === 'gym' && gymMode === 'free')) && !overlay && !dialogue && !portal) setOverlay('pause')
+      if (e.key === 'Escape' && (phase === 'world' || (phase === 'gym' && gymMode === 'free')) && !overlay && !dialogue && !portal && !rushRef.current) setOverlay('pause')
     }
     window.addEventListener('keydown', k)
     return () => window.removeEventListener('keydown', k)
@@ -372,6 +383,27 @@ export function GameApp() {
     [setSave, unlock],
   )
 
+  /** a finished Pumpkin Rush: XP (with daily fatigue), personal best, achievement */
+  const finishRush = (st: RushStats): RushResult => {
+    const p0 = saveRef.current.progress
+    const r = setRewards(rushXp(st.score), 0, rollDaily(p0.daily).sets.pumpkin_rush ?? 0)
+    const prev = p0.records.pumpkin_rush ?? 0
+    setSave((s) => {
+      const d = rollDaily(s.progress.daily)
+      return {
+        ...s,
+        progress: {
+          ...s.progress,
+          xp: s.progress.xp + r.xp,
+          records: { ...s.progress.records, pumpkin_rush: Math.max(s.progress.records.pumpkin_rush ?? 0, st.score) },
+          daily: { day: d.day, sets: { ...d.sets, pumpkin_rush: (d.sets.pumpkin_rush ?? 0) + 1 } },
+        },
+      }
+    })
+    if (st.score >= 5000) unlock('rush_hour')
+    return { xp: r.xp, mult: r.mult, best: Math.max(prev, st.score), newBest: st.score > prev }
+  }
+
   const resetProgress = () => {
     const fresh = { ...defaultSave(), settings: saveRef.current.settings }
     setSave(() => fresh)
@@ -402,6 +434,8 @@ export function GameApp() {
       gymGoto: (id: string) => gym.current?.goto(id),
       anim: () => world.current?.animState() ?? gym.current?.animState() ?? null,
       seat: () => world.current?.seatState() ?? null,
+      rush: () => (world.current?.rush ? { phase: world.current.rush.phase, timeLeft: +world.current.rush.timeLeft.toFixed(2), combo: world.current.rush.combo, ...world.current.rush.stats, targets: world.current.rush.targetsInfo() } : null),
+      rushGame: () => world.current?.rush ?? null,
       character: () => (world.current?.player ?? null)?.kind ?? null,
       showroom: () => showroom.current,
     }
@@ -424,7 +458,7 @@ export function GameApp() {
                 {touch && !overlay && !dialogue && input.current && <Joystick input={input.current} sensitivity={s.stickSensitivity} />}
                 <Hud
                   save={save}
-                  prompt={dialogue || overlay ? null : prompt}
+                  prompt={dialogue || overlay || rush ? null : prompt}
                   touch={touch}
                   onPause={() => setOverlay('pause')}
                   onProfile={() => setOverlay('profile')}
@@ -434,6 +468,18 @@ export function GameApp() {
                   onJump={() => input.current?.queueJump()}
                   emotesDisabled={!!overlay || !!dialogue}
                 />
+                {rush && world.current?.rush && (
+                  <RushPanel
+                    rush={world.current.rush}
+                    best={save.progress.records.pumpkin_rush ?? 0}
+                    onPhase={setRush}
+                    onFinish={finishRush}
+                    onClose={() => {
+                      setRush(null)
+                      world.current?.cooldown()
+                    }}
+                  />
+                )}
                 <AnimatePresence>{dialogue && <DialoguePanel key={dialogue.speaker + dialogue.lines[0]} d={dialogue} onDone={closeDialogue} reduced={s.reducedEffects} />}</AnimatePresence>
               </>
             )}

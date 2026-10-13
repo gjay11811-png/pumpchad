@@ -159,7 +159,7 @@ export function sanitizeSave(raw: unknown): SaveData {
       daily: (() => {
         const dl = (p.daily ?? {}) as Record<string, unknown>
         const day = typeof dl.day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dl.day) ? dl.day : ''
-        return { day, sets: countMap(dl.sets, STATION_KEYS, 1000) }
+        return { day, sets: countMap(dl.sets, [...STATION_KEYS, ...RECORD_KEYS], 1000) }
       })(),
       records: countMap(p.records, RECORD_KEYS, 1e6),
     },
@@ -210,4 +210,5 @@ export const ACHIEVEMENTS: Record<string, { name: string; desc: string }> = {
   seed_collector: { name: 'Seed Collector', desc: 'Find all 5 golden seeds.' },
   full_circuit: { name: 'Full Circuit', desc: 'Finish a set on every gym station.' },
   century: { name: 'Century', desc: 'Do 100 reps at the gym stations.' },
+  rush_hour: { name: 'Rush Hour', desc: 'Score 5,000+ in Pumpkin Rush.' },
 }
