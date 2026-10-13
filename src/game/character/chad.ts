@@ -6,7 +6,8 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import type { Pose } from './build'
 import type { Character } from './character'
 import { normaliseForSpecies, type Appearance } from './types'
-import { buildChain, buildPumpkinHead, buildShades, buildHeadwear } from './chadParts'
+import { buildChain, buildPumpkinHead, buildShades, buildHeadwear, PUMPKIN_LOOK, shortsLogoTexture } from './chadParts'
+import { DecalGeometry } from 'three/examples/jsm/geometries/DecalGeometry.js'
 import { Fire } from '../scenes/world/fx'
 
 /**
@@ -367,6 +368,7 @@ export class PumpkinChad implements Character {
     this.root.updateMatrixWorld(true)
     mergeStatic(pumpkin, this.disposables)
     head.attach(pumpkin)
+    if (PUMPKIN_LOOK === 'v2') this.addShortsDetails(B)
     if (a.chain) {
       const chest = this.bone('spine_03')
       const neck = this.bone('neck_01').getWorldPosition(new THREE.Vector3())
@@ -378,6 +380,68 @@ export class PumpkinChad implements Character {
       this.root.updateMatrixWorld(true)
       chest.attach(chain)
     }
+  }
+
+  /**
+   * v2 (artwork match): jack-o'-lantern logo on the left leg of the shorts + a white drawstring.
+   * The logo is a DecalGeometry projected onto the bind-pose body (so it hugs the thigh) and rides the thigh bone.
+   */
+  private addShortsDetails(B: THREE.SkinnedMesh) {
+    const g = B.geometry
+    const pos = g.attributes.position as THREE.BufferAttribute
+    const si = g.attributes.skinIndex as THREE.BufferAttribute
+    const sw = g.attributes.skinWeight as THREE.BufferAttribute
+    const thighIdx = B.skeleton.bones.findIndex((b) => b.name === 'thigh_l')
+    const pelvisIdx = B.skeleton.bones.findIndex((b) => b.name === 'pelvis')
+    if (thighIdx < 0) return
+    B.updateMatrixWorld(true)
+    const thigh = this.bone('thigh_l')
+    const ty = thigh.getWorldPosition(new THREE.Vector3()).y
+    const v = new THREE.Vector3()
+    const best = new THREE.Vector3(0, 0, -Infinity)
+    let waistFront = -Infinity
+    let waistY = 0
+    for (let i = 0; i < pos.count; i++) {
+      let w = 0
+      let wp = 0
+      for (let k = 0; k < 4; k++) {
+        if (si.getComponent(i, k) === thighIdx) w += sw.getComponent(i, k)
+        if (si.getComponent(i, k) === pelvisIdx) wp += sw.getComponent(i, k)
+      }
+      v.fromBufferAttribute(pos, i).applyMatrix4(B.matrixWorld)
+      if (w > 0.6 && v.y < ty - 0.07 && v.y > ty - 0.12 && v.z > best.z) best.copy(v)
+      if (wp > 0.6 && Math.abs(v.x) < 0.03 && v.y > ty + 0.02 && v.y < ty + 0.09 && v.z > waistFront) {
+        waistFront = v.z
+        waistY = v.y
+      }
+    }
+    if (!Number.isFinite(best.z)) return
+    const tex = shortsLogoTexture()
+    const mat = new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.4, roughness: 0.85, polygonOffset: true, polygonOffsetFactor: -4, depthWrite: false })
+    const dg = new DecalGeometry(B as unknown as THREE.Mesh, best, new THREE.Euler(0, 0.25 * Math.sign(best.x || 1), 0), new THREE.Vector3(0.1, 0.1, 0.08))
+    this.disposables.push(tex, mat, dg)
+    const logo = new THREE.Mesh(dg, mat)
+    logo.name = 'cloth:shortsLogo'
+    this.root.add(logo)
+    this.root.updateMatrixWorld(true)
+    thigh.attach(logo)
+    // drawstring: two short cords with aglets hanging from the front of the waistband
+    if (!Number.isFinite(waistFront) || pelvisIdx < 0) return
+    const cordMat = new THREE.MeshStandardMaterial({ color: '#efe9df', roughness: 0.8 })
+    const bits: THREE.BufferGeometry[] = []
+    for (const sx of [-1, 1]) {
+      bits.push(new THREE.CylinderGeometry(0.0028, 0.0028, 0.07, 5).rotateZ(sx * 0.12).translate(sx * 0.011, -0.035, 0))
+      bits.push(new THREE.CylinderGeometry(0.0036, 0.0036, 0.012, 6).translate(sx * 0.0153, -0.075, 0))
+    }
+    const cordGeo = mergeGeometries(bits.map((g) => g.toNonIndexed()))!
+    bits.forEach((g) => g.dispose())
+    this.disposables.push(cordMat, cordGeo)
+    const knot = new THREE.Mesh(cordGeo, cordMat) // one draw call
+    knot.name = 'cloth:drawstring'
+    knot.position.set(0, waistY, waistFront + 0.006)
+    this.root.add(knot)
+    this.root.updateMatrixWorld(true)
+    this.bone('pelvis').attach(knot)
   }
 
   /** Gold chain on the upper chest, sized per species. */

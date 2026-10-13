@@ -3,6 +3,14 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import type { Appearance } from './types'
 
 type D = (THREE.Material | THREE.BufferGeometry | THREE.Texture)[]
+/**
+ * Pumpkin Chad look. 'v2' (default) moves the in-game mascot closer to the original artwork: chunky Cuban
+ * chain with dripping gold "PUMP CHAD" letters, deeper glossy pumpkin ribs, a thick curled stem, shorts
+ * logo + drawstring. The previously approved look stays one switch away for comparison / rollback:
+ * /chadverse/?pumpkin=classic
+ */
+export const PUMPKIN_LOOK: 'v2' | 'classic' = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('pumpkin') === 'classic' ? 'classic' : 'v2'
+const V2 = PUMPKIN_LOOK === 'v2'
 const RIBS = 12
 const R = 0.235 // pumpkin radius (m)
 
@@ -139,7 +147,7 @@ export function buildPumpkinHead(a: Appearance, D: D) {
   for (let i = 0; i < p.count; i++) {
     const x = p.getX(i), y = p.getY(i), z = p.getZ(i)
     const theta = Math.atan2(x, z)
-    const f = rib(theta) * (1 + Math.sin(theta * 3 + 1.3) * 0.012) // slight irregularity
+    const f = rib(theta, V2 ? 0.105 : 0.075) * (1 + Math.sin(theta * 3 + 1.3) * 0.012) // slight irregularity
     const lat = Math.abs(y)
     // squat shape with dimples at the top (stem) and bottom
     let ny = y * 0.8
@@ -156,33 +164,37 @@ export function buildPumpkinHead(a: Appearance, D: D) {
     bumpScale: 3,
     emissiveMap: t.emissive,
     emissive: new THREE.Color(a.glow),
-    emissiveIntensity: 2.4,
-    roughness: 0.5,
+    emissiveIntensity: V2 ? 2.9 : 2.4,
+    roughness: V2 ? 0.42 : 0.5,
     sheen: 0.35,
     sheenColor: new THREE.Color('#ffd9a8'),
-    clearcoat: 0.15,
-    clearcoatRoughness: 0.6,
+    // v2: the artwork's pumpkin is glossy — a lacquer coat catches the moon and torches
+    clearcoat: V2 ? 0.45 : 0.15,
+    clearcoatRoughness: V2 ? 0.35 : 0.6,
   })
   D.push(geo, mat, t.map, t.bump, t.emissive)
   const head = new THREE.Mesh(geo, mat)
   head.castShadow = true
   group.add(head)
 
-  // curved, tapered, ribbed stem
-  const sg = new THREE.CylinderGeometry(0.016, 0.034, 0.11, 8, 8)
+  // curved, tapered, ribbed stem (v2: thicker and curled over like the artwork)
+  const SH = V2 ? 0.15 : 0.11
+  const sg = new THREE.CylinderGeometry(V2 ? 0.024 : 0.016, V2 ? 0.046 : 0.034, SH, 10, 12)
   const sp = sg.attributes.position as THREE.BufferAttribute
   for (let i = 0; i < sp.count; i++) {
-    const y = sp.getY(i) + 0.055
-    const tt = y / 0.11
+    const y = sp.getY(i) + SH / 2
+    const tt = Math.max(0, y / SH)
     const ang = Math.atan2(sp.getZ(i), sp.getX(i))
-    const ridge = 1 + Math.cos(ang * 8) * 0.12
-    sp.setXYZ(i, sp.getX(i) * ridge + tt * tt * 0.045, sp.getY(i), sp.getZ(i) * ridge - tt * 0.01)
+    const ridge = 1 + Math.cos(ang * 8) * (V2 ? 0.16 : 0.12)
+    const curl = V2 ? Math.pow(tt, 2.2) * 0.075 : tt * tt * 0.045
+    const dip = V2 ? -Math.pow(tt, 3) * 0.03 : 0
+    sp.setXYZ(i, sp.getX(i) * ridge + curl, sp.getY(i) + dip, sp.getZ(i) * ridge - tt * 0.012)
   }
   sg.computeVertexNormals()
-  const stemMat = new THREE.MeshStandardMaterial({ color: '#4a5a2a', roughness: 0.85 })
+  const stemMat = new THREE.MeshStandardMaterial({ color: V2 ? '#33461f' : '#4a5a2a', roughness: V2 ? 0.7 : 0.85 })
   D.push(sg, stemMat)
   const stem = new THREE.Mesh(sg, stemMat)
-  stem.position.y = R * 0.8 - 0.035 + 0.055
+  stem.position.y = R * 0.8 - 0.035 + SH / 2
   stem.castShadow = true
   group.add(stem)
   return group
@@ -232,6 +244,7 @@ export function buildShades(D: D, visorColor?: string) {
 /* ───────────── gold chain: real interlocking links + medallion ───────────── */
 const CH = { rx: 0.16, rz: 0.15, drop: 0.13 }
 export function buildChain(D: D) {
+  if (V2) return buildCubanChain(D)
   const linkGeo = new THREE.TorusGeometry(0.0135, 0.0052, 6, 12)
   const parts: THREE.BufferGeometry[] = []
   const N = 40
@@ -355,4 +368,182 @@ export function buildHeadwear(a: Appearance, D: D) {
     return g
   }
   return null
+}
+
+
+/* ───────────── v2: chunky Cuban chain + dripping gold "PUMP CHAD" letters (from the artwork) ───────────── */
+function lettersCanvases() {
+  const W = 512
+  const H = 360
+  const mk = () => {
+    const c = document.createElement('canvas')
+    c.width = W
+    c.height = H
+    return [c, c.getContext('2d')!] as const
+  }
+  const [cA, ga] = mk() // alpha: letter silhouettes (with drips)
+  const [cB, gb] = mk() // bump: soft bevel
+  const [cC, gc] = mk() // colour: warm gold with highlights
+  const font = (px: number) => `900 ${px}px Anton, Impact, "Arial Narrow", sans-serif`
+  const lines: [string, number, number][] = [
+    ['PUMP', 128, 112],
+    ['CHAD', 250, 150],
+  ]
+  // drips hang from the bottom of CHAD (the artwork's melted-gold look)
+  let seed = 31
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646
+  const drips: [number, number, number, number][] = []
+  ga.font = font(150)
+  const wChad = ga.measureText('CHAD').width
+  for (let i = 0; i < 9; i++) {
+    const x = W / 2 - wChad / 2 + 18 + rnd() * (wChad - 36)
+    drips.push([x, 300, 7 + rnd() * 7, 18 + rnd() * 34])
+  }
+  const draw = (g: CanvasRenderingContext2D, fill: string | CanvasGradient, blur = 0, stroke = 0) => {
+    g.save()
+    g.strokeStyle = fill
+    g.lineWidth = stroke
+    g.lineJoin = 'round'
+    g.textAlign = 'center'
+    g.textBaseline = 'middle'
+    g.fillStyle = fill
+    g.shadowColor = fill as string
+    g.shadowBlur = blur
+    for (const [t, y, px] of lines) {
+      g.font = font(px)
+      g.fillText(t, W / 2, y)
+      if (stroke) g.strokeText(t, W / 2, y)
+    }
+    for (const [x, y, w, h] of drips) {
+      g.beginPath()
+      g.moveTo(x - w / 2, y - 12)
+      g.lineTo(x - w / 2, y + h - w / 2)
+      g.arc(x, y + h - w / 2, w / 2, Math.PI, 0, true)
+      g.lineTo(x + w / 2, y - 12)
+      g.closePath()
+      g.fill()
+      if (stroke) g.stroke()
+    }
+    g.restore()
+  }
+  ga.fillStyle = '#000'
+  ga.fillRect(0, 0, W, H)
+  draw(ga, '#ffffff', 0, 8) // includes a dark-gold rim round every letter (readability on skin)
+  gb.fillStyle = '#000'
+  gb.fillRect(0, 0, W, H)
+  draw(gb, '#9a9a9a', 0)
+  draw(gb, '#ffffff', 14) // blurred core → rounded, embossed letters
+  const gold = gc.createLinearGradient(0, 40, 0, 340)
+  gold.addColorStop(0, '#fff6d6')
+  gold.addColorStop(0.35, '#ffd46e')
+  gold.addColorStop(0.62, '#e0a640')
+  gold.addColorStop(1, '#fff0b0')
+  gc.fillStyle = '#c99a3c'
+  gc.fillRect(0, 0, W, H)
+  draw(gc, '#6e4710', 0, 8)
+  draw(gc, gold)
+  // solid-gold swatch (top-left corner) sampled by the chain links
+  ga.fillStyle = '#ffffff'
+  ga.fillRect(0, 0, 24, 24)
+  gb.fillStyle = '#808080'
+  gb.fillRect(0, 0, 24, 24)
+  gc.fillStyle = '#f0bd52'
+  gc.fillRect(0, 0, 24, 24)
+  const tex = (c: HTMLCanvasElement, srgb: boolean) => {
+    const t = new THREE.CanvasTexture(c)
+    if (srgb) t.colorSpace = THREE.SRGBColorSpace
+    t.anisotropy = 4
+    return t
+  }
+  return { alpha: tex(cA, false), bump: tex(cB, false), color: tex(cC, true), aspect: W / H, swatch: [12 / W, 1 - 12 / H] as const }
+}
+
+function buildCubanChain(D: D) {
+  // flattened, interlocking links — thicker than the classic chain (the artwork's chain is chunky)
+  const linkGeo = new THREE.TorusGeometry(0.0145, 0.0068, 6, 14)
+  linkGeo.scale(1.35, 1, 0.6) // oval links, long axis along the chain
+  const parts: THREE.BufferGeometry[] = []
+  const N = 46
+  for (let i = 0; i < N; i++) {
+    const a = (i / N) * Math.PI * 2
+    const x = Math.sin(a) * (CH.rx + 0.006)
+    const front = Math.max(0, Math.cos(a))
+    const z = Math.cos(a) * (CH.rz + 0.008) + front * front * 0.028 // rides over the pecs instead of sinking in
+    const y = -front * CH.drop
+    const g = linkGeo.clone()
+    g.rotateX(i % 2 ? 0.55 : -0.55) // links lie flat on the chest, alternately twisted: the interlocking curb look
+    const tangent = Math.atan2(Math.cos(a) * CH.rx, -Math.sin(a) * CH.rz)
+    g.rotateY(tangent + Math.PI / 2)
+    g.rotateX(Math.max(0, Math.cos(a)) * 0.55)
+    g.translate(x, y, z)
+    parts.push(g)
+  }
+  const L = lettersCanvases()
+  const w = 0.185
+  const h = w / L.aspect
+  const PY = -CH.drop - h / 2 + 0.012 // pendant hangs on the pecs, not the abs
+  const PZ = CH.rz + 0.046
+  const bail = new THREE.TorusGeometry(0.011, 0.004, 6, 12)
+  bail.rotateX(-0.12)
+  bail.translate(0, PY + h / 2 + 0.006, PZ - 0.002)
+  parts.push(bail)
+  // links + bail sample the solid-gold swatch of the letters texture, so chain and letters share ONE material
+  for (const g of parts) {
+    const uv = g.attributes.uv as THREE.BufferAttribute
+    for (let k = 0; k < uv.count; k++) uv.setXY(k, L.swatch[0], L.swatch[1])
+  }
+  // "PUMP CHAD" letters: four stacked alpha-cut planes give them real thickness
+  for (let k = 0; k < 4; k++) parts.push(new THREE.PlaneGeometry(w, h).translate(0, 0, -k * 0.0025).rotateX(-0.12).translate(0, PY, PZ))
+  const merged = mergeGeometries(parts.map((g) => (g.index ? g.toNonIndexed() : g)))!
+  parts.forEach((g) => g.dispose())
+  linkGeo.dispose()
+  const gold = new THREE.MeshPhysicalMaterial({ map: L.color, alphaMap: L.alpha, alphaTest: 0.5, bumpMap: L.bump, bumpScale: 1.6, emissive: '#7a4a0c', emissiveIntensity: 0.2, metalness: 0.95, roughness: 0.2, clearcoat: 0.55, clearcoatRoughness: 0.18, side: THREE.DoubleSide })
+  D.push(merged, gold, L.alpha, L.bump, L.color)
+  const chain = new THREE.Mesh(merged, gold) // whole chain + pendant = one draw call
+  chain.castShadow = true
+  return chain
+}
+
+/** Jack-o'-lantern logo for the shorts (the artwork has one on the left leg). */
+export function shortsLogoTexture() {
+  const c = document.createElement('canvas')
+  c.width = 128
+  c.height = 128
+  const g = c.getContext('2d')!
+  g.clearRect(0, 0, 128, 128)
+  // pumpkin body
+  g.fillStyle = '#f07a1e'
+  for (const [x, rx] of [[64, 34], [46, 24], [82, 24]] as const) {
+    g.beginPath()
+    g.ellipse(x, 70, rx, 44, 0, 0, Math.PI * 2)
+    g.fill()
+  }
+  g.fillStyle = '#3b5a22'
+  g.fillRect(60, 18, 8, 14)
+  // carved face
+  g.fillStyle = '#1a0d06'
+  const tri = (x: number, y: number, s: number) => {
+    g.beginPath()
+    g.moveTo(x - s, y + s * 0.7)
+    g.lineTo(x + s, y + s * 0.7)
+    g.lineTo(x, y - s * 0.7)
+    g.closePath()
+    g.fill()
+  }
+  tri(48, 62, 9)
+  tri(80, 62, 9)
+  g.beginPath()
+  g.moveTo(34, 80)
+  g.quadraticCurveTo(64, 104, 94, 80)
+  g.lineTo(84, 88)
+  g.lineTo(76, 84)
+  g.lineTo(68, 92)
+  g.lineTo(60, 85)
+  g.lineTo(52, 92)
+  g.lineTo(44, 85)
+  g.closePath()
+  g.fill()
+  const t = new THREE.CanvasTexture(c)
+  t.colorSpace = THREE.SRGBColorSpace
+  return t
 }
