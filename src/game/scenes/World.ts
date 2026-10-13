@@ -34,6 +34,7 @@ import * as TX from './world/textures'
 import { RushGame } from '../minigames/pumpkinRush'
 import { flowerTexture } from './world/foliage'
 import { fountainV4 } from './world/fountain'
+import { fingerpost } from './world/wayfinding'
 import { PumpkinBuilder } from './world/pumpkins'
 import { stallV4 } from './world/market'
 
@@ -251,6 +252,14 @@ export class World implements GameScene {
     }
     this.rushCart(T) // before vegetation (nothing grows through it) and before the static batch is built
     this.pumpkinPatches(T)
+    // spawn fingerpost: the first thing a new player sees on the road tells them where everything is
+    fingerpost(T, -3.9, 18.8, [
+      { label: 'FOUNTAIN · CASTLE', to: [0, -20] },
+      { label: 'MARKET ROW', to: [-21, 2.5] },
+      { label: 'CHAD GYM', to: [14.4, -4] },
+      { label: 'PUMPKIN RUSH', to: [RUSH_CART.x, RUSH_CART.z] },
+      { label: 'LOOKOUT · CITY', to: [-5.4, 32.4] },
+    ])
     vegetation(T, q, avoid)
     // every pumpkin in the kingdom → three merged meshes; carved ones flicker together
     const pk = T.pumpkins!.build(this.scene, this.disposables, q !== 'low')

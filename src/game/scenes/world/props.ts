@@ -89,14 +89,29 @@ export function lampPosts(T: Town, spots: [number, number][]) {
   const P = T.P
   const post = new THREE.CylinderGeometry(0.07, 0.11, 3.3, 8)
   const arm = new THREE.BoxGeometry(0.6, 0.06, 0.06)
-  const cage = new THREE.BoxGeometry(0.34, 0.42, 0.34)
-  const glow = new THREE.BoxGeometry(0.24, 0.3, 0.24)
+  // open-frame lantern: corner bars, base plate, pyramid cap + finial round a glowing glass core
+  // (the old solid iron box hid the glow and read as a dark cube from above)
+  const bar = new THREE.BoxGeometry(0.035, 0.4, 0.035)
+  const plate = new THREE.BoxGeometry(0.36, 0.04, 0.36)
+  const cap = new THREE.ConeGeometry(0.29, 0.2, 4).rotateY(Math.PI / 4)
+  const finial = new THREE.SphereGeometry(0.045, 6, 4)
+  const hook = new THREE.CylinderGeometry(0.015, 0.015, 0.14, 4)
+  const glow = new THREE.BoxGeometry(0.27, 0.36, 0.27)
+  const scroll = new THREE.TorusGeometry(0.16, 0.018, 4, 10, Math.PI)
   for (const [x, z] of spots) {
     T.batch.put(post, P.iron, x, 1.65, z)
     T.batch.put(new THREE.CylinderGeometry(0.2, 0.25, 0.25, 8), P.stone, x, 0.12, z)
+    T.batch.put(new THREE.CylinderGeometry(0.1, 0.1, 0.12, 8), P.iron, x, 3.3, z) // post cap
     T.batch.put(arm, P.iron, x + 0.28, 3.15, z)
-    T.batch.put(cage, P.iron, x + 0.55, 2.85, z, 0, 1, 1, 1, { cast: false })
-    T.batch.put(glow, P.glowOrange, x + 0.55, 2.85, z, 0, 1, 1, 1, { cast: false })
+    T.batch.put(scroll.clone().rotateZ(Math.PI), P.iron, x + 0.2, 3.0, z, 0, 1, 1, 1, { cast: false }) // curled bracket under the arm
+    const lx = x + 0.55
+    T.batch.put(hook, P.iron, lx, 3.12, z, 0, 1, 1, 1, { cast: false })
+    T.batch.put(cap, P.iron, lx, 3.0, z, 0, 1, 1, 1, { cast: false })
+    T.batch.put(finial, P.iron, lx, 3.1, z, 0, 1, 1, 1, { cast: false })
+    T.batch.put(plate, P.iron, lx, 2.88, z, 0, 1, 1, 1, { cast: false })
+    T.batch.put(plate, P.iron, lx, 2.62, z, 0, 1, 1, 1, { cast: false })
+    for (const [cx, cz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) T.batch.put(bar, P.iron, lx + cx * 0.16, 2.75, z + cz * 0.16, 0, 1, 1, 1, { cast: false })
+    T.batch.put(glow, P.glowOrange, lx, 2.75, z, 0, 1, 1, 1, { cast: false })
     T.colliders.push({ kind: 'circle', x, z, r: 0.25, h: 3.3 })
   }
 }

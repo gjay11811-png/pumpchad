@@ -76,6 +76,14 @@ if (sections.includes('pumpkins')) {
   await view(-17.5, 4.5, 2.5, -30)
   await shot('pumpkins-stall')
 }
+if (sections.includes('wayfinding')) {
+  await view(-1.8, 21.5, Math.PI + 0.5, 10)
+  await shot('wayfinding-post')
+  await view(-6.5, 16.0, -2.3, -5)
+  await shot('wayfinding-back')
+  await view(-1.6, 9.8, 2.4, -45)
+  await shot('lamp-lantern')
+}
 if (sections.includes('b4s')) {
   // b4s on the north-west plaza bench: stand beside the bench, then orbit the camera round for front / back
   const B = [-6.0, 6.0]
