@@ -5,10 +5,12 @@ import { disposeObject, type Engine, type GameScene } from '../engine/Engine'
 import type { Input } from '../input'
 import { audio } from '../audio'
 import { STATIONS, TREADMILL, nextPace, type RepGrade, type StationId } from '../workout'
-import { signTexture } from './textures'
-import { StaticBatch, boxUV } from './world/kit'
+import { StaticBatch } from './world/kit'
+import type { Quality } from '../save'
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
-import { barbellParts, brickTexture, bumperGeo, consoleTexture, hexDumbbellParts, hubGeo, kettlebellGeo, knurlTexture, leatherTexture, panelTexture, poster, roundedPad, rubberFloorTexture, tube, uprightTexture, woodTexture } from './gym/gymArt'
+import { barbellParts, consoleTexture, kettlebellGeo, knurlTexture, leatherTexture, roundedPad, uprightTexture, woodTexture } from './gym/gymArt'
+import { Place, turfLane, adjustableBench, benchStation, cableStation, dumbbell, dumbbellRack, kettlebellShelf, lockers, receptionDesk, squatRack, storedPlate, treadmill, waterStation, type GymMats, type RackSlot } from './gym/gymKit'
+import { HALL, brandPanelTex, buildHall, screenTex } from './gym/gymRoom'
 import type { Interactable } from './World'
 import { Emoter, type EmoteId } from '../emotes'
 import { INDOOR, Jumper, SPEED_UNIT, leanFor, targetSpeed, turnRate, velocityRate } from '../movement'
@@ -26,16 +28,30 @@ const PRESS = new THREE.Vector3(0, 0, -2.2)
 
 type Spot = { stand: [number, number]; yaw: number; use: [number, number]; useRadius: number; label: string; cam: [number, number, number]; look: [number, number, number] }
 /** where the player stands to use each station, where the prompt triggers, and the framed exercise camera (station-local) */
+/**
+ * Zones (v2 layout): strength along the west + back-left (squat rack, bench press, pull-up, deadlift platform),
+ * the Chad Press platform centred under the PUMP GYM sign, free weights on the east mirror wall (rack + curl spot),
+ * the cable station on the back wall, cardio on the west wall, reception / lockers / water by the door.
+ * A clear aisle runs from the door straight to the platform.
+ */
 const SPOTS: Record<'press' | StationId, Spot> = {
   press: { stand: [PRESS.x, PRESS.z], yaw: 0, use: [0, -0.3], useRadius: 1.5, label: 'Chad Press — timing challenge', cam: [0, 0, 0], look: [0, 0, 0] },
-  bench: { stand: [-5.2, -2.6], yaw: 0, use: [-3.9, -2.6], useRadius: 1.25, label: 'Bench press', cam: [0.75, 2.15, 2.5], look: [0, 0.8, -0.5] },
-  curl: { stand: [5.2, -3.0], yaw: 0, use: [5.2, -1.7], useRadius: 1.25, label: 'Dumbbell curls', cam: [1.5, 1.5, 3.0], look: [0, 1.1, 0] },
-  squat: { stand: [-5.2, 3.0], yaw: 0, use: [-5.2, 4.4], useRadius: 1.25, label: 'Squat rack', cam: [1.15, 1.4, 3.3], look: [0, 1.0, 0] },
-  bag: { stand: [5.2, 4.15], yaw: Math.PI, use: [5.2, 5.2], useRadius: 1.25, label: 'Heavy bag', cam: [-2.6, 1.5, 0.35], look: [0, 1.2, 0.45] },
-  deadlift: { stand: [-2.5, 2.3], yaw: 0, use: [-2.5, 3.65], useRadius: 1.15, label: 'Deadlift platform', cam: [2.2, 1.75, 3.2], look: [0, 0.15, 0] },
-  pullup: { stand: [2.5, 2.3], yaw: 0, use: [2.5, 3.65], useRadius: 1.15, label: 'Pull-up bar', cam: [1.5, 1.7, 3.6], look: [0, 1.75, 0] },
-  treadmill: { stand: [-7.3, 0.2], yaw: Math.PI / 2, use: [-5.75, 0.2], useRadius: 1.0, label: 'Treadmill', cam: [2.9, 1.9, 1.5], look: [0, 1.0, 0.3] },
+  bench: { stand: [-6.6, 0.4], yaw: 0, use: [-5.3, 0.4], useRadius: 1.2, label: 'Bench press', cam: [0.75, 2.15, 2.5], look: [0, 0.8, -0.5] },
+  curl: { stand: [7.05, -2.6], yaw: -Math.PI / 2, use: [5.75, -2.6], useRadius: 1.2, label: 'Dumbbell curls', cam: [1.4, 1.5, 3.0], look: [0, 1.1, 0] },
+  squat: { stand: [-6.6, -3.7], yaw: 0, use: [-6.6, -2.3], useRadius: 1.2, label: 'Squat rack', cam: [1.15, 1.4, 3.3], look: [0, 1.0, 0] },
+  bag: { stand: [5.2, 4.15], yaw: Math.PI, use: [5.2, 5.2], useRadius: 1.2, label: 'Heavy bag', cam: [-2.6, 1.5, 0.35], look: [0, 1.2, 0.45] },
+  deadlift: { stand: [-3.4, 2.4], yaw: 0, use: [-3.4, 3.75], useRadius: 1.1, label: 'Deadlift platform', cam: [2.2, 1.75, 3.2], look: [0, 0.15, 0] },
+  pullup: { stand: [-3.7, -4.6], yaw: 0, use: [-3.7, -3.25], useRadius: 1.1, label: 'Pull-up bar', cam: [1.5, 1.7, 3.6], look: [0, 1.75, 0] },
+  treadmill: { stand: [-7.3, 3.5], yaw: Math.PI / 2, use: [-5.6, 3.5], useRadius: 1.0, label: 'Treadmill', cam: [2.9, 1.9, 1.5], look: [0, 1.0, 0.3] },
 }
+/** dumbbell rack centre (its back stands just off the mirror wall, front faces west into the room) */
+const RACK_AT = { x: HALL.x1 - 0.14 - 0.5, z: -2.6 }
+/** treadmills along the west wall (z of each); the runner stands this far behind the deck centre */
+const TREADMILL_ROW = [2.3, 3.5, 4.7]
+const TREAD_BACK = 0.25
+/** background NPCs (high / medium quality only): a runner on the back treadmill, a curler at the rack's north end */
+const NPC_RUNNER = { x: -7.3, z: 2.3 }
+const NPC_CURLER = { x: 7.95, z: 0.15, yaw: -Math.PI / 2 - 0.35 } // past the rack's north end, out of the aisle
 /** pull-up bar height (m): the body hangs from it, hands locked to it */
 const PULL_BAR_Y = 2.42
 /** deadlift bar centre height when resting on the floor (big plates are 0.3 m radius) */
@@ -60,6 +76,9 @@ export class Gym implements GameScene {
   cameraSensitivity = 1
   interactables: Interactable[] = []
   private coach: Character | null = null
+  /** background regulars (quality-gated): they train on their own kit and never block the player */
+  private npcs: { c: Character; kind: 'run' | 'curl'; t: number; bells: THREE.Group[] }[] = []
+  private npcMats: Pick<GymMats, 'rubber' | 'knurl' | 'chrome' | 'steel'> | null = null
   /** the coach trains too: push-up sets between greetings (only while he isn't waving / cheering) */
   private coachT = 6
   private bar = new THREE.Group() // Chad Press barbell
@@ -70,7 +89,12 @@ export class Gym implements GameScene {
   private bag = new THREE.Group()
   private deadBar = new THREE.Group()
   private belt: THREE.Texture | null = null
+  private npcBelt: THREE.Texture | null = null
   private beltLen = 1.7
+  private quality: Quality = 'medium'
+  /** head radius of the pair that leaves the rack for curls, and of the NPC curler's pair */
+  private bellR = 0.066
+  private npcBellR = 0.075
   /** treadmill belt speed (m/s), driven by the tempo strides */
   pace = 0
   private bagAngle = 0
@@ -109,164 +133,35 @@ export class Gym implements GameScene {
   constructor(engine: Engine, private input: Input | null = null, private events: GymEvents | null = null) {
     const s = this.scene
     s.background = new THREE.Color('#09070b')
-    s.fog = new THREE.Fog('#09070b', 14, 30)
+    s.fog = new THREE.Fog('#09070b', 16, 34)
     s.environment = engine.env
-    s.environmentIntensity = 0.25
+    s.environmentIntensity = 0.3
+    this.quality = engine.quality
 
-    // ═════════ the hall: rubber floor, panelled + brick walls, steel trusses, LED ceiling, mirrors, posters ═════════
     const B = new StaticBatch()
     const D: (THREE.Material | THREE.BufferGeometry | THREE.Texture)[] = []
-    const floorTex = rubberFloorTexture(D)
-    floorTex.repeat.set(9, 7.5)
-    const floorMat = new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.86, metalness: 0 })
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(18, 15), floorMat)
-    floor.rotation.x = -Math.PI / 2
-    floor.position.z = 0.9
-    floor.receiveShadow = true
-    s.add(floor)
-    // painted zone lines (orange, slightly worn)
-    const lineMat = new THREE.MeshStandardMaterial({ color: '#c9561a', roughness: 0.7 })
-    const line = (x: number, z: number, w: number, d: number) => B.put(new THREE.BoxGeometry(w, 0.004, d), lineMat, x, 0.003, z, 0, 1, 1, 1, { cast: false })
-    for (const [x0, x1, z0, z1] of [[-1.95, 1.95, -4.15, -0.25], [-7.9, 7.9, -5.6, 5.6]] as const) {
-      line((x0 + x1) / 2, z0, x1 - x0, 0.06)
-      line((x0 + x1) / 2, z1, x1 - x0, 0.06)
-      line(x0, (z0 + z1) / 2, 0.06, z1 - z0)
-      line(x1, (z0 + z1) / 2, 0.06, z1 - z0)
+    const std = (p: THREE.MeshStandardMaterialParameters) => new THREE.MeshStandardMaterial(p)
+    // one shared material set for every piece of kit: painted steel, bare steel, chrome, rubber, upholstery, brand paint
+    const M: GymMats = {
+      frame: std({ color: '#1e1d22', metalness: 0.55, roughness: 0.46 }),
+      steel: std({ color: '#8f8e95', metalness: 0.9, roughness: 0.32 }),
+      chrome: std({ color: '#e2ddd3', metalness: 1, roughness: 0.18 }),
+      knurl: std({ map: knurlTexture(D), color: '#d6d2c8', metalness: 1, roughness: 0.42 }),
+      rubber: std({ color: '#141316', roughness: 0.8 }),
+      orange: std({ color: '#ff7a1a', roughness: 0.5, metalness: 0.15 }),
+      purple: std({ color: '#5b2a86', roughness: 0.55, metalness: 0.1 }),
+      pad: std({ map: leatherTexture('#231d24', D), roughness: 0.5, metalness: 0.05 }),
+      plateSteel: std({ color: '#b8b4ac', metalness: 1, roughness: 0.3 }),
+      upright: std({ map: uprightTexture(D), metalness: 0.7, roughness: 0.42 }),
     }
-    // platform for the Chad Press
-    const woodTex = woodTexture(D)
-    woodTex.repeat.set(2, 1)
-    const platformMat = new THREE.MeshStandardMaterial({ map: woodTex, roughness: 0.55 })
-    const platform = new THREE.Mesh(new RoundedBoxGeometry(3.6, 0.12, 3.6, 2, 0.03), platformMat)
-    platform.position.set(PRESS.x, 0.06, PRESS.z)
-    platform.receiveShadow = true
-    s.add(platform)
+    const MAT = { chrome: M.chrome, knurl: M.knurl, rubber: M.rubber, orange: M.orange, steel: M.plateSteel }
+    this.npcMats = M
+    const glowOrange = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ff8a30').multiplyScalar(2.2), toneMapped: false })
+    const glowPurple = new THREE.MeshBasicMaterial({ color: new THREE.Color('#a66bff').multiplyScalar(2.4), toneMapped: false })
+    const glowBlue = new THREE.MeshBasicMaterial({ color: new THREE.Color('#7fd6ff').multiplyScalar(2), toneMapped: false })
 
-    const H = 6.6 // ceiling height
-    const brickTex = brickTexture(D)
-    const panelTex = panelTexture(D)
-    const wallMat = new THREE.MeshStandardMaterial({ map: brickTex, roughness: 0.92, metalness: 0 })
-    const wainscotMat = new THREE.MeshStandardMaterial({ map: panelTex, roughness: 0.6, metalness: 0.3 })
-    const trimMat = new THREE.MeshStandardMaterial({ color: '#ff7a1a', emissive: '#ff6a10', emissiveIntensity: 0.35, roughness: 0.4 })
-    const steelMat = new THREE.MeshStandardMaterial({ color: '#2b2930', metalness: 0.85, roughness: 0.38 })
-    // brick upper walls: UVs scaled so 1 texture = 2 m
-    const wall = (w: number, h: number, x: number, y: number, z: number, ry: number) => {
-      const g = new THREE.PlaneGeometry(w, h)
-      const uv = g.attributes.uv as THREE.BufferAttribute
-      for (let i = 0; i < uv.count; i++) uv.setXY(i, (uv.getX(i) * w) / 2, (uv.getY(i) * h) / 2)
-      B.put(g, wallMat, x, y, z, ry, 1, 1, 1, { cast: false })
-    }
-    wall(18, H, 0, H / 2, -6, 0)
-    wall(15, H, -9, H / 2, 1.5, Math.PI / 2)
-    wall(15, H, 9, H / 2, 1.5, -Math.PI / 2)
-    wall(7.5, H, -5.25, H / 2, 7.6, Math.PI)
-    wall(7.5, H, 5.25, H / 2, 7.6, Math.PI)
-    wall(3, H - 3, 0, 3 + (H - 3) / 2, 7.6, Math.PI)
-    // panelled dado (lower 1.2 m) + glowing orange trim rail
-    const dado = (w: number, x: number, z: number, ry: number) => {
-      const g = boxUV(w, 1.2, 0.06, 1)
-      B.put(g, wainscotMat, x, 0.6, z, ry, 1, 1, 1, { cast: false })
-      B.put(new THREE.BoxGeometry(w, 0.05, 0.08), trimMat, x, 1.22, z, ry, 1, 1, 1, { cast: false })
-    }
-    dado(18, 0, -5.97, 0)
-    dado(15, -8.97, 1.5, Math.PI / 2)
-    dado(15, 8.97, 1.5, Math.PI / 2)
-    dado(7.5, -5.25, 7.57, 0)
-    dado(7.5, 5.25, 7.57, 0)
-    // steel pilasters with bolt plates
-    const pilaster = (x: number, z: number, ry: number) => {
-      B.put(new THREE.BoxGeometry(0.34, H, 0.2), steelMat, x, H / 2, z, ry)
-      for (const y of [1.25, H - 0.4]) B.put(new THREE.BoxGeometry(0.46, 0.08, 0.24), steelMat, x, y, z, ry)
-    }
-    for (const x of [-7.2, -3.8, 3.8, 7.2]) pilaster(x, -5.9, 0)
-    for (const z of [-3, 0.5, 4]) {
-      pilaster(-8.9, z, Math.PI / 2)
-      pilaster(8.9, z, Math.PI / 2)
-    }
-    // ceiling + trusses + LED panels (emissive, so bloom gives them a soft glow)
-    const ceilMat = new THREE.MeshStandardMaterial({ color: '#0e0d11', roughness: 1 })
-    B.put(new THREE.PlaneGeometry(18, 15).rotateX(Math.PI / 2), ceilMat, 0, H, 0.9, 0, 1, 1, 1, { cast: false })
-    const ledMat = new THREE.MeshBasicMaterial({ color: new THREE.Color('#fff1dc').multiplyScalar(2.4), toneMapped: false })
-    for (const z of [-4.2, -0.8, 2.6, 6]) {
-      B.put(new THREE.BoxGeometry(18, 0.32, 0.14), steelMat, 0, H - 0.2, z, 0, 1, 1, 1, { cast: false })
-      for (let k = 0; k < 9; k++) B.put(new THREE.BoxGeometry(0.06, 0.06, 0.14), steelMat, -8 + k * 2, H - 0.42, z, 0.6, 1, 1, 1, { cast: false })
-    }
-    for (const z of [-2.5, 0.9, 4.3])
-      for (const x of [-5.5, 0, 5.5]) {
-        B.put(new THREE.BoxGeometry(2.6, 0.08, 0.5), steelMat, x, H - 0.55, z, 0, 1, 1, 1, { cast: false })
-        B.put(new THREE.BoxGeometry(2.5, 0.02, 0.4), ledMat, x, H - 0.6, z, 0, 1, 1, 1, { cast: false })
-        for (const dx of [-1, 1]) B.put(new THREE.CylinderGeometry(0.006, 0.006, 0.5, 4), steelMat, x + dx, H - 0.28, z, 0, 1, 1, 1, { cast: false })
-      }
-    // mirrors behind the bench and the dumbbells (the PMREM environment gives them a believable sheen)
-    // own envMap (the hall's global environment is dimmed to 0.25), so the glass actually catches the light
-    const mirrorMat = new THREE.MeshStandardMaterial({ color: '#8d97a2', metalness: 1, roughness: 0.05, envMap: engine.env, envMapIntensity: 1.0 })
-    const mirror = (w: number, x: number, z: number, ry: number) => {
-      B.put(new THREE.BoxGeometry(w + 0.1, 2.3, 0.04), steelMat, x, 1.55, z, ry, 1, 1, 1, { cast: false })
-      B.put(new THREE.PlaneGeometry(w, 2.2), mirrorMat, x + Math.sin(ry) * 0.025, 1.55, z + Math.cos(ry) * 0.025, ry, 1, 1, 1, { cast: false })
-    }
-    mirror(3.6, -8.92, -3.0, Math.PI / 2)
-    mirror(3.2, 8.92, -3.1, -Math.PI / 2)
-    // PumpChad art on the walls
-    const posters: [string, number, number, number, number, number, number][] = [
-      ['art/chadverse/01-pumpchad-throne.webp', 1.15, 1.45, 8.93, 2.9, 2.2, -Math.PI / 2],
-      ['art/chadverse/05-pumpchad-army.webp', 1.6, 1.15, 8.93, 3.1, 5.6, -Math.PI / 2],
-      ['art/chadverse/04-pumpchad-charts-to-cars.webp', 1.6, 1.15, -8.93, 3.1, 3.2, Math.PI / 2],
-      ['art/chadverse/02-pumpchad-trading-room.webp', 1.5, 1.05, -6.2, 3.3, -5.93, 0],
-      ['art/chadverse/03-pumpchad-bears-buried.webp', 1.5, 1.05, 6.2, 3.3, -5.93, 0],
-    ]
-    for (const [url, w, h, x, y, z, ry] of posters) {
-      const pst = poster(url, w, h, D)
-      pst.position.set(x, y, z)
-      pst.rotation.y = ry
-      s.add(pst)
-    }
-    // the brand mark over the door (seen when you turn to leave)
-    {
-      const logoMat = new THREE.MeshBasicMaterial({ transparent: true, toneMapped: false, color: new THREE.Color(1.3, 1.3, 1.3) })
-      const logo = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 2.2), logoMat)
-      logo.position.set(0, 4.65, 7.55)
-      logo.rotation.y = Math.PI
-      s.add(logo)
-      new THREE.TextureLoader().load(import.meta.env.BASE_URL + 'art/pumpchad-logo.webp', (t) => {
-        t.colorSpace = THREE.SRGBColorSpace
-        logoMat.map = t
-        logoMat.needsUpdate = true
-      })
-    }
-    // door glow + exit sign
-    const doorGlow = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 2.9), new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffb36b').multiplyScalar(1.6), toneMapped: false }))
-    doorGlow.position.set(0, 1.45, 7.7)
-    doorGlow.rotation.y = Math.PI
-    s.add(doorGlow)
-    B.put(new THREE.BoxGeometry(3.2, 0.16, 0.2), steelMat, 0, 3.0, 7.55)
-    for (const x of [-1.55, 1.55]) B.put(new THREE.BoxGeometry(0.16, 3.0, 0.2), steelMat, x, 1.5, 7.55)
-    const exitSign = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 0.42), new THREE.MeshBasicMaterial({ map: signTexture('EXIT', { sub: 'CHAD SQUARE' }), toneMapped: false, color: new THREE.Color(2.2, 2.2, 2.2) }))
-    exitSign.position.set(0, 3.4, 7.42)
-    exitSign.rotation.y = Math.PI
-    s.add(exitSign)
-
-    // neon strips + the big sign
-    this.strip = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ff7a1a').multiplyScalar(3.6), toneMapped: false })
-    for (const y of [0.4, 5.6]) {
-      const st = new THREE.Mesh(new THREE.BoxGeometry(18, 0.05, 0.05), this.strip)
-      st.position.set(0, y, -5.92)
-      s.add(st)
-    }
-    const sign = new THREE.Mesh(new THREE.PlaneGeometry(6.4, 1.6), new THREE.MeshBasicMaterial({ map: signTexture('CHAD GYM', { sub: 'NO PAIN · NO PUMP' }), toneMapped: false, color: new THREE.Color(2.7, 2.7, 2.7) }))
-    sign.position.set(0, 4.5, -5.93)
-    s.add(sign)
-
-    // ═════════ materials for the kit ═════════
-    const iron = steelMat
-    const rubber = new THREE.MeshStandardMaterial({ color: '#141316', roughness: 0.78 })
-    const chrome = new THREE.MeshStandardMaterial({ color: '#e2ddd3', metalness: 1, roughness: 0.18 })
-    const knurlMat = new THREE.MeshStandardMaterial({ map: knurlTexture(D), color: '#d6d2c8', metalness: 1, roughness: 0.42 })
-    const orange = new THREE.MeshStandardMaterial({ color: '#ff7a1a', roughness: 0.55 })
-    const plateSteel = new THREE.MeshStandardMaterial({ color: '#b8b4ac', metalness: 1, roughness: 0.3 })
-    const padMat = new THREE.MeshStandardMaterial({ map: leatherTexture('#2a1d22', D), roughness: 0.48, metalness: 0.05 })
-    const mat = new THREE.MeshStandardMaterial({ color: '#141317', roughness: 0.95 })
-    const uprightMat = new THREE.MeshStandardMaterial({ map: uprightTexture(D), metalness: 0.75, roughness: 0.4 })
-    const MAT = { chrome, knurl: knurlMat, rubber, orange, steel: plateSteel }
+    // ═════════ 1. the hall: floors, walls, windows, door, ceiling, fixtures, mirror wall, PUMP GYM sign ═════════
+    this.strip = buildHall(B, s, D, M, engine.env).strip
     const cast = <T extends THREE.Object3D>(o: T) => {
       o.traverse((c) => (c.castShadow = true))
       return o
@@ -276,52 +171,7 @@ export class Gym implements GameScene {
       o.position.set(x, y, z)
       return o
     }
-
-    // plate trees (replace the old plate stacks): base, post, pegs, bumpers hung on edge
-    for (const x of [-2.6, 2.6]) {
-      const z = -5.15
-      B.put(new THREE.BoxGeometry(0.9, 0.06, 0.6), iron, x, 0.03, z)
-      B.put(new THREE.CylinderGeometry(0.04, 0.04, 1.3, 10), iron, x, 0.68, z)
-      for (const [y, side, r] of [[0.32, -1, 0.25], [0.32, 1, 0.25], [0.72, -1, 0.2], [0.72, 1, 0.2], [1.08, -1, 0.15], [1.08, 1, 0.15]] as const) {
-        B.put(new THREE.CylinderGeometry(0.022, 0.022, 0.22, 8).rotateX(Math.PI / 2), iron, x, y, z + side * 0.1)
-        B.put(bumperGeo(r, 0.055).rotateY(Math.PI / 2), r > 0.22 ? orange : rubber, x, y, z + side * 0.2)
-        B.put(hubGeo(0.055).rotateY(Math.PI / 2), plateSteel, x, y, z + side * 0.2)
-      }
-    }
-    // kettlebells along the back wall
-    {
-      const [kb, kh] = kettlebellGeo()
-      for (let i = 0; i < 6; i++) {
-        const sc = 0.8 + i * 0.07
-        B.put(kb, rubber, -6.8 + i * 0.42, 0, -5.55, 0, sc, sc, sc)
-        B.put(kh, iron, -6.8 + i * 0.42, 0, -5.55, 0, sc, sc, sc)
-      }
-      B.put(new THREE.BoxGeometry(2.7, 0.04, 0.5), iron, -5.75, 0.02, -5.55)
-    }
-    // lockers + water cooler by the door, speakers on the pilasters
-    {
-      const lockerMat = new THREE.MeshStandardMaterial({ color: '#232029', metalness: 0.6, roughness: 0.45 })
-      for (let i = 0; i < 6; i++) {
-        B.put(new RoundedBoxGeometry(0.5, 1.9, 0.5, 1, 0.02), lockerMat, -8.4 + i * 0.52, 0.95, 7.25)
-        B.put(new THREE.BoxGeometry(0.3, 0.02, 0.01), trimMat, -8.4 + i * 0.52, 1.72, 6.995)
-        B.put(new THREE.BoxGeometry(0.04, 0.12, 0.02), chrome, -8.4 + i * 0.52 + 0.17, 1.05, 6.995)
-      }
-      B.put(new RoundedBoxGeometry(0.42, 1.1, 0.42, 2, 0.05), new THREE.MeshStandardMaterial({ color: '#e8e4dc', roughness: 0.4 }), 7.6, 0.55, 7.15)
-      B.put(new THREE.CylinderGeometry(0.15, 0.15, 0.42, 16), new THREE.MeshStandardMaterial({ color: '#7fc4ff', transparent: true, opacity: 0.55, roughness: 0.1 }), 7.6, 1.32, 7.15)
-      for (const x of [-7.2, 7.2]) B.put(new RoundedBoxGeometry(0.4, 0.62, 0.3, 2, 0.04), rubber, x, 5.0, -5.68)
-      this.boxes.push({ x0: -8.7, x1: -5.4, z0: 6.9, z1: 7.6 }, { x0: 7.3, x1: 7.9, z0: 6.85, z1: 7.45 })
-    }
-
-    // rubber mats under each station
-    for (const k of ['bench', 'curl', 'squat', 'bag', 'deadlift'] as const) {
-      const [x, z] = SPOTS[k].stand
-      const m = new THREE.Mesh(new RoundedBoxGeometry(2.6, 0.03, 3, 1, 0.012), mat)
-      m.position.set(x, 0.015, z)
-      m.receiveShadow = true
-      s.add(m)
-    }
-
-    // barbell builder: knurled shaft, sleeves, flanges, bevelled bumpers with steel hubs, spring collars
+    const box = (x0: number, x1: number, z0: number, z1: number) => this.boxes.push({ x0, x1, z0, z1 })
     const barbell = (g: THREE.Group, len = 2.1, plates: { r: number; w: number; color: 'black' | 'orange' }[] = [{ r: 0.25, w: 0.07, color: 'orange' }, { r: 0.21, w: 0.05, color: 'black' }]) => {
       for (const part of barbellParts(len, plates)) {
         const m = new THREE.Mesh(part.geo, MAT[part.mat])
@@ -330,136 +180,190 @@ export class Gym implements GameScene {
       }
       return cast(g)
     }
-    barbell(this.bar)
-    s.add(this.bar)
 
-    // ── bench press: tube frame, rounded leather pad, uprights with J-hooks; bar racked above the head end ──
+    // ═════════ 2. equipment, zone by zone ═════════
+    // ── centre: the Chad Press platform under the sign ──
     {
-      const [x, z] = SPOTS.bench.stand
-      const g = new THREE.Group()
-      const pad = new THREE.Mesh(roundedPad(0.34, 0.11, 1.3), padMat)
-      pad.position.set(0, 0.47, 0.05)
-      g.add(pad)
-      const V = (a: number, b: number, c: number) => new THREE.Vector3(a, b, c)
-      for (const [a, b] of [
-        [V(0, 0.04, -0.5), V(0, 0.41, -0.5)],
-        [V(0, 0.04, 0.55), V(0, 0.41, 0.55)],
-        [V(0, 0.41, -0.55), V(0, 0.41, 0.6)],
-        [V(-0.26, 0.03, -0.5), V(0.26, 0.03, -0.5)],
-        [V(-0.26, 0.03, 0.55), V(0.26, 0.03, 0.55)],
-      ] as const)
-        g.add(new THREE.Mesh(tube(a, b, 0.032), iron))
-      for (const sx of [-0.55, 0.55]) {
-        g.add(new THREE.Mesh(tube(V(sx, 0.03, -0.72), V(sx, 1.27, -0.72), 0.034), uprightMat))
-        g.add(new THREE.Mesh(tube(V(sx, 0.03, -0.72), V(sx * 0.5, 0.03, -0.72), 0.03), iron))
-        const hook = new THREE.Mesh(new THREE.TorusGeometry(0.045, 0.014, 6, 12, Math.PI), orange)
-        hook.rotation.set(0, Math.PI / 2, Math.PI)
-        hook.position.set(sx, 1.06, -0.66)
-        g.add(hook)
-      }
-      g.position.set(x, 0, z)
-      s.add(cast(g))
-      barbell(this.benchBar, 1.8, [{ r: 0.225, w: 0.06, color: 'orange' }])
-      this.benchBar.position.set(x, 1.1, z - 0.66)
-      s.add(this.benchBar)
-      this.boxes.push({ x0: x - 0.62, x1: x + 0.62, z0: z - 0.8, z1: z + 0.65 })
-    }
-    // ── dumbbell rack: two angled tiers of hex dumbbells ──
-    {
-      const [x, z] = SPOTS.curl.stand
-      const rz = z - 1.25
-      const V = (a: number, b: number, c: number) => new THREE.Vector3(a, b, c)
-      for (const sx of [-0.85, 0, 0.85]) {
-        B.put(tube(V(x + sx, 0, rz - 0.2), V(x + sx, 0.78, rz - 0.12), 0.03), iron, 0, 0, 0)
-        B.put(tube(V(x + sx, 0, rz + 0.2), V(x + sx, 0.5, rz + 0.2), 0.03), iron, 0, 0, 0)
-      }
-      B.put(new THREE.BoxGeometry(1.8, 0.04, 0.26).rotateX(0.25), iron, x, 0.74, rz - 0.1)
-      B.put(new THREE.BoxGeometry(1.8, 0.04, 0.26).rotateX(0.25), iron, x, 0.46, rz + 0.16)
-      const sizes = [0.042, 0.048, 0.054, 0.06, 0.066]
-      sizes.forEach((h, i) => {
-        for (const tier of [0, 1]) {
-          if (tier === 1 && i > 2) continue
-          const px = x - 0.7 + i * 0.34 + (tier ? 0.18 : 0)
-          const py = tier ? 0.82 : 0.54
-          const pz = tier ? rz - 0.1 : rz + 0.16
-          const isHeld = i === 2 && tier === 0
-          const grp = new THREE.Group()
-          for (const part of hexDumbbellParts(h)) {
-            const m = new THREE.Mesh(part.geo, MAT[part.mat])
-            m.position.x = part.x
-            grp.add(m)
-          }
-          grp.position.set(px, py, pz)
-          grp.rotation.y = Math.PI / 2
-          if (isHeld) {
-            // this pair leaves the rack while curling
-            for (const side of [-1, 1]) {
-              const c = grp.clone()
-              c.position.x = px + side * 0.08
-              s.add(cast(c))
-              this.rackBells.push(c)
-            }
-          } else {
-            B.absorb(grp)
-          }
+      const woodTex = woodTexture(D)
+      woodTex.repeat.set(2, 1)
+      const platform = new THREE.Mesh(new RoundedBoxGeometry(3.6, 0.12, 3.6, 2, 0.03), std({ map: woodTex, roughness: 0.55 }))
+      platform.position.set(PRESS.x, 0.06, PRESS.z)
+      platform.receiveShadow = true
+      s.add(platform)
+      // orange edge inlay around the platform
+      for (const [w, d, x, z] of [[3.64, 0.04, 0, -1.8], [3.64, 0.04, 0, 1.8], [0.04, 3.64, -1.8, 0], [0.04, 3.64, 1.8, 0]] as const)
+        B.put(new THREE.BoxGeometry(w, 0.125, d), M.orange, PRESS.x + x, 0.0625, PRESS.z + z, 0, 1, 1, 1, { cast: false })
+      barbell(this.bar)
+      s.add(this.bar)
+      // plate trees flanking the platform
+      for (const x of [-2.4, 2.4]) {
+        const P = Place.at(B, x, -5.15)
+        P.rbox(0.9, 0.06, 0.6, 0.01, M.frame, 0, 0.03, 0)
+        P.put(new THREE.CylinderGeometry(0.04, 0.04, 1.3, 10), M.frame, 0, 0.68, 0)
+        for (const [y, side, r] of [[0.32, -1, 0.25], [0.32, 1, 0.25], [0.72, -1, 0.2], [0.72, 1, 0.2], [1.08, -1, 0.15], [1.08, 1, 0.15]] as const) {
+          P.put(new THREE.CylinderGeometry(0.022, 0.022, 0.22, 8).rotateX(Math.PI / 2), M.steel, 0, y, side * 0.1)
+          storedPlate(P, M, 0, y, side * 0.2, r, 0.055, r > 0.22, Math.PI / 2)
         }
-      })
-      // the pair in your hands
+        box(x - 0.45, x + 0.45, -5.45, -4.85)
+      }
+    }
+
+    // ── free weights (east): three-tier dumbbell rack against the mirror, two adjustable benches in front ──
+    {
+      const R = Place.at(B, RACK_AT.x, RACK_AT.z, -Math.PI / 2)
+      const slots = dumbbellRack(R, M)
+      // the pair right behind the curl spot leaves the rack while you train; another pair lives with the NPC curler
+      const live = (sl: RackSlot) => sl.tier === 1 && sl.pair === 2
+      const npcPair = (sl: RackSlot) => sl.tier === 1 && sl.pair === 5
+      for (const sl of slots) {
+        const g = dumbbell(sl.r, M)
+        sl.matrix.decompose(g.position, g.quaternion, g.scale)
+        if (live(sl)) {
+          s.add(cast(g))
+          this.rackBells.push(g)
+        } else if (npcPair(sl)) {
+          this.npcBellR = sl.r
+        } else B.absorb(g)
+      }
+      this.bellR = slots.find(live)!.r
       for (let i = 0; i < 2; i++) {
-        const bgrp = new THREE.Group()
-        for (const part of hexDumbbellParts(0.054)) {
-          const m = new THREE.Mesh(part.geo, MAT[part.mat])
-          m.position.x = part.x
-          bgrp.add(m)
-        }
-        bgrp.visible = false
-        s.add(cast(bgrp))
-        this.bells.push(bgrp)
+        const g = dumbbell(this.bellR, M)
+        g.visible = false
+        s.add(cast(g))
+        this.bells.push(g)
       }
-      this.boxes.push({ x0: x - 0.95, x1: x + 0.95, z0: z - 1.5, z1: z - 1.0 })
+      box(RACK_AT.x - 0.48, RACK_AT.x + 0.52, RACK_AT.z - 1.75, RACK_AT.z + 1.75)
+      for (const z of [-4.3, -0.9]) {
+        adjustableBench(Place.at(B, 5.7, z, Math.PI), M) // seat end toward the mirror
+        box(5.0, 6.4, z - 0.3, z + 0.3)
+      }
     }
-    // ── squat rack: four drilled uprights, crossmembers, safeties, J-hooks, plate storage ──
+
+    // ── strength (west + back): squat rack, bench-press station, pull-up frame, kettlebells, deadlift platform ──
     {
       const [x, z] = SPOTS.squat.stand
-      const V = (a: number, b: number, c: number) => new THREE.Vector3(a, b, c)
-      for (const sx of [-0.7, 0.7])
-        for (const dz of [-0.55, 0.55]) {
-          const up = new THREE.Mesh(new THREE.BoxGeometry(0.08, 2.3, 0.08), uprightMat)
-          up.position.set(x + sx, 1.15, z + dz)
-          up.castShadow = true
-          s.add(up)
-          B.put(new THREE.BoxGeometry(0.2, 0.02, 0.2), iron, x + sx, 0.01, z + dz)
-        }
-      for (const sx of [-0.7, 0.7]) {
-        B.put(new THREE.BoxGeometry(0.08, 0.08, 1.18), iron, x + sx, 2.3, z)
-        B.put(tube(V(x + sx, 0.62, z - 0.58), V(x + sx, 0.62, z + 0.58), 0.025), chrome, 0, 0, 0) // safeties
-        B.put(new THREE.BoxGeometry(0.1, 0.06, 0.14), orange, x + sx, 1.42, z + 0.5) // J-hooks
-        B.put(tube(V(x + sx, 0.4, z - 0.55), V(x + sx * 1.45, 0.4, z - 0.55), 0.025), iron, 0, 0, 0) // plate peg
-        B.put(bumperGeo(0.25, 0.07), orange, x + sx * 1.36, 0.4, z - 0.55)
-        B.put(hubGeo(0.07), plateSteel, x + sx * 1.36, 0.4, z - 0.55)
-      }
-      B.put(new THREE.BoxGeometry(1.48, 0.08, 0.08), iron, x, 2.3, z - 0.55)
-      B.put(tube(V(x - 0.7, 2.24, z + 0.55), V(x + 0.7, 2.24, z + 0.55), 0.018), knurlMat, 0, 0, 0) // chin-up bar on top
+      squatRack(Place.at(B, x, z), M)
       barbell(this.squatBar, 1.9, [{ r: 0.25, w: 0.07, color: 'orange' }, { r: 0.21, w: 0.05, color: 'black' }])
       this.squatBar.position.set(x, 1.48, z + 0.5)
       s.add(this.squatBar)
-      for (const sx of [-0.7, 0.7]) for (const dz of [-0.55, 0.55]) this.boxes.push({ x0: x + sx - 0.1, x1: x + sx + 0.1, z0: z + dz - 0.1, z1: z + dz + 0.1 })
+      for (const sx of [-0.7, 0.7]) for (const dz of [-0.55, 0.55]) box(x + sx - 0.1, x + sx + 0.1, z + dz - 0.1, z + dz + 0.1)
+      for (const sx of [-1, 1]) box(x + sx * 0.75, x + sx * 1.08, z - 0.85, z - 0.25) // stored plates
     }
-    // ── heavy bag: stitched leather, caps, swivel and a real chain ──
     {
-      B.put(new THREE.BoxGeometry(0.16, 0.2, 2.6), iron, BAG.x, 5.9, BAG.z)
-      const leather = new THREE.MeshStandardMaterial({ map: leatherTexture('#6e1a12', D), roughness: 0.5, metalness: 0.05 })
+      const [x, z] = SPOTS.bench.stand
+      benchStation(Place.at(B, x, z), M)
+      barbell(this.benchBar, 1.8, [{ r: 0.225, w: 0.06, color: 'orange' }])
+      this.benchBar.position.set(x, 1.1, z - 0.66)
+      s.add(this.benchBar)
+      box(x - 0.62, x + 0.62, z - 1.1, z + 0.72)
+    }
+    {
+      const [x, z0] = SPOTS.pullup.stand
+      const z = z0 + PULL_BAR_FWD
+      const V = (a: number, b: number, c: number) => new THREE.Vector3(a, b, c)
+      const P = Place.at(B, 0, 0)
+      for (const sx of [-0.66, 0.66]) {
+        P.tube(V(x + sx, 0.02, z), V(x + sx, PULL_BAR_Y + 0.12, z), 0.045, M.frame, 10)
+        P.tube(V(x + sx, 0.04, z - 0.55), V(x + sx, 0.04, z + 0.55), 0.04, M.frame, 8)
+        P.tube(V(x + sx, 0.04, z - 0.5), V(x + sx, 1.3, z), 0.03, M.frame, 8)
+        P.tube(V(x + sx, 0.04, z + 0.5), V(x + sx, 1.3, z), 0.03, M.frame, 8)
+        for (const dz of [-0.55, 0.55]) P.rbox(0.14, 0.04, 0.14, 0.015, M.rubber, x + sx, 0.02, z + dz)
+      }
+      P.tube(V(x - 0.7, PULL_BAR_Y, z), V(x + 0.7, PULL_BAR_Y, z), 0.019, M.knurl, 14)
+      P.tube(V(x - 0.7, PULL_BAR_Y + 0.12, z), V(x + 0.7, PULL_BAR_Y + 0.12, z), 0.035, M.orange, 10)
+      for (const sx of [-0.66, 0.66]) box(x + sx - 0.08, x + sx + 0.08, z - 0.55, z + 0.55)
+    }
+    {
+      kettlebellShelf(Place.at(B, -6.6, -5.55), M, kettlebellGeo())
+      box(-7.75, -5.45, -5.9, -5.25)
+    }
+    {
+      const [x, z] = SPOTS.deadlift.stand
+      const g = new THREE.Group()
+      const oak = std({ map: woodTexture(D), roughness: 0.55 })
+      g.add(mesh(new RoundedBoxGeometry(1.0, 0.045, 2.4, 1, 0.01), oak, 0, 0.022, 0.1))
+      for (const sx of [-0.9, 0.9]) g.add(mesh(new RoundedBoxGeometry(0.8, 0.045, 2.4, 1, 0.01), M.rubber, sx, 0.022, 0.1))
+      g.add(mesh(new THREE.BoxGeometry(2.62, 0.05, 0.05), M.frame, 0, 0.025, -1.12), mesh(new THREE.BoxGeometry(2.62, 0.05, 0.05), M.frame, 0, 0.025, 1.32))
+      g.position.set(x, 0, z)
+      g.traverse((o) => (o.receiveShadow = true))
+      s.add(g)
+      barbell(this.deadBar, 2.0)
+      this.deadBar.position.set(x, DL_FLOOR_Y, z + 0.28)
+      s.add(this.deadBar)
+    }
+
+    // ── conditioning: turf sled lane between the benches and the heavy bag ──
+    {
+      const turfTex = (() => {
+        const c = document.createElement('canvas')
+        c.width = c.height = 128
+        const g = c.getContext('2d')!
+        g.fillStyle = '#20381f'
+        g.fillRect(0, 0, 128, 128)
+        for (let i = 0; i < 2600; i++) {
+          g.fillStyle = Math.random() < 0.5 ? '#2c4a29' : '#172a16'
+          g.fillRect(Math.random() * 128, Math.random() * 128, 1, 2)
+        }
+        const t = new THREE.CanvasTexture(c)
+        t.wrapS = t.wrapT = THREE.RepeatWrapping
+        t.repeat.set(6, 1.5)
+        t.colorSpace = THREE.SRGBColorSpace
+        return t
+      })()
+      turfLane(Place.at(B, 5.6, 1.35), M, std({ map: turfTex, roughness: 0.95 }), 5.6)
+      box(6.85, 7.95, 0.95, 1.75) // the sled
+    }
+
+    // ── machines (back wall): dual-stack cable station ──
+    cableStation(Place.at(B, 4.4, -5.35), M)
+    box(3.05, 5.75, -5.9, -4.85)
+
+    // ── cardio (west wall): three treadmills, the middle one is yours, the back one has a runner ──
+    {
+      const consoleMat = new THREE.MeshBasicMaterial({ map: consoleTexture(D), toneMapped: false, color: new THREE.Color(1.8, 1.8, 1.8) })
+      const beltTex = () => {
+        const c = document.createElement('canvas')
+        c.width = 128
+        c.height = 32
+        const cx = c.getContext('2d')!
+        cx.fillStyle = '#1c1b1e'
+        cx.fillRect(0, 0, 128, 32)
+        cx.fillStyle = '#2c2a30'
+        for (let i = 0; i < 128; i += 16) cx.fillRect(i, 0, 5, 32)
+        const t = new THREE.CanvasTexture(c)
+        t.wrapS = t.wrapT = THREE.RepeatWrapping
+        t.repeat.set(6, 1)
+        t.colorSpace = THREE.SRGBColorSpace
+        return t
+      }
+      for (const z of TREADMILL_ROW) {
+        const tex = beltTex()
+        const belt = std({ map: tex, roughness: 0.9 })
+        if (z === SPOTS.treadmill.stand[1]) this.belt = tex
+        if (z === NPC_RUNNER.z) this.npcBelt = tex
+        const tx = SPOTS.treadmill.stand[0] + TREAD_BACK
+        treadmill(Place.at(B, tx, z), { ...M, console: consoleMat, belt })
+        box(tx - 1.02, tx + 1.02, z - 0.45, z + 0.45)
+      }
+    }
+
+    // ── heavy bag: stitched leather, caps, swivel and chain, hung from a ceiling bracket ──
+    {
+      const P = Place.at(B, BAG.x, BAG.z)
+      P.rbox(0.36, 0.03, 0.36, 0.008, M.frame, 0, HALL.H - 0.015, 0)
+      P.put(new THREE.CylinderGeometry(0.03, 0.03, HALL.H - 4.24, 10), M.frame, 0, (HALL.H + 4.24) / 2, 0)
+      P.put(new THREE.TorusGeometry(0.035, 0.009, 6, 12), M.steel, 0, 4.2, 0)
+      const leather = std({ map: leatherTexture('#6e1a12', D), roughness: 0.5, metalness: 0.05 })
       const link = new THREE.TorusGeometry(0.03, 0.007, 6, 12)
       const body = mesh(new THREE.CylinderGeometry(0.27, 0.25, 1.15, 28), leather, 0, -2.8, 0)
-      const capTop = mesh(new THREE.CylinderGeometry(0.2, 0.27, 0.08, 28), rubber, 0, -2.2, 0)
+      const capTop = mesh(new THREE.CylinderGeometry(0.2, 0.27, 0.08, 28), M.rubber, 0, -2.2, 0)
       const capBot = mesh(new THREE.SphereGeometry(0.25, 24, 10, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), leather, 0, -3.37, 0)
-      const band = mesh(new THREE.CylinderGeometry(0.275, 0.275, 0.12, 28), orange, 0, -2.55, 0)
-      const band2 = mesh(new THREE.CylinderGeometry(0.262, 0.262, 0.05, 28), orange, 0, -3.25, 0)
-      const swivel = mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.12, 10), chrome, 0, -2.1, 0)
-      // chain between the beam (y 1.75 above the bag pivot) and the top cap
+      const band = mesh(new THREE.CylinderGeometry(0.275, 0.275, 0.12, 28), M.orange, 0, -2.55, 0)
+      const band2 = mesh(new THREE.CylinderGeometry(0.262, 0.262, 0.05, 28), M.orange, 0, -3.25, 0)
+      const swivel = mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.12, 10), M.chrome, 0, -2.1, 0)
       const ch = new THREE.Group()
       for (let i = 0; i < 40; i++) {
-        const l = new THREE.Mesh(link, chrome)
+        const l = new THREE.Mesh(link, M.chrome)
         l.position.y = -0.04 - i * 0.05
         l.rotation.y = i % 2 ? Math.PI / 2 : 0
         l.scale.set(1, 1.4, 1)
@@ -468,81 +372,28 @@ export class Gym implements GameScene {
       this.bag.add(ch, swivel, body, capTop, capBot, band, band2)
       this.bag.position.set(BAG.x, 4.15, BAG.z)
       s.add(cast(this.bag))
-      this.boxes.push({ x0: BAG.x - 0.32, x1: BAG.x + 0.32, z0: BAG.z - 0.32, z1: BAG.z + 0.32 })
+      box(BAG.x - 0.32, BAG.x + 0.32, BAG.z - 0.32, BAG.z + 0.32)
+      // a floor mat under the bag
+      B.put(new RoundedBoxGeometry(2.2, 0.022, 2.6, 1, 0.008), M.rubber, BAG.x, 0.011, BAG.z + 0.4, 0, 1, 1, 1, { cast: false })
     }
 
-    // ── deadlift platform: oak centre, rubber wings, bar loaded on the floor ──
+    // ── entrance: reception desk, lockers + bench, water station ──
     {
-      const [x, z] = SPOTS.deadlift.stand
-      const g = new THREE.Group()
-      const oak = new THREE.MeshStandardMaterial({ map: woodTexture(D), roughness: 0.55 })
-      g.add(mesh(new RoundedBoxGeometry(1.0, 0.045, 2.4, 1, 0.01), oak, 0, 0.022, 0.1))
-      for (const sx of [-0.9, 0.9]) g.add(mesh(new RoundedBoxGeometry(0.8, 0.045, 2.4, 1, 0.01), rubber, sx, 0.022, 0.1))
-      g.add(mesh(new THREE.BoxGeometry(2.62, 0.05, 0.05), iron, 0, 0.025, -1.12), mesh(new THREE.BoxGeometry(2.62, 0.05, 0.05), iron, 0, 0.025, 1.32))
-      g.position.set(x, 0, z)
-      g.traverse((o) => (o.receiveShadow = true))
-      s.add(g)
-      barbell(this.deadBar, 2.0)
-      this.deadBar.position.set(x, DL_FLOOR_Y, z + 0.28)
-      s.add(this.deadBar)
-    }
-    // ── pull-up station: tubular frame, knurled chrome bar, braced feet with rubber pads ──
-    {
-      const [x, z0] = SPOTS.pullup.stand
-      const z = z0 + PULL_BAR_FWD
-      const V = (a: number, b: number, c: number) => new THREE.Vector3(a, b, c)
-      for (const sx of [-0.66, 0.66]) {
-        B.put(tube(V(x + sx, 0.02, z), V(x + sx, PULL_BAR_Y + 0.12, z), 0.045, 10), iron, 0, 0, 0)
-        B.put(tube(V(x + sx, 0.04, z - 0.55), V(x + sx, 0.04, z + 0.55), 0.04, 8), iron, 0, 0, 0)
-        B.put(tube(V(x + sx, 0.04, z - 0.5), V(x + sx, 1.3, z), 0.03, 8), iron, 0, 0, 0)
-        B.put(tube(V(x + sx, 0.04, z + 0.5), V(x + sx, 1.3, z), 0.03, 8), iron, 0, 0, 0)
-        for (const dz of [-0.55, 0.55]) B.put(new RoundedBoxGeometry(0.14, 0.04, 0.14, 1, 0.015), rubber, x + sx, 0.02, z + dz)
-      }
-      B.put(tube(V(x - 0.7, PULL_BAR_Y, z), V(x + 0.7, PULL_BAR_Y, z), 0.019, 14), knurlMat, 0, 0, 0)
-      B.put(tube(V(x - 0.7, PULL_BAR_Y + 0.12, z), V(x + 0.7, PULL_BAR_Y + 0.12, z), 0.035, 10), orange, 0, 0, 0)
-      for (const sx of [-0.66, 0.66]) this.boxes.push({ x0: x + sx - 0.08, x1: x + sx + 0.08, z0: z - 0.55, z1: z + 0.55 })
-    }
-    // ── treadmill along the west wall: rounded deck, scrolling belt, rails, lit console ──
-    {
-      const [x, z] = SPOTS.treadmill.stand
-      const g = new THREE.Group()
-      const L = 2.1
-      g.add(mesh(new RoundedBoxGeometry(L, 0.16, 0.86, 2, 0.04), iron, 0, 0.08, 0))
-      const c = document.createElement('canvas')
-      c.width = 32
-      c.height = 128
-      const cx = c.getContext('2d')!
-      cx.fillStyle = '#1c1b1e'
-      cx.fillRect(0, 0, 32, 128)
-      cx.fillStyle = '#2b292e'
-      for (let i = 0; i < 128; i += 16) cx.fillRect(0, i, 32, 5)
-      const tex = new THREE.CanvasTexture(c)
-      tex.wrapS = tex.wrapT = THREE.RepeatWrapping
-      tex.repeat.set(1, 6)
-      tex.colorSpace = THREE.SRGBColorSpace
-      this.belt = tex
-      const belt = new THREE.Mesh(new THREE.PlaneGeometry(0.62, this.beltLen), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 }))
-      belt.rotation.x = -Math.PI / 2
-      belt.rotation.z = Math.PI / 2
-      belt.position.set(0, 0.165, 0)
-      belt.receiveShadow = true
-      g.add(belt)
-      const V = (a: number, b: number, cc: number) => new THREE.Vector3(a, b, cc)
-      for (const sz of [-0.4, 0.4]) {
-        g.add(new THREE.Mesh(tube(V(0.82, 0.12, sz), V(0.9, 1.15, sz), 0.03), iron))
-        g.add(new THREE.Mesh(tube(V(0.0, 1.05, sz), V(0.88, 1.08, sz), 0.022), chrome))
-      }
-      const con = mesh(new RoundedBoxGeometry(0.18, 0.36, 0.9, 2, 0.04), iron, 0.92, 1.25, 0)
-      con.rotation.z = 0.35
-      g.add(con)
-      const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.19), new THREE.MeshBasicMaterial({ map: consoleTexture(D), toneMapped: false, color: new THREE.Color(1.8, 1.8, 1.8) }))
-      screen.position.set(0.82, 1.29, 0)
-      screen.rotation.set(0, -Math.PI / 2, 0)
-      screen.rotateX(-0.35)
-      g.add(screen)
-      g.position.set(x + 0.2, 0, z)
-      s.add(cast(g))
-      this.boxes.push({ x0: x + 0.2 - L / 2, x1: x + 0.2 + L / 2 - 0.15, z0: z - 0.48, z1: z + 0.48 })
+      const brand = new THREE.MeshBasicMaterial({ map: brandPanelTex(D), toneMapped: false, color: new THREE.Color(1.3, 1.3, 1.3) })
+      const screen = new THREE.MeshBasicMaterial({ map: screenTex(D), toneMapped: false, color: new THREE.Color(1.4, 1.4, 1.4) })
+      const top = std({ color: '#3a3438', roughness: 0.3, metalness: 0.2 })
+      receptionDesk(Place.at(B, -3.4, 6.1, Math.PI / 2), { ...M, top, brand, glowPurple, screen })
+      box(-4.2, -3.05, 4.85, 7.35)
+      const locker = std({ color: '#26222c', metalness: 0.55, roughness: 0.45 })
+      lockers(Place.at(B, -7.2, 7.32, Math.PI), { ...M, locker, glowOrange }, 7)
+      box(-8.95, -5.5, 6.95, 7.6)
+      const LB = Place.at(B, -7.0, 6.5)
+      LB.put(roundedPad(1.6, 0.06, 0.34), M.pad, 0, 0.45, 0)
+      for (const x of [-0.65, 0.65]) LB.rbox(0.05, 0.42, 0.28, 0.008, M.frame, x, 0.21, 0)
+      box(-7.85, -6.15, 6.3, 6.7)
+      const glass = std({ color: '#7fc4ff', transparent: true, opacity: 0.5, roughness: 0.1 })
+      waterStation(Place.at(B, 3.2, 7.32, Math.PI), { ...M, glass, glowBlue })
+      box(2.85, 3.55, 7.0, 7.6)
     }
     B.build(s, true)
 
@@ -553,21 +404,22 @@ export class Gym implements GameScene {
     this.ring.position.y = 0.03
     s.add(this.ring)
 
-    // lighting: overhead key + orange rim + fill over the stations
-    s.add(new THREE.HemisphereLight('#5a4a62', '#1a100a', 0.85))
-    const key = new THREE.SpotLight('#fff0dc', 70, 22, 0.95, 0.55, 1.3)
-    key.position.set(0, 8, 1.5)
-    key.castShadow = true
-    key.shadow.mapSize.set(1024, 1024)
-    key.target.position.set(0, 0, 0)
+    // ═════════ 3. lighting: soft overhead key (the one shadow caster), warm zone fills, purple cardio wash ═════════
+    s.add(new THREE.HemisphereLight('#5a4a62', '#1a100a', 0.8))
+    const key = new THREE.SpotLight('#fff0dc', 80, 24, 1.05, 0.6, 1.3)
+    key.position.set(0, HALL.H - 0.2, 1.2)
+    key.castShadow = this.quality !== 'low'
+    key.shadow.mapSize.set(this.quality === 'high' ? 1024 : 512, this.quality === 'high' ? 1024 : 512)
+    key.shadow.bias = -0.0004
+    key.target.position.set(0, 0, -0.6)
     s.add(key, key.target)
-    const rim = new THREE.PointLight('#ff7a1a', 18, 10, 1.6)
-    rim.position.set(-2.5, 2.5, -4.5)
+    const rim = new THREE.PointLight('#ff7a1a', 16, 9, 1.6)
+    rim.position.set(0, 2.4, -4.6)
     s.add(rim)
-    for (const [x, z] of [[-5.2, 0.2], [5.2, 0.6]]) {
-      const fill = new THREE.PointLight('#ffe2c0', 10, 9, 1.4)
-      fill.position.set(x, 3.6, z)
-      s.add(fill)
+    for (const [x, y, z, c, i] of [[6.4, 3.4, -2.4, '#ffe2c0', 12], [-6.4, 3.4, -1.8, '#ffe2c0', 11], [-6.2, 3.0, 3.6, '#b58cff', 7], [-1.6, 3.0, 6.0, '#ffd8b0', 6]] as const) {
+      const l = new THREE.PointLight(c, i, 9, 1.4)
+      l.position.set(x, y, z)
+      s.add(l)
     }
 
     // stations + exit
@@ -579,11 +431,41 @@ export class Gym implements GameScene {
   }
 
   async populate(a: Appearance) {
-    const [p, coach] = await Promise.all([
+    // phones on low quality get the coach only; medium adds a treadmill runner; high adds a dumbbell curler too
+    const kinds: ('run' | 'curl')[] = this.quality === 'low' ? [] : this.quality === 'high' ? ['run', 'curl'] : ['run']
+    const looks: Record<'run' | 'curl', Appearance> = {
+      run: { species: 'demon', skin: '#5b2a86', outfit: '#141216', glow: '#ffb347', top: 'shirtless', headwear: 'none', eyewear: 'none', chain: false },
+      curl: { species: 'pumpkin', skin: '#c9581a', outfit: '#2a262c', glow: '#ff7a1a', top: 'shirtless', headwear: 'none', eyewear: 'shades', chain: true },
+    }
+    const [p, coach, ...extra] = await Promise.all([
       createCharacter(a),
       createCharacter({ species: 'skeleton', skin: '#e9e2d0', outfit: '#141216', glow: '#19f19a', top: 'armor', headwear: 'none', eyewear: 'none', chain: true }),
+      ...kinds.map((k) => createCharacter(looks[k])),
     ])
-    if (this.disposed) return [p, coach].forEach(disposeCharacter)
+    if (this.disposed) return [p, coach, ...extra].forEach(disposeCharacter)
+    kinds.forEach((kind, i) => {
+      const c = extra[i]
+      this.scene.add(c.root)
+      const bells: THREE.Group[] = []
+      if (kind === 'run') {
+        c.root.position.set(NPC_RUNNER.x, 0.165, NPC_RUNNER.z)
+        c.root.rotation.y = Math.PI / 2
+        c.pose = 'walk'
+      } else {
+        c.root.position.set(NPC_CURLER.x, 0, NPC_CURLER.z)
+        c.root.rotation.y = NPC_CURLER.yaw
+        c.pose = 'curl'
+        c.pressAmount = 0
+        for (let k = 0; k < 2; k++) {
+          const g = dumbbell(this.npcBellR, this.npcMats!)
+          g.traverse((o) => (o.castShadow = true))
+          this.scene.add(g)
+          bells.push(g)
+        }
+        this.boxes.push({ x0: NPC_CURLER.x - 0.35, x1: NPC_CURLER.x + 0.35, z0: NPC_CURLER.z - 0.35, z1: NPC_CURLER.z + 0.35 })
+      }
+      this.npcs.push({ c, kind, t: Math.random() * 4, bells })
+    })
     this.player = p
     p.onStep = () => audio.play('step')
     this.scene.add(p.root)
@@ -746,6 +628,23 @@ export class Gym implements GameScene {
     this.placeFreeCamera(1)
   }
 
+  /** QA: stand anywhere on the floor facing `yaw` (camera behind), in free mode */
+  teleport(x: number, z: number, yaw?: number) {
+    if (this.mode !== 'free') return
+    this.pos.set(x, 0, z)
+    this.collide(this.pos)
+    this.vel.set(0, 0, 0)
+    if (yaw !== undefined) {
+      this.yaw = yaw
+      this.camYaw = yaw + Math.PI
+    }
+    this.placeFreeCamera(1)
+  }
+  /** QA: what's in the hall */
+  info() {
+    return { npcs: this.npcs.map((n) => n.kind), quality: this.quality, rackBellsVisible: this.rackBells.map((b) => b.visible), heldVisible: this.bells.map((b) => b.visible), pos: [+this.pos.x.toFixed(2), +this.pos.z.toFixed(2)] }
+  }
+
   /* ───────── camera ───────── */
 
   resize(w: number, h: number) {
@@ -778,7 +677,7 @@ export class Gym implements GameScene {
   private clampCam(v: THREE.Vector3) {
     v.x = THREE.MathUtils.clamp(v.x, -8.6, 8.6)
     v.z = THREE.MathUtils.clamp(v.z, -5.7, 7.35)
-    v.y = THREE.MathUtils.clamp(v.y, 0.4, 6.5)
+    v.y = THREE.MathUtils.clamp(v.y, 0.4, HALL.H - 0.35)
     return v
   }
 
@@ -922,7 +821,7 @@ export class Gym implements GameScene {
         if (p) p.speed = this.pace / 3.4 // the rig plays walk / jog / sprint matched to this ground speed
       }
     }
-    if (this.belt) this.belt.offset.y -= ((this.mode === 'treadmill' ? this.pace : 0) * dt * this.belt.repeat.y) / this.beltLen
+    if (this.belt) this.belt.offset.x += ((this.mode === 'treadmill' ? this.pace : 0) * dt * this.belt.repeat.x) / this.beltLen
 
     if (p) {
       p.root.position.copy(this.pos)
@@ -1042,6 +941,7 @@ export class Gym implements GameScene {
     else if (this.mode !== 'press') this.placeStationCamera(1 - Math.exp(-dt * 5))
     this.camKick = Math.max(0, this.camKick - dt * 6)
 
+    this.updateNpcs(dt)
     const c = this.coach
     if (c) {
       if (c.pose === 'idle' || c.pose === 'pushup') {
@@ -1061,8 +961,44 @@ export class Gym implements GameScene {
     this.ring.scale.setScalar(1 + this.flash * 0.35)
   }
 
+  /** the regulars: a steady jog on the back treadmill; curl sets with rests at the rack (dumbbells follow the palms) */
+  private updateNpcs(dt: number) {
+    for (const n of this.npcs) {
+      n.t += dt
+      const c = n.c
+      if (n.kind === 'run') {
+        const pace = 2.9 + Math.sin(n.t * 0.05) * 0.4 // drifts between an easy and a steady jog
+        c.speed = pace / 3.4
+        if (this.npcBelt) this.npcBelt.offset.x += (pace * dt * this.npcBelt.repeat.x) / this.beltLen
+        c.update(dt)
+        continue
+      }
+      // 10 reps (~1.3 s each), then ~6 s rest with the bells at the sides
+      const cycle = 19
+      const k = n.t % cycle
+      const amt = k < 13 ? 0.5 - 0.5 * Math.cos(((k % 1.3) / 1.3) * Math.PI * 2) : 0
+      c.pressAmount += (amt - c.pressAmount) * (1 - Math.exp(-dt * 14))
+      c.update(dt)
+      c.root.updateMatrixWorld(true)
+      if (c.palm && c.grip) {
+        const L = c.palm('l')
+        const R = c.palm('r')
+        const mid = L.clone().add(R).multiplyScalar(0.5)
+        const axis = new THREE.Vector3(Math.cos(NPC_CURLER.yaw), 0, -Math.sin(NPC_CURLER.yaw))
+        const half = Math.abs(L.clone().sub(R).dot(axis)) / 2
+        const lSide = Math.sign(L.clone().sub(mid).dot(axis)) || 1
+        c.grip(mid.clone().addScaledVector(axis, lSide * half), mid.clone().addScaledVector(axis, -lSide * half))
+        n.bells.forEach((b, i) => {
+          b.position.copy(c.palm!(i ? 'r' : 'l'))
+          b.rotation.set(0, NPC_CURLER.yaw, 0)
+        })
+      }
+    }
+  }
+
   dispose() {
     this.disposed = true
+    this.npcs.forEach((n) => disposeCharacter(n.c))
     this.events?.onPrompt(null)
     if (this.player) disposeCharacter(this.player)
     if (this.coach) disposeCharacter(this.coach)

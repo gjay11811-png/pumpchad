@@ -247,8 +247,84 @@ class AudioEngine {
       this.water = wg
     } else this.water = null
 
+    // Chad Gym: muffled speaker music through the wall + the odd distant plate / dumbbell clank
+    let clankTimer = 0
+    if (name === 'gym') {
+      const sr = ctx.sampleRate
+      const bars = 2
+      const beat = 60 / 96
+      const len = Math.floor(sr * beat * 4 * bars)
+      const buf = ctx.createBuffer(1, len, sr)
+      const d = buf.getChannelData(0)
+      const bass = [41.2, 41.2, 49, 36.7]
+      for (let b = 0; b < 4 * bars; b++) {
+        const t0 = Math.floor(b * beat * sr)
+        // four-on-the-floor kick: pitch-dropping sine thump
+        for (let i = 0; i < sr * 0.32 && t0 + i < len; i++) {
+          const t = i / sr
+          d[t0 + i] += Math.sin(2 * Math.PI * (48 + 90 * Math.exp(-t * 28)) * t) * Math.exp(-t * 9) * 0.55
+        }
+        // off-beat bass stab
+        const t1 = t0 + Math.floor(beat * 0.5 * sr)
+        const f = bass[Math.floor(b / 2) % 4]
+        for (let i = 0; i < sr * beat * 0.45 && t1 + i < len; i++) {
+          const t = i / sr
+          d[t1 + i] += Math.sin(2 * Math.PI * f * t) * Math.min(1, t * 60) * Math.exp(-t * 5) * 0.3
+        }
+      }
+      const mus = ctx.createBufferSource()
+      mus.buffer = buf
+      mus.loop = true
+      const mlp = ctx.createBiquadFilter()
+      mlp.type = 'lowpass'
+      mlp.frequency.value = 170 // heard through a wall
+      const mg = ctx.createGain()
+      mg.gain.value = 0.16
+      mus.connect(mlp).connect(mg).connect(out)
+      mus.start()
+      nodes.push(mus)
+      const clank = () => {
+        if (this.ambName !== 'gym' || !this.ctx) return
+        const t = ctx.currentTime
+        const g = ctx.createGain()
+        const far = 0.025 + Math.random() * 0.03
+        g.gain.setValueAtTime(far, t)
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.7)
+        const bp = ctx.createBiquadFilter()
+        bp.type = 'bandpass'
+        bp.frequency.value = 900 + Math.random() * 900
+        bp.Q.value = 3
+        g.connect(bp).connect(out)
+        for (const [fq, k] of [[380 + Math.random() * 120, 1], [1120 + Math.random() * 300, 0.5]]) {
+          const o = ctx.createOscillator()
+          o.type = 'triangle'
+          o.frequency.value = fq
+          const og = ctx.createGain()
+          og.gain.value = k
+          o.connect(og).connect(g)
+          o.start(t)
+          o.stop(t + 0.75)
+        }
+        // a second, softer hit sometimes (a plate settling, a dumbbell re-racked)
+        if (Math.random() < 0.4) {
+          const g2 = ctx.createGain()
+          g2.gain.setValueAtTime(far * 0.5, t + 0.16)
+          g2.gain.exponentialRampToValueAtTime(0.0001, t + 0.6)
+          const o2 = ctx.createOscillator()
+          o2.type = 'triangle'
+          o2.frequency.value = 520 + Math.random() * 200
+          o2.connect(g2).connect(bp)
+          o2.start(t + 0.16)
+          o2.stop(t + 0.62)
+        }
+        clankTimer = window.setTimeout(clank, 3500 + Math.random() * 7000)
+      }
+      clankTimer = window.setTimeout(clank, 2500)
+    }
+
     this.amb = {
       stop: () => {
+        clearTimeout(clankTimer)
         const t = ctx.currentTime
         out.gain.cancelScheduledValues(t)
         out.gain.setValueAtTime(out.gain.value, t)

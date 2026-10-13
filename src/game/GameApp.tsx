@@ -471,6 +471,8 @@ export function GameApp() {
       gymInspect: () => (gym.current?.player as unknown as { inspect?: () => unknown } | null)?.inspect?.() ?? null,
       gym: () => (gym.current ? { mode: gym.current.mode, prompt: gym.current.interactables.length, pace: +gym.current.pace.toFixed(2) } : null),
       gymGoto: (id: string) => gym.current?.goto(id),
+      gymTeleport: (x: number, z: number, yaw?: number) => gym.current?.teleport(x, z, yaw),
+      gymInfo: () => gym.current?.info() ?? null,
       anim: () => world.current?.animState() ?? gym.current?.animState() ?? null,
       seat: () => world.current?.seatState() ?? null,
       rush: () => (world.current?.rush ? { phase: world.current.rush.phase, timeLeft: +world.current.rush.timeLeft.toFixed(2), combo: world.current.rush.combo, ...world.current.rush.stats, targets: world.current.rush.targetsInfo() } : null),
