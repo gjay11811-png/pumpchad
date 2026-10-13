@@ -473,6 +473,7 @@ export function GameApp() {
       gymGoto: (id: string) => gym.current?.goto(id),
       gymTeleport: (x: number, z: number, yaw?: number) => gym.current?.teleport(x, z, yaw),
       gymInfo: () => gym.current?.info() ?? null,
+      gymPhoto: (o: Parameters<Gym['setPhoto']>[0]) => gym.current?.setPhoto(o),
       anim: () => world.current?.animState() ?? gym.current?.animState() ?? null,
       seat: () => world.current?.seatState() ?? null,
       rush: () => (world.current?.rush ? { phase: world.current.rush.phase, timeLeft: +world.current.rush.timeLeft.toFixed(2), combo: world.current.rush.combo, ...world.current.rush.stats, targets: world.current.rush.targetsInfo() } : null),

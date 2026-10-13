@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { createCharacter, disposeCharacter, type Character } from '../character/character'
 import type { Appearance } from '../character/types'
+import type { Pose } from '../character/build'
 import { disposeObject, type Engine, type GameScene } from '../engine/Engine'
 import type { Input } from '../input'
 import { audio } from '../audio'
@@ -640,6 +641,17 @@ export class Gym implements GameScene {
     }
     this.placeFreeCamera(1)
   }
+  /** photo mode (QA / marketing stills): a fixed cinematic camera + a held pose. `null` returns to gameplay. */
+  private photo: { cam: THREE.Vector3; look: THREE.Vector3; fov: number; pose: Pose | null } | null = null
+  setPhoto(o: { x: number; z: number; yaw: number; cam: [number, number, number]; look: [number, number, number]; fov?: number; pose?: Pose } | null) {
+    if (!o) {
+      this.photo = null
+      this.resize(this.w, this.h)
+      return
+    }
+    this.teleport(o.x, o.z, o.yaw)
+    this.photo = { cam: new THREE.Vector3(...o.cam), look: new THREE.Vector3(...o.look), fov: o.fov ?? 40, pose: o.pose ?? null }
+  }
   /** QA: what's in the hall */
   info() {
     return { npcs: this.npcs.map((n) => n.kind), quality: this.quality, rackBellsVisible: this.rackBells.map((b) => b.visible), heldVisible: this.bells.map((b) => b.visible), pos: [+this.pos.x.toFixed(2), +this.pos.z.toFixed(2)] }
@@ -770,7 +782,7 @@ export class Gym implements GameScene {
     const p = this.player
     if (p) {
       p.speed = speed / SPEED_UNIT
-      p.pose = this.emoter.pose() ?? (speed > 0.1 ? 'walk' : 'idle')
+      p.pose = this.photo?.pose ?? this.emoter.pose() ?? (speed > 0.1 ? 'walk' : 'idle')
       if (p.lean) {
         let dy = this.yaw - yaw0
         dy = Math.atan2(Math.sin(dy), Math.cos(dy))
@@ -937,7 +949,14 @@ export class Gym implements GameScene {
     this.bagAngle += this.bagVel * dt
     this.bag.rotation.x = this.bagAngle
 
-    if (this.mode === 'free') this.placeFreeCamera(1 - Math.exp(-dt * 9))
+    if (this.photo && this.mode === 'free') {
+      this.camera.position.copy(this.photo.cam)
+      this.camera.lookAt(this.photo.look)
+      if (this.camera.fov !== this.photo.fov) {
+        this.camera.fov = this.photo.fov
+        this.camera.updateProjectionMatrix()
+      }
+    } else if (this.mode === 'free') this.placeFreeCamera(1 - Math.exp(-dt * 9))
     else if (this.mode !== 'press') this.placeStationCamera(1 - Math.exp(-dt * 5))
     this.camKick = Math.max(0, this.camKick - dt * 6)
 
