@@ -291,13 +291,19 @@ export function leaf() {
 export function grassTuft() {
   const [c, g] = canvas(64)
   const r = rng(2)
-  for (let i = 0; i < 14; i++) {
-    const x = 10 + r() * 44
-    g.strokeStyle = `rgba(${60 + r() * 30},${90 + r() * 40},${50 + r() * 20},1)`
-    g.lineWidth = 3
+  for (let i = 0; i < 26; i++) {
+    const x = 8 + r() * 48
+    const tipX = x + (r() - 0.5) * 26
+    const tipY = 4 + r() * 24
+    const grd = g.createLinearGradient(0, 64, 0, tipY)
+    const v = 0.8 + r() * 0.4
+    grd.addColorStop(0, `rgb(${40 * v},${62 * v},${32 * v})`)
+    grd.addColorStop(1, `rgb(${120 * v},${150 * v},${78 * v})`)
+    g.strokeStyle = grd
+    g.lineWidth = 1.6 + r() * 1.8
     g.beginPath()
     g.moveTo(x, 64)
-    g.quadraticCurveTo(x + (r() - 0.5) * 20, 30, x + (r() - 0.5) * 26, 6 + r() * 20)
+    g.quadraticCurveTo(x + (r() - 0.5) * 18, 34, tipX, tipY)
     g.stroke()
   }
   return tex(c, false)

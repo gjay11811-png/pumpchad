@@ -116,6 +116,8 @@ export function makePalette(tex: Record<string, THREE.Texture>) {
     bark: std({ color: '#2a1d18', roughness: 0.95 }),
     pumpkin: std({ color: '#d8661a', roughness: 0.6 }),
     rock: std({ color: '#4a4450', roughness: 0.95, flatShading: true }),
+    flowers: std({ map: tex.flowers, alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.8 }),
+    soil: std({ color: '#2a1d16', roughness: 1 }),
     cloth: std({ color: '#2a1c24', roughness: 0.95, side: THREE.DoubleSide }),
     windowLit: new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffb057').multiplyScalar(1.25), toneMapped: false }),
     windowDark: std({ color: '#0d0b12', roughness: 0.2, metalness: 0.6 }),

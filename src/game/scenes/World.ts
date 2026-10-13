@@ -18,6 +18,7 @@ import { buildChadCity } from './world/skyline'
 import { kingdomStyle, styleMaterials } from './world/style'
 import * as TX from './world/textures'
 import { RushGame } from '../minigames/pumpkinRush'
+import { flowerTexture } from './world/foliage'
 
 export type Interactable = { id: string; label: string; pos: THREE.Vector3; radius: number; kind: 'talk' | 'activity' | 'info' | 'collect' | 'secret' }
 export type WorldEvents = {
@@ -139,6 +140,7 @@ export class World implements GameScene {
       wood: TX.wood(),
       roof: TX.roof(),
       stone: stoneBlocks(),
+      flowers: flowerTexture([]),
     }
     const P = makePalette(tex)
     Object.values(tex).forEach((t) => this.disposables.push(t))

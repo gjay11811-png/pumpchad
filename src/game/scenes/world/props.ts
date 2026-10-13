@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { FoliageBuilder, leafTexture, rockGeo } from './foliage'
 import type { Quality } from '../../save'
 import { signTexture, bannerTexture } from '../textures'
 import type { Town } from './buildings'
@@ -116,21 +117,19 @@ export function poles(T: Town, spots: [number, number][], h = 4.4) {
 export function vegetation(T: Town, q: Quality, avoid: (x: number, z: number) => boolean) {
   const P = T.P
   const r = rng(77)
-  // trees: autumn canopies + a few dead ones near the Hollow House
+  const F = new FoliageBuilder(77)
+  const C = (h: string) => new THREE.Color(h)
+  const autumnCols = [C('#c4561a'), C('#d98a1f'), C('#a8321e'), C('#c96b22'), C('#5c7a2e')]
+  const barkCol = C('#3a2a20')
+  // autumn trees: trunk + branches + clustered canopies of real leaf cards
   const autumn: [number, number][] = [[-15, 28], [15, 29], [-30, 8], [29, 2], [-6, -27], [7, -27.5], [-29, -15], [27, 19], [-20, 29], [-31, -4]]
   const dead: [number, number][] = [[26, -14], [15, -24], [27, -25], [-27, -24]]
-  const blob = new THREE.IcosahedronGeometry(1, 1)
   for (const [x, z] of autumn) {
-    const s = 0.9 + r() * 0.35
-    T.batch.put(new THREE.CylinderGeometry(0.18 * s, 0.32 * s, 3.2 * s, 7), P.bark, x, 1.6 * s, z)
-    for (let k = 0; k < 4; k++) {
-      const a = k * 1.7 + r()
-      T.batch.put(blob, k % 3 === 0 ? P.foliage : P.foliageAutumn, x + Math.cos(a) * 0.7 * s, (3.4 + (k % 2) * 0.7) * s, z + Math.sin(a) * 0.7 * s, a, 1.3 * s, 1.1 * s, 1.3 * s)
-    }
+    F.tree(x, z, 0.95 + r() * 0.3, autumnCols, barkCol)
     T.colliders.push({ kind: 'circle', x, z, r: 0.45, h: 5 })
   }
   for (const [x, z] of dead) {
-    T.batch.put(new THREE.CylinderGeometry(0.15, 0.38, 4.6, 6), P.bark, x, 2.3, z)
+    T.batch.put(new THREE.CylinderGeometry(0.15, 0.38, 4.6, 7), P.bark, x, 2.3, z)
     for (let k = 0; k < 4; k++) {
       const br = new THREE.CylinderGeometry(0.04, 0.12, 2.2, 5)
       br.translate(0, 1.1, 0)
@@ -140,21 +139,36 @@ export function vegetation(T: Town, q: Quality, avoid: (x: number, z: number) =>
     }
     T.colliders.push({ kind: 'circle', x, z, r: 0.45, h: 4 })
   }
-  // bushes (instanced)
-  const bushes: { x: number; y: number; z: number; ry: number; s: number }[] = []
+  // garden bushes: lumpy cores + leaf shells, a few greens (and the odd autumn one)
+  const greens = [C('#3d5a33'), C('#4a6b38'), C('#34502f'), C('#6b6a2a')]
   const bushSpots: [number, number][] = [[-7, -10], [7, -10], [-7, 10.5], [7, 10.5], [-12.5, 6.5], [-12.5, -1.5], [12, 1.5], [12, -9.5], [-4, 27], [4, 27], [-24, 13], [-21, 19.5], [23.5, 8], [24, 15], [-18, -18], [-24, -6], [18, -12], [6, -16], [-6, -16], [-29, 12]]
   for (const [x, z] of bushSpots)
-    for (let k = 0; k < 3; k++) bushes.push({ x: x + (r() - 0.5) * 1.6, y: 0.35, z: z + (r() - 0.5) * 1.6, ry: r() * 6, s: 0.45 + r() * 0.35 })
-  T.scene.add(instanced(blob, P.foliage, bushes))
-  // hedge borders along the north road and around the plaza mouth
+    for (let k = 0; k < 3; k++) F.bush(x + (r() - 0.5) * 1.6, 0, z + (r() - 0.5) * 1.6, 0.75 + r() * 0.45, greens[Math.floor(r() * greens.length)])
+  // clipped hedges along the north road and the plaza mouth (same footprint + colliders as before)
+  const hedgeGreen = C('#2f4a2b')
   for (const side of [-1, 1]) {
-    T.batch.put(boxUV(0.7, 0.8, 9, 1), P.foliageDark, side * 3.4, 0.4, -17)
-    T.batch.put(boxUV(0.7, 0.8, 5, 1), P.foliageDark, side * 3.4, 0.4, 16)
+    F.hedge(side * 3.4, -17, 9, 0.75, 0.85, 'z', hedgeGreen)
+    F.hedge(side * 3.4, 16, 5, 0.75, 0.85, 'z', hedgeGreen)
     T.colliders.push({ kind: 'box', minX: side * 3.4 - 0.35, maxX: side * 3.4 + 0.35, minZ: -21.5, maxZ: -12.5, h: 0.8 })
     T.colliders.push({ kind: 'box', minX: side * 3.4 - 0.35, maxX: side * 3.4 + 0.35, minZ: 13.5, maxZ: 18.5, h: 0.8 })
   }
-  // grass tufts: crossed alpha cards, density by quality
-  const tuftMat = new THREE.MeshStandardMaterial({ map: grassTuft(), alphaTest: 0.5, side: THREE.DoubleSide, roughness: 1, color: '#7f9a6a' })
+  F.build(T.scene, leafTexture(T.disposables), T.disposables, q !== 'low')
+  // rocks: a scatter along the inside of the walls and by the paths
+  const rocks: { x: number; y: number; z: number; ry: number; s: number }[] = []
+  for (let i = 0; i < (q === 'low' ? 18 : 40); i++) {
+    const a = r() * Math.PI * 2
+    const d = 14 + r() * 19
+    const x = Math.cos(a) * d
+    const z = Math.sin(a) * d
+    if (avoid(x, z)) continue
+    rocks.push({ x, y: 0.02, z, ry: r() * 6, s: 0.12 + r() * 0.28 })
+  }
+  for (const [i, g] of [rockGeo(3), rockGeo(8)].entries()) {
+    T.disposables.push(g)
+    T.scene.add(instanced(g, P.rock, rocks.filter((_, k) => k % 2 === i)))
+  }
+  // grass tufts: crossed alpha cards, density by quality, colour-varied per clump
+  const tuftMat = new THREE.MeshStandardMaterial({ map: grassTuft(), alphaTest: 0.5, side: THREE.DoubleSide, roughness: 1, color: '#9ab07e' })
   T.disposables.push(tuftMat)
   const tuftGeo = new THREE.PlaneGeometry(0.7, 0.55)
   tuftGeo.translate(0, 0.27, 0)
@@ -171,7 +185,10 @@ export function vegetation(T: Town, q: Quality, avoid: (x: number, z: number) =>
     if (avoid(x, z)) continue
     tufts.push({ x, y: 0, z, ry: r() * 6, s: 0.7 + r() * 0.7 })
   }
-  T.scene.add(instanced(tuft, tuftMat, tufts, false))
+  const tuftMesh = instanced(tuft, tuftMat, tufts, false)
+  const tc = new THREE.Color()
+  tufts.forEach((_, i) => tuftMesh.setColorAt(i, tc.setHSL(0.22 + r() * 0.08, 0.32 + r() * 0.2, 0.32 + r() * 0.2)))
+  T.scene.add(tuftMesh)
   // glowing mushroom rings (magic accents near the plaza, forge and hollow house)
   const capMat = new THREE.MeshBasicMaterial({ color: new THREE.Color('#5fe0d0').multiplyScalar(2.2), toneMapped: false })
   T.disposables.push(capMat)

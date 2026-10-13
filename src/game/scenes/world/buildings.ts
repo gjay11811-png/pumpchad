@@ -132,6 +132,22 @@ export function house(
     if (D > 4) for (const sx of [-1, 1]) addWindow(sx * half, y, 0, (sx * Math.PI) / 2)
   }
 
+  // flower beds either side of the door: stone kerb, dark soil, a row of blooms
+  if (P.flowers)
+    for (const sx of [-1, 1]) {
+      const bx = sx * (W / 2 - 0.85)
+      const bz = D / 2 + 0.42
+      L.put(boxUV(1.2, 0.16, 0.5, 1), P.stone, bx, 0.08, bz)
+      L.put(new THREE.BoxGeometry(1.08, 0.04, 0.38), P.soil, bx, 0.17, bz, 0, 1, 1, 1, false)
+      for (let k = 0; k < 4; k++) {
+        const fx = bx - 0.4 + k * 0.27
+        const q = new THREE.PlaneGeometry(0.34, 0.42)
+        q.translate(0, 0.21 + 0.17, 0)
+        L.put(q, P.flowers, fx, 0, bz, (k * 1.3) % 3, 1, 0.85 + ((k * 37) % 10) / 30, 1, false)
+        L.put(q.clone().rotateY(Math.PI / 2), P.flowers, fx, 0, bz, (k * 1.3) % 3, 1, 1, 1, false)
+      }
+    }
+
   // door + frame + step + door lantern
   L.put(new THREE.PlaneGeometry(1.15, 2.05), P.timber, 0, plinth + 1.02, D / 2 + 0.03, 0, 1, 1, 1, false)
   L.put(new THREE.BoxGeometry(1.45, 0.16, 0.16), P.timber, 0, plinth + 2.12, D / 2 + 0.06)
