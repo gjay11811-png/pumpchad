@@ -193,6 +193,18 @@ export class Engine {
     this.renderer.setAnimationLoop(this.tick)
   }
 
+  /** photo mode: render a fresh frame and read it back straight away (no preserveDrawingBuffer needed) */
+  capture(): string | null {
+    if (!this.current) return null
+    try {
+      if (this.composer) this.composer.render(0)
+      else this.renderer.render(this.current.scene, this.current.camera)
+      return this.renderer.domElement.toDataURL('image/png')
+    } catch {
+      return null
+    }
+  }
+
   stop() {
     this.running = false
     this.renderer.setAnimationLoop(null)

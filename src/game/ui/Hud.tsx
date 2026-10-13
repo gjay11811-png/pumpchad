@@ -7,14 +7,25 @@ import type { EmoteId } from '../emotes'
 
 export function objectiveFor(save: SaveData) {
   const d = save.progress.discoveries
-  if (!d.includes('talk_coach')) return 'Find Coach Gourdon outside Chad Gym'
-  if (save.progress.gymRuns === 0) return 'Enter Chad Gym and finish a Chad Press set'
+  if (!d.includes('talk_coach')) return 'Find Coach Gourdon outside Pump Gym'
+  if (save.progress.gymRuns === 0) return 'Enter Pump Gym and finish a Chad Press set'
   const seeds = d.filter((x) => x.startsWith('seed_')).length
-  if (seeds < 5) return `Explore Chad Square · Golden seeds ${seeds}/5`
+  if (seeds < 5) return `Explore Chad City · Golden seeds ${seeds}/5`
   const got = save.progress.achievements.length
   const total = Object.keys(ACHIEVEMENTS).length
-  if (got < total) return `Explore Chad Square — ${total - got} secret${total - got === 1 ? '' : 's'} left`
+  if (got < total) return `Explore Chad City — ${total - got} secret${total - got === 1 ? '' : 's'} left`
   return 'All achievements unlocked. Absolute chad.'
+}
+
+/** compact optional-activity line: Discover Chad City n/5 · Hidden pumpkins n/6 (hidden once both are done) */
+export function cityProgress(save: SaveData) {
+  const d = save.progress.discoveries
+  const steps = ['visit_square', 'visit_gym', 'visit_arcade', 'visit_citadel', 'visit_rides'].filter((k) => d.includes(k)).length
+  const hp = d.filter((x) => x.startsWith('hp_')).length
+  const parts: string[] = []
+  if (steps < 5) parts.push(`Discover Chad City ${steps}/5`)
+  if (hp < 6) parts.push(`Hidden pumpkins ${hp}/6`)
+  return parts.join(' · ')
 }
 
 export function Hud({
@@ -30,7 +41,10 @@ export function Hud({
   emotesDisabled = false,
   sprint = false,
   onSprint,
+  onPhoto,
 }: {
+  /** open photo mode (camera button, top right) */
+  onPhoto?: () => void
   save: SaveData
   prompt: Interactable | null
   touch: boolean
@@ -72,6 +86,14 @@ export function Hud({
           </div>
         </button>
         <div className="pointer-events-auto flex gap-2">
+          {onPhoto && (
+            <IconBtn label="Photo mode" onClick={onPhoto}>
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M4 8h3l2-3h6l2 3h3v11H4z" />
+                <circle cx="12" cy="13" r="3.5" />
+              </svg>
+            </IconBtn>
+          )}
           <IconBtn label={save.settings.muted ? 'Turn sound on' : 'Mute sound'} onClick={onToggleSound}>
             {save.settings.muted ? <Icon.mute /> : <Icon.sound />}
           </IconBtn>
@@ -85,9 +107,16 @@ export function Hud({
       <div className="mt-2 safe-x">
         <div className="inline-flex max-w-[min(92vw,26rem)] items-start gap-2.5 rounded-xl bg-ink/55 px-3 py-2 backdrop-blur-sm">
           <span className="mt-1 h-2 w-2 shrink-0 rotate-45 bg-pump" aria-hidden="true" />
-          <p className="text-[13px] leading-snug text-bone/85" data-testid="objective">
-            {objectiveFor(save)}
-          </p>
+          <div>
+            <p className="text-[13px] leading-snug text-bone/85" data-testid="objective">
+              {objectiveFor(save)}
+            </p>
+            {cityProgress(save) && (
+              <p className="mt-0.5 font-mono text-[10.5px] uppercase tracking-[0.12em] text-moon/90" data-testid="city-progress">
+                {cityProgress(save)}
+              </p>
+            )}
+          </div>
         </div>
       </div>
 

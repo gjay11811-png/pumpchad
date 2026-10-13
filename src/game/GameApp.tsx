@@ -23,11 +23,14 @@ import { Loading, Portal, Title } from './ui/Entrance'
 import { Hud, LevelUpBanner, Toasts, type Toast } from './ui/Hud'
 import { Joystick } from './ui/Joystick'
 import { AchievementsMenu, NoticeBoardMenu, PauseMenu, ProfileMenu, SettingsMenu, WellToss } from './ui/Menus'
+import { IntroOverlay, PhotoMode } from './ui/PhotoMode'
 
 type Phase = 'boot' | 'title' | 'creator' | 'world' | 'gym' | 'error'
-type Overlay = null | 'pause' | 'settings' | 'achievements' | 'profile' | 'board' | 'welltoss'
+type Overlay = null | 'pause' | 'settings' | 'achievements' | 'profile' | 'board' | 'welltoss' | 'photo' | 'intro'
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 const ACH_XP = 25
+/** Discover Chad City: the five places (discovery ids) */
+export const CITY_STEPS = ['visit_square', 'visit_gym', 'visit_arcade', 'visit_citadel', 'visit_rides']
 
 export function GameApp() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -167,7 +170,21 @@ export function GameApp() {
 
   /* ── world interactions ── */
   const handleInteractRef = useRef<(id: string) => void>(() => {})
+  /** Discover Chad City: one step found (zone reached or place inspected) → toast + City Explorer at 5/5 */
+  const cityStepRef = useRef<(id: string) => void>(() => {})
+  cityStepRef.current = (id: string) => {
+    if (saveRef.current.progress.discoveries.includes(id)) return
+    discover(id)
+    const names: Record<string, string> = { visit_square: 'Chad Square', visit_gym: 'Pump Gym', visit_arcade: 'Pump Arcade', visit_citadel: 'Chad Citadel', visit_rides: 'Chad Rides' }
+    const n = CITY_STEPS.filter((k) => saveRef.current.progress.discoveries.includes(k) || k === id).length
+    notify(`Discovered: ${names[id] ?? id}`, n >= CITY_STEPS.length ? 'Chad City explored. Every district, every landmark.' : `Discover Chad City ${n}/${CITY_STEPS.length}`)
+    if (n >= CITY_STEPS.length) unlock('city_explorer')
+  }
   const handleGymRef = useRef<(id: string) => void>(() => {})
+  const introPending = useRef(false)
+  const finishIntro = useCallback(() => {
+    world.current?.endIntro()
+  }, [])
 
   /* ── scene transitions ── */
   const go = useCallback(async (next: 'creator' | 'world' | 'gym', opts: { spawn?: 'start' | 'gym'; label?: string } = {}) => {
@@ -190,7 +207,7 @@ export function GameApp() {
       audio.setAmbience('menu')
     } else if (next === 'world' && app) {
       showroom.current = null
-      const w = new World(e, input.current!, { onPrompt: setPrompt, onInteract: (id) => handleInteractRef.current(id) }, saveRef.current.settings.quality)
+      const w = new World(e, input.current!, { onPrompt: setPrompt, onInteract: (id) => handleInteractRef.current(id), onDiscover: (id) => cityStepRef.current(id) }, saveRef.current.settings.quality)
       w.cameraSensitivity = saveRef.current.settings.cameraSensitivity
       // load + compile behind the portal overlay; the previous scene keeps rendering until the swap
       await w.populate(app, opts.spawn ?? 'start', saveRef.current.progress.discoveries)
@@ -198,6 +215,8 @@ export function GameApp() {
       e.setScene(w)
       if (saveRef.current.progress.discoveries.includes('stash')) w.revealStash()
       world.current = w
+      const forceIntro = new URLSearchParams(location.search).get('intro') === '1'
+      if ((opts.spawn ?? 'start') === 'start' && !saveRef.current.progress.discoveries.includes('intro_seen') && (forceIntro || !navigator.webdriver)) introPending.current = true
       audio.setAmbience('square')
     } else if (next === 'gym' && app) {
       showroom.current = null
@@ -219,11 +238,14 @@ export function GameApp() {
     const w = world.current
     if (!w) return
     if (rushRef.current === 'run') return // mid-sprint: nothing else steals the E key
+    if (overlay === 'photo' || overlay === 'intro') return // framing a shot / watching the intro: E does nothing
     switch (id) {
       case 'rush':
         input.current?.clear()
         setRush('ready')
         break
+      case 'greeter':
+      case 'shakes':
       case 'coach':
       case 'hodl':
       case 'barkeep':
@@ -262,13 +284,42 @@ export function GameApp() {
         }
         break
       }
+      case 'hp_1':
+      case 'hp_2':
+      case 'hp_3':
+      case 'hp_4':
+      case 'hp_5':
+      case 'hp_6': {
+        w.collectHidden(id)
+        discover(id)
+        audio.play('perfect')
+        const n = saveRef.current.progress.discoveries.filter((x) => x.startsWith('hp_')).length
+        notify(`Hidden pumpkin ${n}/6`, n >= 6 ? 'Every hidden pumpkin in Chad City. Absolute gourd-hound.' : 'More are tucked away around the city.')
+        if (n >= 6) unlock('pumpkin_hunter')
+        break
+      }
+      case 'rides':
+      case 'arcade':
+        cityStepRef.current(id === 'rides' ? 'visit_rides' : 'visit_arcade')
+        setDialogue(DIALOGUE[id])
+        break
+      case 'overlook':
+        if (!saveRef.current.progress.discoveries.includes('overlook')) {
+          discover('overlook')
+          notify('Discovered: Chad View', 'The best view in the city. Try photo mode.')
+        }
+        setDialogue(DIALOGUE.overlook)
+        break
+      case 'citymap':
+      case 'lore_citadel':
+      case 'champions':
+      case 'yard':
       case 'gate':
       case 'citygate':
       case 'lookout':
       case 'wardrobe':
       case 'well':
       case 'window':
-      case 'arcade':
         if (id === 'well') discover('wish')
         if (id === 'lookout') discover('lookout')
         setDialogue(DIALOGUE[id])
@@ -303,7 +354,7 @@ export function GameApp() {
         } else setDialogue(DIALOGUE.rune_again)
         break
       case 'gym':
-        void go('gym', { label: 'Entering Chad Gym' })
+        void go('gym', { label: 'Entering Pump Gym' })
         break
     }
   }
@@ -328,7 +379,7 @@ export function GameApp() {
   const closeDialogue = (action: DialogueOption['action']) => {
     setDialogue(null)
     world.current?.cooldown()
-    if (action === 'gym') void go('gym', { label: 'Entering Chad Gym' })
+    if (action === 'gym') void go('gym', { label: 'Entering Pump Gym' })
     if (action === 'welltoss') setOverlay('welltoss')
     if (action === 'wardrobe') {
       setEditing(true)
@@ -336,9 +387,23 @@ export function GameApp() {
     }
   }
 
+  /* ── first-visit flyover: starts once the world is on screen; skip or finish → control back, never repeats ── */
+  useEffect(() => {
+    if (phase !== 'world' || !introPending.current || !world.current) return
+    introPending.current = false
+    setOverlay('intro')
+    world.current.startIntro(() => {
+      discover('intro_seen')
+      setOverlay((o) => (o === 'intro' ? null : o))
+      input.current?.clear()
+      world.current?.cooldown()
+    })
+  }, [phase, discover])
+
   /* ── pause world while any UI is up ── */
   useEffect(() => {
-    const blocked = !!overlay || !!dialogue || !!portal || rush === 'ready' || rush === 'done'
+    // photo mode keeps full control (frame + move); everything else pauses the world
+    const blocked = (!!overlay && overlay !== 'photo') || !!dialogue || !!portal || rush === 'ready' || rush === 'done'
     if (world.current) world.current.paused = blocked
     if (gym.current) gym.current.paused = blocked
     if (input.current) {
@@ -498,8 +563,19 @@ export function GameApp() {
 
             {phase === 'world' && (
               <>
-                {touch && !overlay && !dialogue && input.current && <Joystick input={input.current} sensitivity={s.stickSensitivity} />}
-                <Hud
+                {touch && (!overlay || overlay === 'photo') && !dialogue && input.current && <Joystick input={input.current} sensitivity={s.stickSensitivity} />}
+                {overlay === 'photo' && (
+                  <PhotoMode
+                    touch={touch}
+                    capture={() => engine.current?.capture() ?? null}
+                    onExit={() => {
+                      setOverlay(null)
+                      world.current?.cooldown()
+                    }}
+                  />
+                )}
+                {overlay === 'intro' && <IntroOverlay onSkip={finishIntro} />}
+                {overlay !== 'photo' && overlay !== 'intro' && <Hud
                   save={save}
                   prompt={dialogue || overlay || rush ? null : prompt}
                   touch={touch}
@@ -512,7 +588,8 @@ export function GameApp() {
                   emotesDisabled={!!overlay || !!dialogue}
                   sprint={sprint}
                   onSprint={toggleSprint}
-                />
+                  onPhoto={() => setOverlay('photo')}
+                />}
                 {rush && world.current?.rush && (
                   <RushPanel
                     rush={world.current.rush}

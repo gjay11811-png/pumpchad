@@ -22,8 +22,8 @@ const A = (p: Partial<Appearance> & Pick<Appearance, 'species'>): Appearance => 
 })
 
 /** Residents stand at a post (optionally with dialogue). Walkers follow waypoint loops. */
-export type ResidentDef = { id: string; a: Appearance; x: number; z: number; face: number; talk?: string; pose?: Pose; minQuality?: 'low' | 'medium'; /** where the player stands to talk, if not next to the NPC (e.g. across a counter) */ talkAt?: [number, number] }
-export type WalkerDef = { id: string; a: Appearance; path: [number, number][]; speed: number; pause: number; minQuality?: 'low' | 'medium' }
+export type ResidentDef = { id: string; a: Appearance; x: number; z: number; face: number; talk?: string; pose?: Pose; minQuality?: 'low' | 'medium' | 'high'; /** where the player stands to talk, if not next to the NPC (e.g. across a counter) */ talkAt?: [number, number] }
+export type WalkerDef = { id: string; a: Appearance; path: [number, number][]; speed: number; pause: number; minQuality?: 'low' | 'medium' | 'high' }
 
 export const RESIDENTS: ResidentDef[] = [
   { id: 'coach', a: A({ species: 'skeleton', glow: '#19f19a', headwear: 'cap', chain: true }), x: 13.4, z: 0.6, face: -2.2, talk: 'Talk to Coach Gourdon' },
@@ -37,6 +37,22 @@ export const RESIDENTS: ResidentDef[] = [
   // decorative stall keepers (no dialogue — they just mind their stalls)
   { id: 'grocer', a: A({ species: 'pumpkin', skin: '#e0a23a', outfit: '#2f4a2c', top: 'hoodie' }), x: -15, z: -2.6, face: 0, minQuality: 'medium' },
   { id: 'tailor', a: A({ species: 'demon', skin: '#1f6b5a', outfit: '#e9e4da', top: 'hoodie' }), x: -24, z: 7.6, face: Math.PI, minQuality: 'medium' },
+  // ── CHAD CITY residents ──
+  // the greeter on the arrival forecourt (off the avenue, turned toward new arrivals)
+  { id: 'greeter', a: A({ species: 'pumpkin', skin: '#f0a03a', outfit: '#e8641a', top: 'hoodie', headwear: 'crown', eyewear: 'shades', chain: true }), x: -3.6, z: 60.8, face: 0.9, talk: 'Talk to Goldie, the greeter' },
+  // the shake vendor behind the PUMP SHAKES counter (social corner)
+  { id: 'shakes', a: A({ species: 'skeleton', skin: '#e9e2d0', outfit: '#5fae6a', top: 'hoodie', headwear: 'cap', glow: '#5fe0d0' }), x: -39, z: -4.55, face: 0, talk: 'Talk to Mo at Pump Shakes', talkAt: [-39, -1.9] },
+  // two friends at the social-corner picnic table (seated, facing each other)
+  { id: 'sitterA', a: A({ species: 'demon', skin: '#7a2a2a', outfit: '#2f4a2c', top: 'hoodie' }), x: -43.2, z: 8.1, face: -Math.PI / 2, pose: 'sit', minQuality: 'medium' },
+  { id: 'sitterB', a: A({ species: 'pumpkin', skin: '#d8661a', outfit: '#5b2a86', top: 'shirtless', eyewear: 'shades' }), x: -44.2, z: 8.1, face: Math.PI / 2, pose: 'sit', minQuality: 'high' },
+  // two regulars chatting in Chad Square (one gesturing)
+  { id: 'chatA', a: A({ species: 'skeleton', outfit: '#e8641a', top: 'hoodie', glow: '#ffb347' }), x: -4.4, z: -7.4, face: 2.2, pose: 'point', minQuality: 'medium' },
+  { id: 'chatB', a: A({ species: 'demon', skin: '#2f2f3a', outfit: '#e9e4da', top: 'shirtless' }), x: -3.1, z: -8.3, face: -1.0, minQuality: 'high' },
+  // gym regulars warming up in the outdoor yard
+  { id: 'stretcher', a: A({ species: 'pumpkin', skin: '#c9581a', outfit: '#141216', top: 'shirtless', chain: true }), x: 18.6, z: 7.4, face: Math.PI / 2, pose: 'pushup', minQuality: 'medium' },
+  { id: 'flexer', a: A({ species: 'demon', skin: '#5b2a86', outfit: '#141216', top: 'shirtless', glow: '#ffb347' }), x: 26.5, z: 8.2, face: -Math.PI / 2 - 0.5, pose: 'flex', minQuality: 'high' },
+  // a reader on the garden bench
+  { id: 'reader', a: A({ species: 'skeleton', skin: '#cfd6dc', outfit: '#2f4a2c', top: 'hoodie', eyewear: 'none' }), x: -51.98, z: 23, face: Math.PI / 2, pose: 'sit', minQuality: 'medium' },
 ]
 
 export const WALKERS: WalkerDef[] = [
@@ -58,6 +74,11 @@ export const WALKERS: WalkerDef[] = [
     pause: 2.5,
     minQuality: 'medium',
   },
+  // CHAD CITY walkers: Arcade Street, the canal promenade, the garden loop, the forecourt
+  { id: 'wander3', a: A({ species: 'skeleton', outfit: '#5b2a86', top: 'hoodie', glow: '#9b5cff', headwear: 'cap' }), path: [[6, 18.2], [43, 18.2], [43, 20], [6, 20]], speed: 1.3, pause: 3, minQuality: 'medium' },
+  { id: 'wander4', a: A({ species: 'pumpkin', skin: '#e0a23a', outfit: '#2f5f9a', top: 'hoodie' }), path: [[-24, 36.6], [-4.5, 36.6], [4.5, 36.6], [24, 36.6]], speed: 1.2, pause: 4, minQuality: 'medium' },
+  { id: 'wander5', a: A({ species: 'demon', skin: '#1f6b5a', outfit: '#e9e4da', top: 'hoodie' }), path: [[-54.2, 13.8], [-33.8, 13.8], [-33.8, 32.2], [-54.2, 32.2]], speed: 1.1, pause: 5, minQuality: 'high' },
+  { id: 'wander6', a: A({ species: 'skeleton', outfit: '#e8641a', top: 'armor', eyewear: 'visor' }), path: [[-5, 53.5], [-5, 66], [5, 66], [5, 53.5]], speed: 1.25, pause: 3, minQuality: 'high' },
 ]
 
 type Live = { def: ResidentDef | WalkerDef; c: Character; pos: THREE.Vector3; yaw: number; target: number; wait: number; facing: number; walker: boolean; shadow: boolean }
@@ -70,7 +91,7 @@ export class Crowd {
 
   async load(scene: THREE.Scene, quality: 'low' | 'medium' | 'high', heightAt: (x: number, z: number) => number) {
     this.quality = quality
-    const allowed = (m?: 'low' | 'medium') => !m || (m === 'medium' ? quality !== 'low' : true)
+    const allowed = (m?: 'low' | 'medium' | 'high') => !m || (m === 'high' ? quality === 'high' : m === 'medium' ? quality !== 'low' : true)
     const defs: (ResidentDef | WalkerDef)[] = [...RESIDENTS.filter((r) => allowed(r.minQuality)), ...WALKERS.filter((w) => allowed(w.minQuality))]
     const chars = await Promise.all(defs.map((d) => createCharacter(d.a)))
     if (this.disposed) return chars.forEach(disposeCharacter)
@@ -139,6 +160,7 @@ export class Crowd {
         else if (dPlayer > 6) l.facing = def.face
         if (def.pose === 'sit') l.c.pose = 'sit'
         else if (def.pose === 'hammer') l.c.pose = dPlayer < 3 ? 'idle' : 'hammer'
+        else if (def.pose && !(def.talk && dPlayer < 4.2)) l.c.pose = def.pose // stretching, chatting, posing
         else l.c.pose = def.talk && dPlayer < 4.2 && dPlayer > 2.4 ? 'wave' : 'idle'
         l.c.speed = 0
       }

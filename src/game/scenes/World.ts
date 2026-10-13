@@ -14,7 +14,7 @@ import { StaticBatch, makePalette } from './world/kit'
 import { Crowd, RESIDENTS } from './world/npcs'
 import { CASTLE_Z, ROADS, buildGround, castle, clutter, fence, lampPosts, poles, stringLights, vegetation } from './world/props'
 import { BENCHES, kingdom, mountains, valleyRoad } from './world/kingdom'
-import { SPAWN, bridgeHeight, clampToCity } from './world/city'
+import { GARDEN, SPAWN, bridgeHeight, clampToCity } from './world/city'
 import { buildDaylight, skyPresetFromUrl } from './world/daylight'
 import { B4S_BENCH, PLAZA_BENCHES, SEAT_FWD } from './world/props'
 
@@ -56,7 +56,25 @@ export type Interactable = { id: string; label: string; pos: THREE.Vector3; radi
 export type WorldEvents = {
   onPrompt(p: Interactable | null): void
   onInteract(id: string): void
+  /** a place reached on foot (Discover Chad City): 'visit_square' | 'visit_gym' | 'visit_citadel' */
+  onDiscover?(id: string): void
 }
+
+/** six hidden pumpkins: fair, reachable spots (no climbing), one per district */
+export const HIDDEN: [string, number, number, string][] = [
+  ['hp_1', -10.4, 53.2, 'behind the gateway’s west wing'],
+  ['hp_2', 21.4, 37.0, 'by the east footbridge'],
+  ['hp_3', -44, 23, 'inside the garden gazebo'],
+  ['hp_4', 50.5, -4.4, 'in the orchard'],
+  ['hp_5', -5.7, -25.6, 'beside the citadel steps'],
+  ['hp_6', -58.4, 41.0, 'at the far corner of Chad View'],
+]
+/** Discover Chad City: places you reach on foot (zones) */
+const ZONES: { id: string; inside: (x: number, z: number) => boolean }[] = [
+  { id: 'visit_square', inside: (x, z) => Math.hypot(x, z) < 11.5 },
+  { id: 'visit_gym', inside: (x, z) => Math.hypot(x - 14.4, z + 4) < 3.5 },
+  { id: 'visit_citadel', inside: (x, z) => Math.abs(x) < 6 && z < -12 && z > -26 },
+]
 
 /** the Pumpkin Rush cart (start point of the mini-game) on the plaza */
 export const RUSH_CART = { x: 10.2, z: 10.4 }
@@ -75,6 +93,7 @@ export const SEEDS: [string, number, number][] = [
 export function groundHeight(x: number, z: number) {
   const bh = bridgeHeight(x, z)
   if (bh !== null) return bh
+  if (Math.hypot(x - GARDEN.x, z - GARDEN.z) < 3.25) return 0.36 // the gazebo's stone floor
   if (x > -4.5 && x < 4.5 && z < -24.4 && z > -29.6) return Math.min(4, Math.floor((-24.4 - z) / 1.05) + 1) * 0.22
   if (x > -8.5 && x < -5.5 && z > 13.8 && z < 24.2) return 0.3
   if (x >= -5.5 && x < -4.9 && z > 17.6 && z < 20.4) return 0.15
@@ -111,6 +130,9 @@ export class World implements GameScene {
   private stash!: THREE.Group
   private stashT = -1
   private seeds = new Map<string, THREE.Group>()
+  private hidden = new Map<string, THREE.Group>()
+  private zoneT = 0
+  private visited = new Set<string>()
   private markers = new Map<string, THREE.Mesh>()
   private fires: Fire[] = []
   private cloths: Cloth[] = []
@@ -415,7 +437,7 @@ export class World implements GameScene {
     const add = (id: string, label: string, x: number, z: number, radius: number, kind: Interactable['kind']) => this.interactables.push({ id, label, pos: new THREE.Vector3(x, 0, z), radius, kind })
     add('statue', 'Read the fountain plaque', 0, 6.7, 1.6, 'info')
     add('gate', 'Knock on the citadel doors', 0, -28.2, 1.8, 'info')
-    add('gym', 'Enter Chad Gym', 14.4, -4, 2.2, 'activity')
+    add('gym', 'Enter Pump Gym', 14.4, -4, 2.2, 'activity')
     const nb = standFor(NOTICE)
     add('board', 'Read the community noticeboard', nb.x, nb.z, 1.5, 'info')
     const ch = standFor(CHAMPIONS, 1.8)
@@ -500,6 +522,31 @@ export class World implements GameScene {
       add(id, 'Pick up the golden seed', x, z, 1.25, 'collect')
     }
 
+    // hidden pumpkins: a small carved pumpkin with a soft sparkle ring, no marker (that's the hunt)
+    {
+      const hpGeo = new THREE.SphereGeometry(0.2, 14, 10).scale(1.2, 0.85, 1.2)
+      const hpMat = new THREE.MeshStandardMaterial({ color: '#ff8a2a', emissive: '#ff6a10', emissiveIntensity: 0.55, roughness: 0.5 })
+      const stemGeo = new THREE.CylinderGeometry(0.025, 0.04, 0.1, 6)
+      const sparkGeo = new THREE.RingGeometry(0.34, 0.4, 24).rotateX(-Math.PI / 2)
+      const sparkMat = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffd27a').multiplyScalar(1.2), transparent: true, opacity: 0.55, depthWrite: false, toneMapped: false })
+      this.disposables.push(hpGeo, hpMat, stemGeo, sparkGeo, sparkMat)
+      for (const [id, x, z] of HIDDEN) {
+        const g = new THREE.Group()
+        const body = new THREE.Mesh(hpGeo, hpMat)
+        body.position.y = 0.18
+        body.castShadow = true
+        const stem = new THREE.Mesh(stemGeo, T.P.foliage)
+        stem.position.y = 0.38
+        const ring = new THREE.Mesh(sparkGeo, sparkMat)
+        ring.position.y = 0.04
+        g.add(body, stem, ring)
+        g.position.set(x, groundHeight(x, z), z)
+        this.scene.add(g)
+        this.hidden.set(id, g)
+        add(id, 'Pick up the hidden pumpkin', x, z, 1.1, 'collect')
+      }
+    }
+
     // floating markers on WORKING interactions only (talk NPCs + activities)
     const markerGeo = new THREE.OctahedronGeometry(0.16, 0)
     markerGeo.scale(1, 1.5, 1)
@@ -531,6 +578,8 @@ export class World implements GameScene {
     for (const d of discoveries) {
       if (d.startsWith('talk_')) this.markTalked(d.slice(5))
       if (d.startsWith('seed_')) this.collect(d)
+      if (d.startsWith('hp_')) this.collectHidden(d)
+      if (d.startsWith('visit_')) this.visited.add(d)
     }
     this.spawn(spawn)
   }
@@ -583,6 +632,12 @@ export class World implements GameScene {
       this.lockT = this.player.playOnce('pickup', 0.15, { timeScale: 1.35, maxDur: 1.5 })
       this.pendingHide = { g: s, t: 0.55 }
     } else s.visible = false
+  }
+  /** a hidden pumpkin was picked up (or was already found on a previous visit) */
+  collectHidden(id: string) {
+    this.interactables = this.interactables.filter((i) => i.id !== id)
+    const g = this.hidden.get(id)
+    if (g) g.visible = false
   }
   /** a talking pumpkin was found: its sparkle marker goes out */
   gourdFound(id: string) {
@@ -889,7 +944,15 @@ export class World implements GameScene {
       p.update(dt)
     }
     this.lastSpeed = speed
-    if (this.shotCam) {
+    if (this.intro) {
+      const it = this.intro
+      it.t += dt
+      const u = Math.min(1, it.t / it.dur)
+      const e = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2
+      this.camera.position.copy(it.pos.getPoint(e))
+      this.camera.lookAt(it.look.getPoint(e))
+      if (u >= 1) this.endIntro()
+    } else if (this.shotCam) {
       this.camera.position.copy(this.shotCam.cam)
       this.camera.lookAt(this.shotCam.look)
     } else this.placeCamera(1 - Math.exp(-dt * 9))
@@ -939,6 +1002,17 @@ export class World implements GameScene {
     for (const [, s] of this.seeds) {
       s.rotation.y += dt * 2
       s.position.y = 0.55 + Math.sin(t * 2 + s.position.x) * 0.1
+    }
+    for (const [, h] of this.hidden) if (h.visible) h.rotation.y += dt * 0.8
+    // Discover Chad City: places reached on foot (checked a few times a second)
+    this.zoneT -= dt
+    if (this.zoneT <= 0 && !this.paused) {
+      this.zoneT = 0.3
+      for (const zn of ZONES)
+        if (!this.visited.has(zn.id) && zn.inside(this.playerPos.x, this.playerPos.z)) {
+          this.visited.add(zn.id)
+          this.events.onDiscover?.(zn.id)
+        }
     }
     if (this.boingT >= 0) {
       this.boingT += dt
@@ -990,6 +1064,33 @@ export class World implements GameScene {
       walkers: this.crowd.live.filter((l) => l.walker).map((l) => [+l.pos.x.toFixed(2), +l.pos.z.toFixed(2)]),
     }
   }
+  /** first-visit flyover: the valley → over the gateway → down behind the player. Control returns at the end. */
+  private intro: { t: number; dur: number; done: () => void; pos: THREE.CatmullRomCurve3; look: THREE.CatmullRomCurve3 } | null = null
+  startIntro(done: () => void) {
+    const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z)
+    this.snapCamera()
+    const end = this.camera.position.clone()
+    const endLook = this.camTarget.clone()
+    this.intro = {
+      t: 0,
+      dur: 7.5,
+      done,
+      pos: new THREE.CatmullRomCurve3([V(-6, 30, 118), V(10, 19, 92), V(4, 11.5, 70), V(1, 6.5, 66), end]),
+      look: new THREE.CatmullRomCurve3([V(0, 6, 0), V(0, 7, 20), V(0, 7.5, 45), V(0, 5, 52), endLook]),
+    }
+  }
+  /** skip / finish the flyover: the gameplay camera takes over exactly where it would be */
+  endIntro() {
+    if (!this.intro) return
+    const done = this.intro.done
+    this.intro = null
+    this.snapCamera()
+    done()
+  }
+  get introActive() {
+    return !!this.intro
+  }
+
   /** QA / marketing stills: a fixed camera (null = gameplay camera) */
   private shotCam: { cam: THREE.Vector3; look: THREE.Vector3 } | null = null
   setShotCam(o: { cam: [number, number, number]; look: [number, number, number]; fov?: number } | null) {

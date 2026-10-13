@@ -165,18 +165,23 @@ export function NoticeBoardMenu({ save, onBack }: { save: SaveData; onBack: () =
   const p = save.progress
   const seeds = p.discoveries.filter((d) => d.startsWith('seed_')).length
   const gourds = p.discoveries.filter((d) => d.startsWith('gourd_')).length
+  const steps = ['visit_square', 'visit_gym', 'visit_arcade', 'visit_citadel', 'visit_rides'].filter((k) => p.discoveries.includes(k)).length
+  const hidden = p.discoveries.filter((d) => d.startsWith('hp_')).length
   const now: [string, string, string][] = [
-    ['Chad Gym', 'East of the fountain · 7 stations + Chad Press', `${Object.values(p.reps).reduce((a, b) => a + b, 0)} reps logged`],
-    ['Pumpkin Rush', 'The pumpkin cart by the fountain · 45 s sprint', p.records.pumpkin_rush ? `best ${p.records.pumpkin_rush}` : 'not played yet'],
-    ['The Lookout', 'South through the gate arch · sit and watch Chad City', p.discoveries.includes('lookout') ? 'visited' : 'unvisited'],
+    ['Discover Chad City', 'Square · gym · east street · citadel · rides', `${steps}/5 found`],
+    ['Pump Gym', 'East of Chad Square · 7 stations + Chad Press', `${Object.values(p.reps).reduce((a, b) => a + b, 0)} reps logged`],
+    ['Pumpkin Rush', 'The pumpkin cart in Chad Square · 45 s sprint', p.records.pumpkin_rush ? `best ${p.records.pumpkin_rush}` : 'not played yet'],
+    ['Chad View', 'West, past the garden · the best view in the city', p.discoveries.includes('overlook') ? 'visited' : 'unvisited'],
+    ['Hidden pumpkins', 'Six of them, in fair spots around the city', `${hidden}/6 found`],
     ['Golden seeds', 'Hidden in alleys and dead ends', `${seeds}/5 found`],
     ['Talking pumpkins', 'Some pumpkins have opinions', `${gourds}/3 found`],
-    ['Residents', 'Coach Gourdon, b4s, Barley, Anvilus, Madame Marrowpot, Captain Tibia, Pip', 'say hi'],
+    ['Residents', 'Goldie, Coach Gourdon, b4s, Barley, Anvilus, Madame Marrowpot, Mo, Captain Tibia, Pip', 'say hi'],
   ]
   const soon: [string, string][] = [
-    ['Castle', 'The King is doing his sets'],
-    ['Chad City', 'Across the valley — the road is closed'],
-    ['Pump Arcade', 'Cabinets humming behind the boards'],
+    ['Chad Citadel', 'The King is doing his sets'],
+    ['Pump Arcade', 'Cabinets being polished on Arcade Street'],
+    ['Chad Rides', 'Bikes are parked by the valley gate'],
+    ['Downtown', 'Down the valley road — closed for now'],
     ['Chad Casino', 'Free-play only, when it opens. No real money, ever.'],
   ]
   return (

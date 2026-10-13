@@ -4,7 +4,7 @@ export type Dialogue = { speaker: string; role: string; lines: string[]; options
 export const DIALOGUE: Record<string, Dialogue> = {
   coach: {
     speaker: 'Coach Gourdon',
-    role: 'Chad Gym · Head Coach',
+    role: 'Pump Gym · Head Coach',
     lines: [
       'Name’s Gourdon. Forty years under the iron. Zero years with skin.',
       'You look like you skip leg day. And arm day. And days.',
@@ -21,7 +21,7 @@ export const DIALOGUE: Record<string, Dialogue> = {
     lines: [
       'Halt. I am b4s, sworn protector of the King’s statue. I guard it sitting down. Diamond grip, diamond patience.',
       'Legend says the King once held through a candle so red it turned the moon orange.',
-      'They also say the castle walls hide a strange rune. Press it and… well. You’ll see.',
+      'They also say the old walls by the citadel hide a strange rune. Press it and… well. You’ll see.',
     ],
   },
   statue: {
@@ -36,13 +36,14 @@ export const DIALOGUE: Record<string, Dialogue> = {
   },
   guide: {
     speaker: 'Pip',
-    role: 'Village Guide · Market Row',
+    role: 'City Guide · Market Row',
     lines: [
-      'Welcome to Chad Kingdom! First time? Here’s the lay of the land.',
-      'East of the fountain: CHAD GYM. Lift, punch the bag, hit the treadmill — every rep builds strength or stamina.',
-      'The pumpkin cart by the fountain runs PUMPKIN RUSH: forty-five seconds, grab every glowing pumpkin you can.',
-      'Head south through the gate arch to the LOOKOUT. Sit on a bench and watch CHAD CITY glow across the valley. The road is closed… for now.',
-      'North is the castle. The King is busy doing his sets — it opens in a future update. Oh, and some pumpkins round here talk. Don’t tell them I told you.',
+      'Welcome to CHAD CITY! First time? Here’s the lay of the land.',
+      'East of CHAD SQUARE: PUMP GYM — lift, punch the bag, hit the treadmill. Every rep builds strength or stamina. The yard outside is for warming up.',
+      'Keep going east down ARCADE STREET to the PUMP ARCADE. It isn’t open yet, but the marquee is worth a look.',
+      'The pumpkin cart in the square runs PUMPKIN RUSH: forty-five seconds, grab every glowing pumpkin you can.',
+      'West of here: shakes at the Social Corner, then the Pumpkin Garden and CHAD VIEW — best view in the city. North: CHAD CITADEL. Its doors open in a future update.',
+      'Oh — six pumpkins are hidden around the city, and a few others talk. Don’t tell them I told you.',
     ],
   },
   wardrobe: {
@@ -58,12 +59,12 @@ export const DIALOGUE: Record<string, Dialogue> = {
     ],
   },
   lookout: {
-    speaker: 'The Lookout',
-    role: 'South terrace',
+    speaker: 'The Canal Promenade',
+    role: 'Chad Square · south side',
     lines: [
-      'The kingdom ends in a cliff. Below: forest, a winding lamp-lit road, the valley floor.',
-      'Beyond it all, CHAD CITY — towers, a gold-crowned casino, searchlights sweeping the clouds.',
-      'One day the gate lifts and the road opens. Until then, the benches are free.',
+      'The Pump Canal slides past below the railing. CHAD BRIDGE carries the avenue over it; two footbridges loop round to the forecourt.',
+      'Beyond the water stands the CHAD CITY gateway — and, down the valley, the towers of downtown.',
+      'The benches here are free. The ducks are imaginary.',
     ],
   },
   gourd_1: {
@@ -82,18 +83,49 @@ export const DIALOGUE: Record<string, Dialogue> = {
     lines: ['Oh! Hi! I’m guarding the castle! Officially! Probably!', 'The captain says I’m “decorative.” I say I’m UNDERCOVER.'],
   },
   gate: {
-    speaker: 'Castle Gate',
-    role: 'Sealed',
-    lines: ['You knock. Silence.', 'A muffled voice: “The King is busy. He is doing his sets.”', 'The castle opens in a future update. Probably after leg day.'],
+    speaker: 'Citadel Doors',
+    role: 'Chad Citadel · closed',
+    lines: ['You knock on the oak. It doesn’t move. Iron straps, ring handles, a very serious keyhole.', 'A muffled voice: “The King is busy. He is doing his sets.”', 'The citadel opens to visitors in a future update. Probably after leg day.'],
   },
   citygate: {
-    speaker: 'Road to Chad City',
-    role: 'Closed — coming soon',
+    speaker: 'Welcome Board',
+    role: 'Chad City · arrival forecourt',
     lines: [
-      'The road winds down the cliff and across the valley to the lights of CHAD CITY.',
-      'Towers, a casino with a gold crown, streets you can’t walk yet. The portcullis stays down for now.',
-      'Stick around. When the gate lifts, you’ll want to be first through it.',
+      'WELCOME TO CHAD CITY.',
+      'Straight on over CHAD BRIDGE to CHAD SQUARE. PUMP GYM is east of the square; ARCADE STREET runs on east to the PUMP ARCADE.',
+      'West: the Market, the Social Corner, the Pumpkin Garden and CHAD VIEW. North: CHAD CITADEL.',
+      'Something to do: DISCOVER CHAD CITY — visit the square, the gym, the arcade, the citadel and Chad Rides. And keep an eye out for six hidden pumpkins.',
     ],
+  },
+  citymap: {
+    speaker: 'City Map',
+    role: 'You are here',
+    lines: ['A painted map of CHAD CITY: the gateway and forecourt in the south, the canal and its three bridges, CHAD SQUARE in the middle, the gym and Arcade Street east, the market and garden west, the citadel north.', 'Someone has drawn a tiny crown over the citadel. Someone else has drawn a pumpkin over the crown.'],
+  },
+  rides: {
+    speaker: 'Chad Rides',
+    role: 'Coming soon',
+    lines: ['Chad Rides — bikes are coming in a future update.', 'For now they’re parked in the rack, polished and slightly judgemental.'],
+  },
+  overlook: {
+    speaker: 'Chad View',
+    role: 'Scenic overlook',
+    lines: ['From the terrace you can see it all: the gold crown on the gateway, the canal glinting, the citadel’s towers — and down the valley, the hazy towers of downtown.', 'A good place for a photo. Or a sit. Or both.'],
+  },
+  lore_citadel: {
+    speaker: 'Citadel Plaque',
+    role: 'Chad Citadel',
+    lines: ['CHAD CITADEL — SEAT OF THE PUMP KING.', 'Built, they say, in a single very long leg day. The towers were added during the rest days.', 'Its gates open to the people in a future update.'],
+  },
+  champions: {
+    speaker: 'Community Champions',
+    role: 'Chad Square',
+    lines: ['A glass case, three empty pedestals, a little gold crown on top.', 'The plaque reads: reserved for future competition winners. No champions have been crowned yet — this space is waiting for the first.'],
+  },
+  yard: {
+    speaker: 'Outdoor Yard',
+    role: 'Pump Gym',
+    lines: ['PUMP GYM · OUTDOOR YARD — warm up out here, lift inside.', 'House rule, on a board above the windows: NO CURLING IN THE SQUAT RACK.'],
   },
   rune: {
     speaker: 'Strange Rune',
@@ -137,7 +169,7 @@ Object.assign(DIALOGUE, {
   },
   captain: {
     speaker: 'Captain Tibia',
-    role: 'Royal Guard',
+    role: 'Citadel Guard',
     lines: [
       'The King is not receiving visitors. He is mid-set.',
       'My guards patrol day and night. Mostly night. We don’t sleep. We’re skeletons.',
@@ -147,7 +179,7 @@ Object.assign(DIALOGUE, {
   board: {
     speaker: 'Notice Board',
     role: 'Chad Square',
-    lines: ['WANTED: Paper Hands. Reward: one protein shake.', 'LOST: one (1) bear. Last seen: buried.', 'PUMP ARCADE — opening soon. Probably.'],
+    lines: ['WANTED: Paper Hands. Reward: one protein shake.', 'LOST: one (1) bear. Last seen: buried.', 'PUMP ARCADE — opening soon on Arcade Street. Probably.'],
   },
   well: {
     speaker: 'Wishing Well',
@@ -169,8 +201,26 @@ Object.assign(DIALOGUE, {
   },
   arcade: {
     speaker: 'Pump Arcade',
-    role: 'Not open yet',
-    lines: ['Cabinets hum behind the boarded doors. The neon buzzes: OPENING SOON.', 'This building isn’t open yet — new games are on the way.'],
+    role: 'Arcade Street · opening soon',
+    lines: ['The marquee bulbs chase each other round the PUMP ARCADE sign. Behind the porthole doors: the glow of cabinets being polished.', 'The arcade isn’t open yet — new games are on the way. The posters out front are a preview.'],
+  },
+  greeter: {
+    speaker: 'Goldie',
+    role: 'Chad City · greeter',
+    lines: [
+      'Welcome to CHAD CITY! Through the gateway, over the bridge, and you’re in CHAD SQUARE.',
+      'Want something to do? Try DISCOVER CHAD CITY: see the square, find PUMP GYM, check out the PUMP ARCADE, reach the CHAD CITADEL forecourt and peek at CHAD RIDES. Your progress shows under the objective.',
+      'And if you like a hunt: six pumpkins are hidden around the city. Fair spots, I promise — no climbing.',
+    ],
+  },
+  shakes: {
+    speaker: 'Mo',
+    role: 'Pump Shakes · Social Corner',
+    lines: [
+      'Pump Shakes! Vanilla Gains, Banana Bulk, Pumpkin Spice Pump, Choc Crown.',
+      'They’re on the house today — the till isn’t built yet. Grab a seat under the lights.',
+      'Tip: the garden behind me leads down to CHAD VIEW. Best view in the city.',
+    ],
   },
 } satisfies Record<string, Dialogue>)
 
