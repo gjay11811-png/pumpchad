@@ -52,6 +52,21 @@ const speedOf = (S, from = 0.5) => {
   const z = S.at(-1)
   return Math.hypot(z.x - a.x, z.z - a.z) / ((z.t - a.t) / 1000)
 }
+/** instantaneous body speed per sample (over ~3 frames): NPC walkers can bump the runner, so measure clear stretches */
+const instSpeeds = (S) => S.map((s, i) => {
+  const a = S[Math.max(0, i - 2)]
+  const b = S[Math.min(S.length - 1, i + 2)]
+  const dt = (b.t - a.t) / 1000
+  return dt > 0 ? Math.hypot(b.x - a.x, b.z - a.z) / dt : 0
+})
+const median = (v) => [...v].sort((x, y) => x - y)[Math.floor(v.length / 2)]
+/** keep only samples where the runner moves at (near) full pace — not mid-bump with a resident */
+const clear = (S, from = 0.5) => {
+  const T = S.filter((s) => s.t - S[0].t >= from * 1000)
+  const v = instSpeeds(T)
+  const m = median(v)
+  return { S: T.map((s, i) => ({ ...s, ok: v[i] > m * 0.85 })), v: m }
+}
 const dominant = (S) => {
   const c = {}
   for (const s of S.slice(Math.floor(S.length / 2))) c[s.clip] = (c[s.clip] ?? 0) + 1
@@ -64,11 +79,13 @@ const slip = (S) => {
   for (const side of ['ballL', 'ballR']) {
     const ys = S.map((s) => s[side][1])
     const minY = Math.min(...ys)
-    for (let i = 1; i < S.length; i++)
+    for (let i = 1; i < S.length; i++) {
+      if (S[i].ok === false || S[i - 1].ok === false) continue // mid-bump with a resident: not a stride
       if (ys[i] < minY + 0.02 && ys[i - 1] < minY + 0.02) {
         d += Math.hypot(S[i][side][0] - S[i - 1][side][0], S[i][side][2] - S[i - 1][side][2])
         t += (S[i].t - S[i - 1].t) / 1000
       }
+    }
   }
   return t ? d / t : 0
 }
@@ -90,18 +107,20 @@ await w(1200)
 // ── gaits (open plaza, heading south down the main street)
 await tp(0, 13, 0)
 const walk = await hold(['w'], 1800)
-const vWalk = speedOf(walk)
+const walkClear = clear(walk)
+const vWalk = walkClear.v
 check(vWalk > 1.8 && vWalk < 2.6, `walk speed ${vWalk.toFixed(2)} m/s`)
 check(dominant(walk) === 'Walk_Loop', `walking plays the WALK clip (${dominant(walk)})`)
-const sWalk = slip(walk)
+const sWalk = slip(walkClear.S)
 check(sWalk < 0.6, `walk foot slip ${sWalk.toFixed(2)} m/s (pre-polish build: 1.58; includes natural heel-to-toe roll)`)
 await p.screenshot({ path: `${out}/move-walk.jpg`, quality: 78 })
 await tp(0, 13, 0)
 const sprint = await hold(['Shift', 'w'], 1800)
-const vSprint = speedOf(sprint)
+const sprintClear = clear(sprint)
+const vSprint = sprintClear.v
 check(vSprint > 6.8 && vSprint < 8.4, `sprint speed ${vSprint.toFixed(2)} m/s`)
 check(/Jog|Sprint/.test(dominant(sprint)), `sprinting plays run/sprint clips (${dominant(sprint)})`)
-const sSprint = slip(sprint)
+const sSprint = slip(sprintClear.S)
 check(sSprint < 1.2, `sprint foot slip ${sSprint.toFixed(2)} m/s of ${vSprint.toFixed(1)} m/s travel (pre-polish build: 2.27 of 5.7)`)
 const headS = Math.min(...sprint.slice(Math.floor(sprint.length / 3)).map((s) => s.head[1]))
 check(headS > 1.15, `sprint stays upright-ish (lowest head ${headS.toFixed(2)} m)`)

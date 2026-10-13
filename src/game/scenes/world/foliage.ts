@@ -100,7 +100,8 @@ export class FoliageBuilder {
   private cards: THREE.BufferGeometry[] = []
   private bark: THREE.BufferGeometry[] = []
   private r: () => number
-  constructor(seed = 1) {
+  /** leaf-card density by quality (1 = high, fewer cards on medium / low phones) */
+  constructor(seed = 1, private density = 1) {
     this.r = rngF(seed)
   }
 
@@ -130,6 +131,8 @@ export class FoliageBuilder {
   /** leaf cards scattered over an ellipsoid surface, facing outwards, tinted */
   leaves(cx: number, cy: number, cz: number, rx: number, ry: number, rz: number, n: number, size: number, tint: THREE.Color, spread = 0.18, minY = -0.35) {
     const up = new THREE.Vector3(0, 1, 0)
+    n = Math.max(3, Math.round(n * this.density))
+    if (this.density < 1) size *= 1 + (1 - this.density) * 0.35 // fewer, slightly bigger cards keep the silhouette
     for (let i = 0; i < n; i++) {
       // random direction, biased to the upper half
       const u = this.r() * Math.PI * 2

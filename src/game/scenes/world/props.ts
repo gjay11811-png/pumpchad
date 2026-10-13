@@ -117,7 +117,7 @@ export function poles(T: Town, spots: [number, number][], h = 4.4) {
 export function vegetation(T: Town, q: Quality, avoid: (x: number, z: number) => boolean) {
   const P = T.P
   const r = rng(77)
-  const F = new FoliageBuilder(77)
+  const F = new FoliageBuilder(77, q === 'high' ? 1 : q === 'medium' ? 0.7 : 0.45)
   const C = (h: string) => new THREE.Color(h)
   const autumnCols = [C('#c4561a'), C('#d98a1f'), C('#a8321e'), C('#c96b22'), C('#5c7a2e')]
   const barkCol = C('#3a2a20')
@@ -152,7 +152,7 @@ export function vegetation(T: Town, q: Quality, avoid: (x: number, z: number) =>
     T.colliders.push({ kind: 'box', minX: side * 3.4 - 0.35, maxX: side * 3.4 + 0.35, minZ: -21.5, maxZ: -12.5, h: 0.8 })
     T.colliders.push({ kind: 'box', minX: side * 3.4 - 0.35, maxX: side * 3.4 + 0.35, minZ: 13.5, maxZ: 18.5, h: 0.8 })
   }
-  F.build(T.scene, leafTexture(T.disposables), T.disposables, q !== 'low')
+  F.build(T.scene, leafTexture(T.disposables), T.disposables, q === 'high') // foliage shadows: high tier only
   // rocks: a scatter along the inside of the walls and by the paths
   const rocks: { x: number; y: number; z: number; ry: number; s: number }[] = []
   for (let i = 0; i < (q === 'low' ? 18 : 40); i++) {
