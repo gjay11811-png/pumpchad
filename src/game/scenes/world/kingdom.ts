@@ -8,6 +8,7 @@ import type { KingdomStyle, styleMaterials } from './style'
 import { insideCity, plateauDistance, terrainHeight, terrainLines } from './city'
 import { CASTLE_AT, SUMMIT } from './mountain'
 import { isNight } from './daylight'
+import { lakeBasin, lakeRho } from './valley'
 import { softDot } from './textures'
 
 type SM = ReturnType<typeof styleMaterials>
@@ -141,6 +142,12 @@ export function kingdom(T: Town, style: KingdomStyle, M: SM, q: Quality) {
       } else if (y > -0.3) c = lawn
       else if (y > CASTLE_AT.y + 1.2) c = rock.clone().lerp(lawn, 0.25 + 0.15 * Math.sin(x * 0.3))
       else c = valley
+      // the lake's bed and shore: pale sand where the margin shelves, dark silt in the deep
+      const bs = lakeBasin(x, z)
+      if (bs > 0.05) {
+        const t = (a: number, b: number, v: number) => Math.min(1, Math.max(0, (v - a) / (b - a)))
+        c = c.clone().lerp(new THREE.Color('#b9a67c'), t(0.05, 0.9, bs) * (1 - t(2.0, 3.0, bs))).lerp(new THREE.Color('#223436'), t(2.4, 4.4, bs))
+      }
       col.push(c.r, c.g, c.b)
     }
   const row = xs.length
@@ -188,7 +195,7 @@ export function kingdom(T: Town, style: KingdomStyle, M: SM, q: Quality) {
     const d = Math.sqrt(R()) * gv.r
     const x = gv.x + Math.cos(a) * d
     const z = gv.z + Math.sin(a) * d
-    if (insideCity(x, z, -16)) continue // keep clear of every street, plaza and road (with a margin)
+    if (insideCity(x, z, -16) || lakeRho(x, z) < 1.3) continue // keep clear of every street, plaza and road (with a margin), and the lake
     const y = terrainHeight(x, z)
     if (y > -1.5) continue // not on the plateau
     if (y > CASTLE_AT.y + 30) continue // the castle mountain dresses its own slopes

@@ -36,6 +36,11 @@ export class RoadSys {
     this.len = total
   }
 
+  /** lift the stretch between arc lengths s0 and s1 into a smooth hump `h` metres high (a bridge deck's arch) */
+  raise(s0: number, s1: number, h: number) {
+    for (const p of this.pts) if (p.s > s0 && p.s < s1) p.y += h * Math.sin((Math.PI * (p.s - s0)) / (s1 - s0))
+  }
+
   /** a point on the centreline at arc length s, with its unit tangent */
   pointAt(s: number) {
     const c = Math.min(Math.max(s, 0), this.len)

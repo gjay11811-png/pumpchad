@@ -3,7 +3,8 @@ import type { Town } from './buildings'
 import { boxUV, rng } from './kit'
 import { Frame, PANEL, channelLetters, panelTexture, postedBoard, type SignMats } from './signs'
 import { terrainHeight } from './city'
-import { DESCENT, DESCENT_LEN, DESCENT_W, OVERLOOK, VALLEY_Y, VIADUCT } from './descent'
+import { BRIDGE, DESCENT, DESCENT_LEN, DESCENT_W, OVERLOOK, VALLEY_Y, VIADUCT } from './descent'
+import { lakeRho } from './valley'
 import { isNight } from './daylight'
 import { archGeo } from './archGeo'
 
@@ -21,6 +22,10 @@ function laid(T: Town, geo: THREE.BufferGeometry, mat: THREE.Material, x: number
   T.batch.add(geo, mat, new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), q, new THREE.Vector3(1, 1, 1)), { cast })
   geo.dispose()
 }
+
+/** the arc-length range of the stone bridge (it has its own deck, parapets and lanterns in valleyLake.ts) */
+export const BRIDGE_S = { s0: DESCENT.nearest(BRIDGE.xEast, BRIDGE.z).s, s1: DESCENT.nearest(BRIDGE.xWest, BRIDGE.z).s }
+const onBridge = (s: number, pad = 0) => s > BRIDGE_S.s0 - pad && s < BRIDGE_S.s1 + pad
 
 export const DESCENT_LANTERNS: { x: number; y: number; z: number }[] = []
 
@@ -98,6 +103,7 @@ export function descentRoad(T: Town, q: 'low' | 'medium' | 'high') {
     for (let s = step / 2; s < DESCENT_LEN; s += step) {
       const p = DESCENT.pointAt(s)
       if (s > VIADUCT.s0 - 2 && s < VIADUCT.s1 + 2) continue // the viaduct carries its own parapet
+      if (onBridge(s, 3)) continue // so does the bridge
       const nx = -p.tz
       const nz = p.tx
       const ang = Math.atan2(p.tx, p.tz)
@@ -134,6 +140,7 @@ export function descentRoad(T: Town, q: 'low' | 'medium' | 'high') {
     }
     let side = 1
     for (let s = 14; s < DESCENT_LEN - 6; s += 16) {
+      if (onBridge(s, 2)) continue
       if (s > VIADUCT.s0 - 1 && s < VIADUCT.s1 + 1) {
         const p = DESCENT.pointAt(s)
         lantern(p.x - p.tz * side * (W / 2 - 0.15), p.y + 0.2, p.z + p.tx * side * (W / 2 - 0.15))
@@ -335,7 +342,8 @@ export function descentRoad(T: Town, q: 'low' | 'medium' | 'high') {
       const off = (DESCENT_W / 2 + 3 + R() * 22) * side
       const x = p.x - p.tz * off
       const z = p.z + p.tx * off
-      if (z < 92 || z > 410) continue
+      if (z < 92 || z > 450) continue
+      if (lakeRho(x, z) < 1.4) continue // never in the water or on its shelving margin
       if (s > VIADUCT.s0 - 6 && s < VIADUCT.s1 + 6) continue
       const nn = DESCENT.nearest(x, z)
       if (nn.d < DESCENT_W / 2 + 2.4) continue

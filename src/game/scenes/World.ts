@@ -65,10 +65,12 @@ import { inValley, lakeR } from './world/city'
 import { CASTLE_AT, castleGround } from './world/mountain'
 import { VALLEY_Y, descentGround } from './world/descent'
 import { inFrame } from './world/frame'
+import { valleyGround } from './world/valley'
 import { castleRoad } from './world/mountainRoad'
 import { summitCastle } from './world/summitCastle'
 import { downtown } from './world/downtown'
 import { descentRoad } from './world/descentRoad'
+import { valleyLake } from './world/valleyLake'
 import { MILL_LAMPS, SOUTHSHORE_LAMPS, southshore } from './world/southshore'
 import { LANTERNS, SIGIL, guardianLanterns, type GuardianLanterns } from './world/lanterns'
 import { ESTATE_LAMPS, EstateView, estatesDistrict } from './world/estates'
@@ -135,6 +137,8 @@ export function groundHeight(x: number, z: number) {
       const mg = castleGround(x, z)
       if (mg !== null) return mg
     }
+    const vg = valleyGround(x, z)
+    if (vg !== null) return vg
     if (inValley(x, z)) return VALLEY_Y
   }
   if (Math.hypot(x - GARDEN.x, z - GARDEN.z) < 3.25) return 0.36 // the gazebo's stone floor
@@ -356,6 +360,9 @@ export class World implements GameScene {
       downtown(L)
     })
     descentRoad(T, q)
+    const valleySeats: BenchSpot[] = []
+    valleyLake(T, wn, q, valleySeats, tex.stone)
+    this.seats.push(...valleySeats)
     squareExtras(T, SM.trim)
     // street trees + bushes for the south + east districts
     greenery.trees.push(...MOTOR_ROW_TREES)

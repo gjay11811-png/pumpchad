@@ -20,7 +20,7 @@ const X_E = 44
 const LEGS = 6
 const LAST_Z = K0 + (LEGS - 1) * DZ
 /** the free bends after the hairpins (control points for the smoothed curve), ending on the avenue at z 415 */
-const FREE: [number, number][] = [[X_W - R, LAST_Z + R], [-12, 182], [-2, 208], [22, 236], [46, 274], [58, 320], [54, 364], [36, 398], [14, 413], [-6, 415], [-14, 415]]
+const FREE: [number, number][] = [[X_W - R, LAST_Z + R], [-12, 182], [-2, 208], [22, 236], [46, 274], [58, 320], [62, 362], [62, 398], [57, 413], [50, 415]]
 
 function catmull(pts: [number, number][], per = 8): [number, number][] {
   const out: [number, number][] = []
@@ -68,9 +68,14 @@ function buildRaw(): [number, number][] {
   }
   const free = catmull(FREE, 7)
   for (const p of free.slice(1)) raw.push(p)
+  // the bridge straight: due west along the avenue's axis, a point every 4 m so the arched deck can be shaped
+  for (let x = 46; x >= -14; x -= 4) raw.push([x, 415])
   return raw
 }
 export const DESCENT = new RoadSys(buildRaw(), 0, VALLEY_Y, DESCENT_W, { start: 26, end: 22 })
+/** the stone bridge over the inlet: the road's own deck, lifted into an arch (east bank → the City Gateway) */
+export const BRIDGE = { z: 415, xEast: 47, xWest: -3, rise: 3.6 }
+DESCENT.raise(DESCENT.nearest(BRIDGE.xEast, BRIDGE.z).s, DESCENT.nearest(BRIDGE.xWest, BRIDGE.z).s, BRIDGE.rise)
 export const DESCENT_LEN = DESCENT.len
 /** the viaduct: the arc-length range where the road crosses the ravine on arches (the ground falls away beneath it) */
 export const VIADUCT = (() => {

@@ -15,6 +15,7 @@ export const CORE_R = 34.5
 export type Rect = { x0: number; x1: number; z0: number; z1: number }
 import { CASTLE_AT, GATE_PLAZA, castleTerrain, clampToCastle, inCastleWalk } from './mountain'
 import { VALLEY_Y, clampToDescent, descentTerrain, inDescentWalk } from './descent'
+import { clampToValley, inValleyWalk, valleyTerrain } from './valley'
 
 export const DISTRICTS: Record<'south' | 'east' | 'west' | 'overlook' | 'haunted' | 'motor' | 'forest' | 'lake' | 'estates' | 'downtown' | 'plaza' | 'southshore' | 'millrow', Rect> = {
   south: { x0: -32, x1: 32, z0: 20, z1: 75 },
@@ -86,7 +87,7 @@ const inRect = (x: number, z: number, r: Rect, m = 0) => x > r.x0 + m && x < r.x
 export function insideCity(x: number, z: number, m = 0) {
   if (Math.hypot(x, z) < CORE_R - m) return true
   if (m >= 0 && inLake(x, z, m)) return false
-  if (z > 56 && (inDescentWalk(x, z, m) || (z > 200 && inCastleWalk(x, z, m)))) return true
+  if (z > 56 && (inDescentWalk(x, z, m) || inValleyWalk(x, z, m) || (z > 200 && inCastleWalk(x, z, m)))) return true
   return RECTS.some((r) => inRect(x, z, r, m))
 }
 
@@ -129,6 +130,12 @@ export function clampToCity(p: { x: number; z: number }, m: number) {
   if (p.z > 56) {
     const q = { x: p.x, z: p.z }
     clampToDescent(q, m)
+    const d = Math.hypot(p.x - q.x, p.z - q.z)
+    if (d < bd) [bx, bz, bd] = [q.x, q.z, d]
+  }
+  if (p.z > 150) {
+    const q = { x: p.x, z: p.z }
+    clampToValley(q, m)
     const d = Math.hypot(p.x - q.x, p.z - q.z)
     if (d < bd) [bx, bz, bd] = [q.x, q.z, d]
   }
@@ -199,7 +206,7 @@ export function terrainHeight(x: number, z: number) {
     const calm = smooth01((cityD - 30) / 70)
     base += far * calm * (Math.sin(x * 0.021 + 1.3) * Math.cos(z * 0.017) * 6.5 + Math.sin(x * 0.053 - z * 0.041) * 2.2 + 3.5)
   }
-  return castleTerrain(x, z, descentTerrain(x, z, base))
+  return valleyTerrain(x, z, castleTerrain(x, z, descentTerrain(x, z, base)))
 }
 
 /** grid lines for the terrain mesh: dense over the city, sparse toward the horizon, exact at canal edges */
