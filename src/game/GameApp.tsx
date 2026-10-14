@@ -1,4 +1,5 @@
-import { ROAD } from './scenes/world/mountain'
+import { castleRoadWorld } from './scenes/world/mountain'
+import { DESCENT } from './scenes/world/descent'
 import { AnimatePresence, LazyMotion, MotionConfig, domAnimation } from 'framer-motion'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { audio } from './audio'
@@ -43,7 +44,7 @@ type Phase = 'boot' | 'title' | 'creator' | 'world' | 'gym' | 'interior' | 'erro
 type Overlay = null | 'pause' | 'settings' | 'achievements' | 'profile' | 'board' | 'welltoss' | 'photo' | 'intro' | 'shop' | 'map' | 'fishing' | 'estate'
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 const ACH_XP = 25
-/** Discover Chad City: the five places (discovery ids) */
+/** Discover Chad Village: the five places (discovery ids) */
 export const CITY_STEPS = ['visit_square', 'visit_gym', 'visit_arcade', 'visit_citadel', 'visit_rides']
 
 export function GameApp() {
@@ -197,7 +198,7 @@ export function GameApp() {
 
   /* ── world interactions ── */
   const handleInteractRef = useRef<(id: string) => void>(() => {})
-  /** Discover Chad City: one step found (zone reached or place inspected) → toast + City Explorer at 5/5 */
+  /** Discover Chad Village: one step found (zone reached or place inspected) → toast + City Explorer at 5/5 */
   const cityStepRef = useRef<(id: string) => void>(() => {})
   cityStepRef.current = (id: string) => {
     if (saveRef.current.progress.discoveries.includes(id)) return
@@ -216,7 +217,7 @@ export function GameApp() {
     }
     const names: Record<string, string> = { visit_square: 'Chad Square', visit_gym: 'Pump Gym', visit_arcade: 'Pump Arcade', visit_citadel: 'Chad Citadel', visit_rides: 'Chad Rides' }
     const n = CITY_STEPS.filter((k) => saveRef.current.progress.discoveries.includes(k) || k === id).length
-    notify(`Discovered: ${names[id] ?? id}`, n >= CITY_STEPS.length ? 'Chad City explored. Every district, every landmark.' : `Discover Chad City ${n}/${CITY_STEPS.length}`, 'discover')
+    notify(`Discovered: ${names[id] ?? id}`, n >= CITY_STEPS.length ? 'Chad Village explored. Every district, every landmark.' : `Discover Chad Village ${n}/${CITY_STEPS.length}`, 'discover')
     if (n >= CITY_STEPS.length) unlock('city_explorer')
   }
   const handleGymRef = useRef<(id: string) => void>(() => {})
@@ -809,7 +810,8 @@ export function GameApp() {
       gymTeleport: (x: number, z: number, yaw?: number) => gym.current?.teleport(x, z, yaw),
       gymInfo: () => gym.current?.info() ?? null,
       interior: () => interior.current?.info() ?? null,
-      road: () => ROAD.map((p) => [+p.x.toFixed(2), +p.z.toFixed(2), +p.y.toFixed(2)]),
+      road: () => castleRoadWorld().map((p) => [+p.x.toFixed(2), +p.z.toFixed(2), +p.y.toFixed(2)]),
+      descent: () => DESCENT.pts.map((p) => [+p.x.toFixed(2), +p.z.toFixed(2), +p.y.toFixed(2)]),
       pet: () => {
         const pt = (world.current ?? interior.current)?.pet
         return pt ? { kind: pt.kind, x: +pt.root.position.x.toFixed(2), y: +pt.root.position.y.toFixed(2), z: +pt.root.position.z.toFixed(2) } : null

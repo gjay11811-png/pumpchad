@@ -14,6 +14,7 @@ export function perimeter(T: Town, stone: THREE.Material, trim: THREE.Material, 
   const runs: Run[] = []
   for (const [key, r] of Object.entries(DISTRICTS)) {
     // the forest's edge is a timber fence, not a city balustrade (and it isn't closed by the curtain wall)
+    if (key === 'downtown' || key === 'plaza') continue // the valley city builds its own edge walls (in its own frame)
     const rustic = key === 'forest'
     const edges: [number, number, number, number, number, number][] = [
       // x0, z0, x1, z1, outward normal

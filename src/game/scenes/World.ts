@@ -13,7 +13,7 @@ import { Fireflies, Leaves, Particles, type Fire, type Cloth } from './world/fx'
 import { StaticBatch, makePalette } from './world/kit'
 import { Crowd, RESIDENTS } from './world/npcs'
 import { CASTLE_Z, ROADS, buildGround, castle, clutter, fence, lampPosts, poles, stringLights, vegetation } from './world/props'
-import { BENCHES, kingdom, mountains, valleyRoad } from './world/kingdom'
+import { BENCHES, kingdom, mountains } from './world/kingdom'
 import { GARDEN, SPAWN, bridgeHeight, clampToCity } from './world/city'
 import { buildDaylight, isNight, skyPresetFromUrl } from './world/daylight'
 import { B4S_BENCH, PLAZA_BENCHES, SEAT_FWD } from './world/props'
@@ -60,11 +60,14 @@ import { ARCADE, CANAL, OVERLOOK, RIDES, insideCity } from './world/city'
 import { PumpkinBuilder } from './world/pumpkins'
 import { stallV4 } from './world/market'
 import { FOREST, FOREST_WISPS, LAKE_FIREFLIES, enchantedForest, lakeLamps, moonlightLake } from './world/wilds'
-import { lakeR } from './world/city'
-import { mountainGround } from './world/mountain'
+import { inValley, lakeR } from './world/city'
+import { CASTLE_AT, castleGround } from './world/mountain'
+import { VALLEY_Y, descentGround } from './world/descent'
+import { inFrame } from './world/frame'
 import { castleRoad } from './world/mountainRoad'
 import { summitCastle } from './world/summitCastle'
-import { DOWNTOWN_LAMPS, downtown } from './world/downtown'
+import { downtown } from './world/downtown'
+import { descentRoad } from './world/descentRoad'
 import { MILL_LAMPS, SOUTHSHORE_LAMPS, southshore } from './world/southshore'
 import { LANTERNS, SIGIL, guardianLanterns, type GuardianLanterns } from './world/lanterns'
 import { ESTATE_LAMPS, EstateView, estatesDistrict } from './world/estates'
@@ -98,9 +101,10 @@ const ZONES: { id: string; inside: (x: number, z: number) => boolean }[] = [
   { id: 'visit_lake', inside: (x, z) => x > 66 && lakeR(x, z) < 1.5 },
   { id: 'visit_motor', inside: (x, z) => x > 30 && x < 64 && Math.abs(z - 36.25) < 3 },
   { id: 'visit_haunted', inside: (x, z) => x < -60 && z > -16 && z < 22 },
-  { id: 'visit_downtown', inside: (x, z) => x > 36 && x < 112 && z < -8 && z > -76 },
-  { id: 'visit_castleroad', inside: (x, z) => z < -50 && z > -140 && x > -10 && x < 40 },
-  { id: 'visit_castle', inside: (x, z) => Math.hypot(x - 10, z + 164) < 25 },
+  { id: 'visit_downtown', inside: (x, z) => x > -86 && x < -8 && z > 394 && z < 464 },
+  { id: 'visit_overlook', inside: (x, z) => Math.hypot(x - 14, z - 88) < 7 },
+  { id: 'visit_castleroad', inside: (x, z) => x < -80 && x > -150 && z > 300 && z < 425 },
+  { id: 'visit_castle', inside: (x, z) => Math.hypot(x + 110, z - 272) < 25 },
   { id: 'visit_southshore', inside: (x, z) => x > 66 && z > 74 },
   { id: 'visit_millrow', inside: (x, z) => x < -12 && z > 78 },
   { id: 'visit_estates', inside: (x, z) => x < -30 && x > -66 && z > 44 },
@@ -123,8 +127,15 @@ export const SEEDS: [string, number, number][] = [
 export function groundHeight(x: number, z: number) {
   const bh = bridgeHeight(x, z)
   if (bh !== null) return bh
-  const mg = mountainGround(x, z)
-  if (mg !== null) return mg
+  if (z > 56) {
+    const dg = descentGround(x, z)
+    if (dg !== null) return dg
+    if (z > 200) {
+      const mg = castleGround(x, z)
+      if (mg !== null) return mg
+    }
+    if (inValley(x, z)) return VALLEY_Y
+  }
   if (Math.hypot(x - GARDEN.x, z - GARDEN.z) < 3.25) return 0.36 // the gazebo's stone floor
   if (x > -4.5 && x < 4.5 && z < -24.4 && z > -29.6) return Math.min(4, Math.floor((-24.4 - z) / 1.05) + 1) * 0.22
   if (x > -8.5 && x < -5.5 && z > 13.8 && z < 24.2) return 0.3
@@ -336,9 +347,13 @@ export class World implements GameScene {
     lawns(T, SM.trim, extraSeats, greenery)
     this.seats.push(...extraSeats)
     chadRides(T, SM.trim)
-    castleRoad(T, q)
-    summitCastle(T)
-    downtown(T)
+    // the valley city (Downtown, the Gate Plaza, the castle mountain) is built in its own frame, 52 m below the village
+    inFrame(T, CASTLE_AT, q !== 'low', (L) => {
+      castleRoad(L, q)
+      summitCastle(L)
+      downtown(L)
+    })
+    descentRoad(T, q)
     squareExtras(T, SM.trim)
     // street trees + bushes for the south + east districts
     greenery.trees.push(...MOTOR_ROW_TREES)
@@ -354,12 +369,12 @@ export class World implements GameScene {
       ...MOTOR_ROW_LAMPS,
       ...lakeLamps(),
       ...ESTATE_LAMPS,
-      ...DOWNTOWN_LAMPS,
       ...SOUTHSHORE_LAMPS,
       ...MILL_LAMPS,
     ])
     this.city = buildChadCity(this.scene, q, this.disposables, this.night)
-    valleyRoad(T, this.city.road)
+    // the great distant skyline now stands far beyond the valley city (it is the backdrop, not a place you can reach)
+    this.city.group.position.set(0, -8, 340)
 
     // vegetation avoids roads, plaza and buildings
     const avoid = (x: number, z: number) => {
@@ -488,7 +503,7 @@ export class World implements GameScene {
       }
       // chimney smoke over the Gothic city (scaled up: it's hundreds of metres away)
       if (this.city.chimneys.length) {
-        this.cityStacks = new Particles(this.city.chimneys, q === 'high' ? 6 : 4, 'smoke', this.night ? '#4a4262' : '#9a96a0', false, 7)
+        this.cityStacks = new Particles(this.city.chimneys.map((c) => ({ x: c.x, y: c.y - 8, z: c.z + 340 })), q === 'high' ? 6 : 4, 'smoke', this.night ? '#4a4262' : '#9a96a0', false, 7)
         this.scene.add(this.cityStacks.points)
       }
     }

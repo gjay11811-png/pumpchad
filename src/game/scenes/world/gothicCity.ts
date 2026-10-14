@@ -492,7 +492,7 @@ export function buildChadCity(scene: THREE.Scene, q: Quality, D: Disposable[], n
   // the road from the valley gate down into the city
   const road = new THREE.CatmullRomCurve3([new THREE.Vector3(0, 0, 75), new THREE.Vector3(1, -3, 84), new THREE.Vector3(-5, -14, 97), new THREE.Vector3(4, -29, 116), new THREE.Vector3(-2, -33, 140), new THREE.Vector3(8, -38, 200), new THREE.Vector3(14, -44, 262)])
   // carriage lanterns on the valley road
-  const CARS = q === 'low' ? 0 : 14
+  const CARS = 0 // (the carriage lanterns on the old valley road are gone: the valley road is a real, walkable road now)
   const carT = Array.from({ length: CARS }, (_, i) => (i / CARS + R() * 0.03) % 1)
   const cPos = new Float32Array(Math.max(1, CARS) * 3)
   const cGeo = new THREE.BufferGeometry()

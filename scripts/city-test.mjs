@@ -1,4 +1,4 @@
-// CHAD CITY: intro, routes, water + gate boundaries, new interactions, Discover Chad City, hidden pumpkins,
+// CHAD CITY: intro, routes, water + gate boundaries, new interactions, Discover Chad Village, hidden pumpkins,
 // photo mode (capture downloads a PNG), garden bench, gym entry from the new layout.
 //   URL=http://localhost:4318/chadverse/ node scripts/city-test.mjs
 import { chromium } from 'playwright'
@@ -110,7 +110,7 @@ await talk(-39, -1.9, Math.PI, 'Mo', 'shakes')
 const d1 = (await save()).discoveries
 check(d1.includes('visit_rides') && d1.includes('visit_arcade') && d1.includes('overlook'), 'inspecting Chad Rides + the arcade + Chad View counts as discovered')
 
-/* ── Discover Chad City: zones ── */
+/* ── Discover Chad Village: zones ── */
 await tp(0, 8, Math.PI)
 await p.waitForTimeout(500)
 await tp(13.2, -4, Math.PI / 2)
@@ -121,7 +121,7 @@ const d2 = await save()
 check(['visit_square', 'visit_gym', 'visit_citadel'].every((k) => d2.discoveries.includes(k)), 'walking into the square, the gym door and the citadel forecourt are discoveries')
 check(d2.achievements.includes('city_explorer'), 'all five → City Explorer achievement')
 const cp = await p.evaluate(() => document.querySelector('[data-testid=city-progress]')?.textContent ?? '')
-check(!cp.includes('Discover Chad City'), `HUD progress line drops the finished activity (${cp})`)
+check(!cp.includes('Discover Chad Village'), `HUD progress line drops the finished activity (${cp})`)
 
 /* ── hidden pumpkins ── */
 const HP = [['hp_1', -10.4, 53.2], ['hp_2', 21.4, 37.0], ['hp_3', -44, 23], ['hp_4', 50.5, -4.4], ['hp_5', -5.7, -25.6], ['hp_6', -58.4, 41.0]]

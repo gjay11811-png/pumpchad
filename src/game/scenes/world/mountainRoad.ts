@@ -1,9 +1,9 @@
 import * as THREE from 'three'
 import type { Town } from './buildings'
 import { boxUV, rng } from './kit'
+import { archGeo } from './archGeo'
 import { Frame, PANEL, framedBoard, panelTexture, postedBoard, type SignMats } from './signs'
-import { terrainHeight } from './city'
-import { GATE_PLAZA, HAIRPINS, MOAT, ROAD, ROAD_LEN, ROAD_W, SUMMIT, hillRise, roadNearest } from './mountain'
+import { GATE_PLAZA_LOCAL as GATE_PLAZA, HAIRPINS, MOAT, ROAD, ROAD_LEN, ROAD_W, SUMMIT, mountainTerrainLocal, massifRise } from './mountain'
 
 /**
  * THE CASTLE ROAD — everything on and beside the switchback road up Citadel Mountain: the Gate Plaza at its foot (paving,
@@ -13,18 +13,9 @@ import { GATE_PLAZA, HAIRPINS, MOAT, ROAD, ROAD_LEN, ROAD_W, SUMMIT, hillRise, r
  */
 const ID = new THREE.Matrix4()
 
-type Sample = { x: number; z: number; y: number; tx: number; tz: number; s: number }
-/** a point on the road centreline at arc length s, with its unit tangent */
-function pointAt(s: number): Sample {
-  const c = Math.min(Math.max(s, 0), ROAD_LEN)
-  let i = 1
-  while (i < ROAD.length - 1 && ROAD[i].s < c) i++
-  const a = ROAD[i - 1]
-  const b = ROAD[i]
-  const t = b.s > a.s ? (c - a.s) / (b.s - a.s) : 0
-  const L = Math.hypot(b.x - a.x, b.z - a.z) || 1
-  return { x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t, y: a.y + (b.y - a.y) * t, tx: (b.x - a.x) / L, tz: (b.z - a.z) / L, s: c }
-}
+const pointAt = (s: number) => ROAD.pointAt(s)
+/** terrain height in the local frame (0 = valley floor) */
+const terrainHeight = (x: number, z: number) => mountainTerrainLocal(x, z, 0)
 
 const SLOPE = SUMMIT.y / ROAD_LEN
 /** a box lying along the road: yaw `ang`, pitched up along its length to follow the climb */
@@ -190,7 +181,7 @@ export function castleRoad(T: Town, q: 'low' | 'medium' | 'high') {
       side = -side
     }
     for (const h of HAIRPINS) {
-      const r = roadNearest(h.x, h.z)
+      const r = ROAD.nearest(h.x, h.z)
       const p = pointAt(r.s)
       lantern(p.x - p.tz * (ROAD_W / 2 - 0.05), p.y, p.z + p.tx * (ROAD_W / 2 - 0.05))
       lantern(p.x + p.tz * (ROAD_W / 2 - 0.05), p.y, p.z - p.tx * (ROAD_W / 2 - 0.05))
@@ -208,9 +199,8 @@ export function castleRoad(T: Town, q: 'low' | 'medium' | 'high') {
     for (const sz of [-1, 1]) {
       B.put(boxUV(ROAD_W + 1.2, MOAT.depth + 1.4, 1.6, 2), P.stone, 0, y - (MOAT.depth + 1.4) / 2 - 0.2, sz * (span / 2 - 0.5)) // abutments
     }
-    // the arch under the deck (a half cylinder lying along z)
-    const archR = ROAD_W / 2
-    B.put(new THREE.CylinderGeometry(archR, archR, span - 3, 20, 1, true, 0, Math.PI).rotateX(Math.PI / 2).rotateY(Math.PI / 2), P.stoneLight, 0, y - 0.7, 0)
+    // the arch under the deck: a stone ring over the ditch
+    B.put(archGeo(span / 2 - 1.2, 0.5, ROAD_W + 0.4), P.stoneLight, 0, y - 0.38 - 0.35 - (span / 2 - 1.2) - 0.5, 0)
     for (const sx of [-1, 1]) {
       B.put(boxUV(0.5, 0.9, span, 1.6), P.stoneLight, sx * (ROAD_W / 2 + 0.2), y + 0.45, 0) // parapets
       for (const sz of [-1, 1]) {
@@ -236,7 +226,8 @@ export function castleRoad(T: Town, q: 'low' | 'medium' | 'high') {
       const z = -80 - R() * 170
       const r = Math.hypot(x - SUMMIT.x, z - SUMMIT.z)
       if (r < SUMMIT.r + 12) continue
-      const { y: hy, d } = hillRise(x, z)
+      const hy = massifRise(x, z)
+      const d = ROAD.nearest(x, z).d
       if (hy < 1.5 || d < ROAD_W / 2 + 4) continue
       const y = terrainHeight(x, z)
       if (y < 1) continue

@@ -6,7 +6,7 @@ import { Cloth } from './fx'
 import { boxUV, rng } from './kit'
 import type { KingdomStyle, styleMaterials } from './style'
 import { insideCity, terrainHeight, terrainLines } from './city'
-import { SUMMIT, hillRise } from './mountain'
+import { CASTLE_AT, SUMMIT } from './mountain'
 
 type SM = ReturnType<typeof styleMaterials>
 
@@ -125,14 +125,17 @@ export function kingdom(T: Town, style: KingdomStyle, M: SM, q: Quality) {
       const wob = y < -1 && y > -40 ? (Math.sin(x * 0.7 + z * 0.3) + Math.sin(z * 0.9 - x * 0.4)) * 0.5 : 0
       pos.push(x, y + wob, z)
       uv.push(x / 6, z / 6)
-      // the mountain: meadow grass low down, bare stone higher up, a hint of frost on the very top
-      const mt = z < -40 && z > -272 && x > -100 && x < 130 ? Math.min(1, hillRise(x, z).y / SUMMIT.y) : 0
+      // the valley floor: meadow; the castle mountain: meadow low down, bare stone higher up, a hint of frost at the top;
+      // the plateau's rock face: stone
+      const rel = y - CASTLE_AT.y
+      const onMountain = z > 200 && x < 40 && rel > 1.5
+      const mt = onMountain ? Math.min(1, rel / SUMMIT.y) : 0
       const c =
         mt > 0.02
           ? lawn.clone().lerp(rock, Math.min(0.9, mt * 1.5 + 0.12 * Math.sin(x * 0.5 + z * 0.3))).lerp(frost, Math.max(0, mt - 0.85) * 3)
           : y > -0.3
             ? lawn
-            : y > -30
+            : y > CASTLE_AT.y + 1.2
               ? rock.clone().lerp(lawn, 0.25 + 0.15 * Math.sin(x * 0.3))
               : valley
       col.push(c.r, c.g, c.b)
@@ -217,33 +220,87 @@ export function valleyRoad(T: Town, curve: THREE.Curve<THREE.Vector3>) {
 
 /** Distant mountain ranges: two hazy blue layers (unlit, fog-free) framing the valley. */
 export function mountains(scene: THREE.Scene, D: (THREE.Material | THREE.Texture | THREE.BufferGeometry)[], night = false) {
-  // night: moonlit violet silhouettes with pale-lilac snow (bright enough to frame the skyline, never glaring)
-  const near = new THREE.MeshBasicMaterial({ color: night ? '#2a2948' : '#8fa7bf', fog: false })
-  const far = new THREE.MeshBasicMaterial({ color: night ? '#3a3762' : '#a9bdd2', fog: false })
-  const snow = new THREE.MeshBasicMaterial({ color: night ? '#8f94c8' : '#eef3f8', fog: false })
-  D.push(near, far, snow)
+  // Three layered mountain walls round the valley — irregular ridgelines with ledges, shoulders and ravines (no cones, no
+  // white triangle caps): a dark near ring, a bluer middle ring and a hazy far ring, so they separate by atmosphere.
+  // One vertex-coloured, fog-free mesh per layer (a few thousand vertices each).
   const R = rng(99)
-  for (let i = 0; i < 26; i++) {
-    const a = (i / 26) * Math.PI * 2 + R() * 0.1
-    const deg = ((a / DEG) + 360) % 360
-    if (deg > 55 && deg < 125) continue // the valley opening toward downtown
-    const r = 600 + R() * 120
-    const h = 110 + R() * 140
-    const w = 110 + R() * 80
-    const g = new THREE.ConeGeometry(w, h, 6)
-    const m = new THREE.Mesh(g, i % 2 ? near : far)
-    m.position.set(Math.cos(a) * r, -44 + h / 2, Math.sin(a) * r)
-    m.rotation.y = R() * 3
-    scene.add(m)
-    // snow cap on the taller peaks
-    if (h > 190) {
-      const cap = new THREE.ConeGeometry(w * 0.26, h * 0.26, 6)
-      const cm = new THREE.Mesh(cap, snow)
-      cm.position.set(m.position.x, -44 + h - h * 0.13 + 0.5, m.position.z)
-      cm.rotation.y = m.rotation.y
-      scene.add(cm)
-      D.push(cap)
+  const layers = night
+    ? [
+        { r: 620, h: 120, tint: ['#1c1a30', '#2c2a4a', '#4a4570'], seg: 220 },
+        { r: 800, h: 190, tint: ['#262442', '#38355e', '#5a5688'], seg: 200 },
+        { r: 940, h: 260, tint: ['#32305a', '#48447a', '#6e6a9c'], seg: 160 },
+      ]
+    : [
+        { r: 620, h: 120, tint: ['#6c7f8c', '#86a0b0', '#a8bfce'], seg: 220 },
+        { r: 800, h: 190, tint: ['#8da2b4', '#a6bacb', '#c4d3df'], seg: 200 },
+        { r: 940, h: 260, tint: ['#a9bbcb', '#c0cfdc', '#dde7ef'], seg: 160 },
+      ]
+  const centre = { x: -20, z: 240 }
+  const FLOOR = -62
+  layers.forEach((L, li) => {
+    const phase = R() * 100
+    const peaks = Array.from({ length: 9 + li * 3 }, () => ({ a: R() * Math.PI * 2, w: 0.1 + R() * 0.16, k: 0.45 + R() * 0.55 }))
+    const ridge = (a: number) => {
+      let v = 0.42 + 0.14 * Math.sin(a * 3 + phase) + 0.1 * Math.sin(a * 7.3 + phase * 1.7) + 0.06 * Math.sin(a * 17 + phase * 0.6)
+      for (const p of peaks) {
+        const d = Math.atan2(Math.sin(a - p.a), Math.cos(a - p.a))
+        v += p.k * Math.exp(-(d * d) / (2 * p.w * p.w)) * 0.5
+      }
+      return Math.min(1, v)
     }
-    D.push(g)
-  }
+    const K = 14
+    const pos: number[] = []
+    const col: number[] = []
+    const idx: number[] = []
+    const c0 = new THREE.Color(L.tint[0])
+    const c1 = new THREE.Color(L.tint[1])
+    const c2 = new THREE.Color(L.tint[2])
+    const tmp = new THREE.Color()
+    for (let j = 0; j <= L.seg; j++) {
+      const a = (j / L.seg) * Math.PI * 2
+      const H = ridge(a) * L.h
+      for (let k = 0; k <= K; k++) {
+        const u = k / K // 0 at the foot (toward the valley) → 1 at the back
+        // a rising face with ledges: smooth rise to the crest at u ≈ 0.55, then a long back slope
+        const rise = u < 0.55 ? Math.pow(u / 0.55, 1.35) : 1 - 0.55 * ((u - 0.55) / 0.45)
+        const ledges = 0.16 * Math.floor(rise * 6) / 6 + 0.84 * rise
+        const noise = 1 + 0.12 * Math.sin(a * 41 + u * 9 + phase) + 0.08 * Math.sin(a * 83 - u * 17)
+        const rr = L.r + u * 220 + 14 * Math.sin(a * 9 + u * 5 + phase)
+        const y = FLOOR + H * ledges * noise
+        pos.push(centre.x + Math.cos(a) * rr, y, centre.z + Math.sin(a) * rr)
+        const hf = Math.min(1, Math.max(0, (y - FLOOR) / (L.h * 0.9)))
+        tmp.copy(c0).lerp(c1, Math.min(1, hf * 1.6)).lerp(c2, Math.max(0, hf - 0.55) * 1.6)
+        const v = 0.9 + 0.1 * Math.sin(a * 53 + k * 3) // strata-like banding
+        col.push(tmp.r * v, tmp.g * v, tmp.b * v)
+      }
+    }
+    const row = K + 1
+    for (let j = 0; j < L.seg; j++)
+      for (let k = 0; k < K; k++) {
+        const a = j * row + k
+        const b = a + row
+        idx.push(a, a + 1, b, a + 1, b + 1, b)
+      }
+    const g = new THREE.BufferGeometry()
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+    g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3))
+    g.setIndex(idx)
+    g.computeVertexNormals()
+    // bake a soft key light into the vertex colours (the material is unlit so the far ranges stay cheap and fog-free)
+    {
+      const nrm = g.attributes.normal as THREE.BufferAttribute
+      const cl = g.attributes.color as THREE.BufferAttribute
+      const Lr = new THREE.Vector3(0.45, 0.55, -0.7).normalize()
+      for (let i = 0; i < nrm.count; i++) {
+        const nv = new THREE.Vector3(nrm.getX(i), Math.abs(nrm.getY(i)), nrm.getZ(i))
+        const k = 0.62 + 0.55 * Math.max(0, nv.dot(Lr))
+        cl.setXYZ(i, cl.getX(i) * k, cl.getY(i) * k, cl.getZ(i) * k)
+      }
+    }
+    const m = new THREE.MeshBasicMaterial({ vertexColors: true, fog: false, side: THREE.DoubleSide })
+    D.push(g, m)
+    const mesh = new THREE.Mesh(g, m)
+    mesh.frustumCulled = false
+    scene.add(mesh)
+  })
 }

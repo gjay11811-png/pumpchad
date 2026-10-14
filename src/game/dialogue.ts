@@ -4,9 +4,9 @@ export type Dialogue = { speaker: string; role: string; lines: string[]; options
 /** the opening adventure: Goldie asks for help with the Guardian Lanterns */
 export const QUEST_GOLDIE: Dialogue = {
   speaker: 'Goldie',
-  role: 'Chad City · greeter + lamplighter',
+  role: 'Chad Village · greeter + lamplighter',
   lines: [
-    'Oh — a new face, and just in time. Welcome to CHAD CITY!',
+    'Oh — a new face, and just in time. Welcome to CHAD VILLAGE!',
     'Since the Curse of the Chadverse fell, the three Guardian Lanterns have gone cold: one on Chad Bridge, one in Chad Square, one before the Citadel.',
     'Light them again and something old will wake up. Will you do it? Look for the gold markers.',
   ],
@@ -17,7 +17,7 @@ export const QUEST_GOLDIE: Dialogue = {
 }
 export const QUEST_GOLDIE_REMIND: Dialogue = {
   speaker: 'Goldie',
-  role: 'Chad City · greeter + lamplighter',
+  role: 'Chad Village · greeter + lamplighter',
   lines: ['The Guardian Lanterns: on Chad Bridge, in Chad Square, and before the Citadel. Follow the gold markers — I’ll keep the gateway warm.'],
 }
 export const QUEST_COLD_LANTERN: Dialogue = {
@@ -120,7 +120,7 @@ export const DIALOGUE: Record<string, Dialogue> = {
     speaker: 'Pip',
     role: 'City Guide · Market Row',
     lines: [
-      'Welcome to CHAD CITY! First time? Here’s the lay of the land.',
+      'Welcome to CHAD VILLAGE! First time? Here’s the lay of the land.',
       'East of CHAD SQUARE: PUMP GYM — lift, punch the bag, hit the treadmill. Every rep builds strength or stamina. The yard outside is for warming up.',
       'Keep going east down ARCADE STREET to the PUMP ARCADE. It isn’t open yet, but the marquee is worth a look.',
       'The pumpkin cart in the square runs PUMPKIN RUSH: forty-five seconds, grab every glowing pumpkin you can.',
@@ -145,7 +145,7 @@ export const DIALOGUE: Record<string, Dialogue> = {
     role: 'Chad Square · south side',
     lines: [
       'The Pump Canal slides past below the railing. CHAD BRIDGE carries the avenue over it; two footbridges loop round to the forecourt.',
-      'Beyond the water stands the CHAD CITY gateway — and, down the valley, the towers of downtown.',
+      'Beyond the water stands the CHAD CITY gateway — and, down the valley, the towers of Chad City.',
       'The benches here are free. The ducks are imaginary.',
     ],
   },
@@ -171,18 +171,18 @@ export const DIALOGUE: Record<string, Dialogue> = {
   },
   citygate: {
     speaker: 'Welcome Board',
-    role: 'Chad City · arrival forecourt',
+    role: 'Chad Village · arrival forecourt',
     lines: [
-      'WELCOME TO CHAD CITY.',
+      'WELCOME TO CHAD VILLAGE.',
       'Straight on over CHAD BRIDGE to CHAD SQUARE. PUMP GYM is east of the square; ARCADE STREET runs on east to the PUMP ARCADE.',
       'West: the Market, the Social Corner, the Pumpkin Garden and CHAD VIEW. North: CHAD CITADEL.',
-      'Something to do: DISCOVER CHAD CITY — visit the square, the gym, the arcade, the citadel and Chad Rides. And keep an eye out for six hidden pumpkins.',
+      'Something to do: DISCOVER CHAD VILLAGE — visit the square, the gym, the arcade, the citadel and Chad Rides. And keep an eye out for six hidden pumpkins.',
     ],
   },
   citymap: {
     speaker: 'City Map',
     role: 'You are here',
-    lines: ['A painted map of CHAD CITY: the gateway and forecourt in the south, the canal and its three bridges, CHAD SQUARE in the middle, the gym and Arcade Street east, the market and garden west, the citadel north.', 'Someone has drawn a tiny crown over the citadel. Someone else has drawn a pumpkin over the crown.'],
+    lines: ['A painted map of CHAD VILLAGE: the gateway and forecourt in the south, the canal and its three bridges, CHAD SQUARE in the middle, the gym and Arcade Street east, the market and garden west, the citadel north.', 'Someone has drawn a tiny crown over the citadel. Someone else has drawn a pumpkin over the crown.'],
   },
   rides: {
     speaker: 'Chad Rides',
@@ -297,10 +297,10 @@ Object.assign(DIALOGUE, {
   },
   greeter: {
     speaker: 'Goldie',
-    role: 'Chad City · greeter',
+    role: 'Chad Village · greeter',
     lines: [
-      'Welcome to CHAD CITY! Through the gateway, over the bridge, and you’re in CHAD SQUARE.',
-      'Want something to do? Try DISCOVER CHAD CITY: see the square, find PUMP GYM, check out the PUMP ARCADE, reach the CHAD CITADEL forecourt and peek at CHAD RIDES. Your progress shows under the objective.',
+      'Welcome to CHAD VILLAGE! Through the gateway, over the bridge, and you’re in CHAD SQUARE.',
+      'Want something to do? Try DISCOVER CHAD VILLAGE: see the square, find PUMP GYM, check out the PUMP ARCADE, reach the CHAD CITADEL forecourt and peek at CHAD RIDES. Your progress shows under the objective.',
       'And if you like a hunt: six pumpkins are hidden around the city. Fair spots, I promise — no climbing.',
     ],
   },

@@ -204,11 +204,66 @@ export function shop(T: Town, M: ArchMats, s: ShopSpec, letterMat?: THREE.Materi
       F.put(new THREE.PlaneGeometry(0.6, 0.7), M.glass, wx, H + 1.1, fz + 0.26, 0, 0, 0, false)
     }
   }
+  // ── sides and rear: framed windows, pilasters, a downpipe, a back door, and brick chimney stacks — no bare walls ──
+  detailWalls(T, F, s, M, H, bays)
   // solid for the player and the camera
   const p0 = F.world(-s.w / 2 - 0.1, 0, -s.d / 2 - 0.1)
   const p1 = F.world(s.w / 2 + 0.1, 0, s.d / 2 + 0.25)
   T.colliders.push({ kind: 'box', minX: Math.min(p0.x, p1.x), maxX: Math.max(p0.x, p1.x), minZ: Math.min(p0.z, p1.z), maxZ: Math.max(p0.z, p1.z), h: H })
   return { H, F }
+}
+
+
+/**
+ * Everything the street doesn't see head-on: the two side walls and the back wall get recessed-look window openings with
+ * frames, sills and lintels, corner pilasters, downpipes, a rear door with a step, and one or two chimney stacks on the roof.
+ * (Alternate rooms are lit; the pattern is stable per building, so nothing flickers between frames.)
+ */
+function detailWalls(T: Town, F: Frame, s: ShopSpec, M: ArchMats, H: number, _bays: number) {
+  const seed = Math.round(s.x * 3 + s.z * 5)
+  const wall = (S: Frame, width: number, isBack: boolean) => {
+    const n = Math.max(1, Math.round((width - 1.2) / 2.8))
+    const span = width - 1.6
+    for (let fl = 0; fl < s.floors; fl++) {
+      const y = fl === 0 ? 1.9 : GROUND_H + (fl - 1) * FLOOR_H + 1.55
+      const hgt = fl === 0 ? 1.3 : 1.5
+      for (let b = 0; b < n; b++) {
+        const wx = -span / 2 + (span * (b + 0.5)) / n
+        if (isBack && fl === 0 && b === Math.floor(n / 2)) continue // the back door goes here
+        const lit = (seed + b + fl) % 3 === 0
+        S.put(new THREE.PlaneGeometry(0.92, hgt), lit ? T.P.windowLit : M.glass, wx, y, 0.012, 0, 0, 0, false)
+        S.box(1.1, 0.1, 0.12, M.frame, wx, y + hgt / 2 + 0.04, 0.05)
+        S.box(1.1, 0.1, 0.12, M.frame, wx, y - hgt / 2 - 0.04, 0.05)
+        for (const dx of [-0.5, 0.5]) S.box(0.09, hgt + 0.16, 0.12, M.frame, wx + dx, y, 0.05)
+        S.box(0.06, hgt, 0.08, M.frame, wx, y, 0.04)
+        S.box(1.32, 0.1, 0.26, M.trim, wx, y - hgt / 2 - 0.12, 0.1) // sill
+        S.box(1.3, 0.2, 0.14, M.trim, wx, y + hgt / 2 + 0.16, 0.07) // lintel
+      }
+    }
+    // corner pilasters, a downpipe, and (at the back) a door with a step and a little hood
+    for (const sx of [-1, 1]) S.box(0.3, H, 0.14, M.trim, sx * (width / 2 - 0.13), H / 2, 0.04)
+    S.put(new THREE.CylinderGeometry(0.045, 0.045, H - 0.2, 6), M.sign.metal, width / 2 - 0.55, H / 2, 0.1)
+    if (isBack) {
+      S.box(1.2, 2.3, 0.1, M.door, 0, 1.15, 0.05)
+      S.box(1.5, 0.1, 0.5, M.plinth, 0, 0.05, 0.28)
+      S.box(1.7, 0.16, 0.5, M.trim, 0, 2.5, 0.2)
+    }
+  }
+  wall(F.sub(s.w / 2, 0, 0, 0, Math.PI / 2, 0), s.d, false)
+  wall(F.sub(-s.w / 2, 0, 0, 0, -Math.PI / 2, 0), s.d, false)
+  wall(F.sub(0, 0, -s.d / 2, 0, Math.PI, 0), s.w, true)
+  // chimney stacks: brick-coloured shafts with a cap and a pair of pots, set toward the sides of the roof
+  const roofRise = s.roof === 'pitched' ? Math.min(3.2, s.d * 0.42) : s.roof === 'mansard' ? 1.8 : 0.3
+  const stacks = s.w > 6.5 ? [-s.w * 0.3, s.w * 0.28] : [s.w * 0.25]
+  stacks.forEach((cx, i) => {
+    const base = H + 0.27 + (s.roof === 'pitched' ? roofRise * 0.55 : roofRise * 0.9)
+    const top = H + 0.27 + roofRise + 1.15 + (i % 2) * 0.35
+    const hgt = top - base
+    const zc = s.roof === 'pitched' ? -s.d * 0.12 : -s.d * 0.18
+    F.put(boxUV(0.78, hgt, 0.62, 1), M.trim, cx, base + hgt / 2, zc)
+    F.put(boxUV(0.98, 0.14, 0.82, 1), M.plinth, cx, top + 0.05, zc)
+    for (const dx of [-0.18, 0.18]) F.put(new THREE.CylinderGeometry(0.1, 0.12, 0.34, 8), M.frame, cx + dx, top + 0.3, zc)
+  })
 }
 
 /** standard material set for a style (shared per World, so every shop of a style is the same few draw calls) */

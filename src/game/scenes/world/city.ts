@@ -13,7 +13,8 @@
 /** walkable areas (union). The core is the old walled town; the rectangles are the new districts. */
 export const CORE_R = 34.5
 export type Rect = { x0: number; x1: number; z0: number; z1: number }
-import { GATE_PLAZA, clampToMountain, inMountainWalk, mountainTerrain, shelfDist } from './mountain'
+import { CASTLE_AT, GATE_PLAZA, castleTerrain, clampToCastle, inCastleWalk } from './mountain'
+import { VALLEY_Y, clampToDescent, descentTerrain, inDescentWalk } from './descent'
 
 export const DISTRICTS: Record<'south' | 'east' | 'west' | 'overlook' | 'haunted' | 'motor' | 'forest' | 'lake' | 'estates' | 'downtown' | 'plaza' | 'southshore' | 'millrow', Rect> = {
   south: { x0: -32, x1: 32, z0: 20, z1: 75 },
@@ -31,8 +32,8 @@ export const DISTRICTS: Record<'south' | 'east' | 'west' | 'overlook' | 'haunted
   lake: { x0: 64, x1: 128, z0: 4, z1: 70 },
   // CHADVILLE ESTATES: plots to buy and build on, west of the arrival lawns, below the Chad View terrace
   estates: { x0: -66, x1: -30, z0: 41, z1: 78 },
-  // DOWNTOWN: the tall colourful city beyond the east district, and the Gate Plaza where the Castle Road begins
-  downtown: { x0: 34, x1: 112, z0: -76, z1: -6 },
+  // DOWNTOWN: Chad City proper, in the valley basin 52 m below the village; the Gate Plaza is where the Castle Road begins
+  downtown: { x0: 34 + CASTLE_AT.x, x1: 112 + CASTLE_AT.x, z0: -76 + CASTLE_AT.z, z1: -6 + CASTLE_AT.z },
   plaza: GATE_PLAZA,
   // the LOWER DISTRICTS: Southshore (south of Moonlight Lake) and Mill Row (south of Chadville Estates)
   southshore: { x0: 66, x1: 134, z0: 64, z1: 142 },
@@ -48,7 +49,14 @@ const onPier = (x: number, z: number, m = 0) => inRect(x, z, PIER, m) || inRect(
 export function inLake(x: number, z: number, m = 0) {
   return lakeR(x, z) < 1 + m / LAKE.rz && !onPier(x, z, m > 0 ? -m : 0)
 }
+/** the valley districts stand on the basin floor, not on the village plateau */
+export const VALLEY_KEYS = ['downtown', 'plaza'] as const
 const RECTS = Object.values(DISTRICTS)
+const PLATEAU_RECTS = Object.entries(DISTRICTS)
+  .filter(([k]) => !(VALLEY_KEYS as readonly string[]).includes(k))
+  .map(([, r]) => r)
+/** the standing height of the valley districts */
+export const inValley = (x: number, z: number) => (VALLEY_KEYS as readonly string[]).some((k) => inRect(x, z, DISTRICTS[k as keyof typeof DISTRICTS], 0))
 
 /** the canal: open water between these bounds (y of the water surface below), crossed by the bridges */
 export const CANAL = { x0: -28, x1: 28, z0: 38.5, z1: 44.5, water: -0.8, floor: -1.9 }
@@ -78,7 +86,7 @@ const inRect = (x: number, z: number, r: Rect, m = 0) => x > r.x0 + m && x < r.x
 export function insideCity(x: number, z: number, m = 0) {
   if (Math.hypot(x, z) < CORE_R - m) return true
   if (m >= 0 && inLake(x, z, m)) return false
-  if (inMountainWalk(x, z, m)) return true
+  if (z > 56 && (inDescentWalk(x, z, m) || (z > 200 && inCastleWalk(x, z, m)))) return true
   return RECTS.some((r) => inRect(x, z, r, m))
 }
 
@@ -118,9 +126,15 @@ export function clampToCity(p: { x: number; z: number }, m: number) {
     const d = Math.hypot(p.x - cx, p.z - cz)
     if (d < bd) [bx, bz, bd] = [cx, cz, d]
   }
-  if (p.z < GATE_PLAZA.z1) {
+  if (p.z > 56) {
     const q = { x: p.x, z: p.z }
-    clampToMountain(q, m)
+    clampToDescent(q, m)
+    const d = Math.hypot(p.x - q.x, p.z - q.z)
+    if (d < bd) [bx, bz, bd] = [q.x, q.z, d]
+  }
+  if (p.z > 200) {
+    const q = { x: p.x, z: p.z }
+    clampToCastle(q, m)
     const d = Math.hypot(p.x - q.x, p.z - q.z)
     if (d < bd) [bx, bz, bd] = [q.x, q.z, d]
   }
@@ -128,11 +142,10 @@ export function clampToCity(p: { x: number; z: number }, m: number) {
   p.z = bz
 }
 
-/** distance from (x, z) to the walkable union (0 inside) — drives the cliff profile */
-export function outsideDistance(x: number, z: number) {
-  if (insideCity(x, z)) return 0
+/** distance from (x, z) to the village plateau (0 on it) — drives the cliff profile down to the valley floor */
+export function plateauDistance(x: number, z: number) {
   let d = Math.max(0, Math.hypot(x, z) - CORE_R)
-  for (const r of RECTS) {
+  for (const r of PLATEAU_RECTS) {
     const dx = Math.max(r.x0 - x, 0, x - r.x1)
     const dz = Math.max(r.z0 - z, 0, z - r.z1)
     d = Math.min(d, Math.hypot(dx, dz))
@@ -157,41 +170,35 @@ export function inCanal(x: number, z: number, m = 0) {
   return !BRIDGES.some((b) => Math.abs(x - b.x) < b.w / 2 - m)
 }
 
-/** Terrain: flat city plateau (y 0), the canal cut, a short lip, a steep cliff, then the valley sinking to −44. */
+/** Terrain: the village plateau (y 0), the canal cut, a short lip, a steep rock face down to the valley floor (−52), the valley road + the castle mountain carved in. */
 export function terrainHeight(x: number, z: number) {
   // the lake bowl: a gentle bank down from the shore, deepest in the middle
   const lr = lakeR(x, z)
   if (lr < 1) return -0.04 - 1.9 * Math.pow(1 - lr * lr, 0.6)
   // the cut sits 0.3 m behind the embankment wall faces, so the walls hide the drop
   if (x > CANAL.x0 - 0.3 && x < CANAL.x1 + 0.3 && z > CANAL.z0 - 0.3 && z < CANAL.z1 + 0.3) return CANAL.floor
-  // the shelf the mountain and Downtown stand on is level ground too (it simply isn't all walkable)
-  const d = Math.min(outsideDistance(x, z), shelfDist(x, z))
+  const d = plateauDistance(x, z)
   let base = 0
   if (d > 0) {
     if (d < 2.5) base = -0.1 * d
     else {
       const t = Math.min(1, (d - 2.5) / 30)
-      const cliff = -0.25 - 31.5 * (t * t * (3 - 2 * t))
-      base = d < 33 ? cliff : cliff - Math.min(12, (d - 33) * 0.07)
+      base = -0.25 + (VALLEY_Y + 0.25) * (t * t * (3 - 2 * t))
     }
   }
-  return mountainTerrain(x, z, base)
+  return castleTerrain(x, z, descentTerrain(x, z, base))
 }
 
 /** grid lines for the terrain mesh: dense over the city, sparse toward the horizon, exact at canal edges */
 export function terrainLines(axis: 'x' | 'z') {
   const s = new Set<number>()
-  const lo = axis === 'x' ? -106 : -272
-  const hi = axis === 'x' ? 142 : 160
-  for (let v = lo; v <= hi; v += 2) s.add(v)
-  for (const v of [70, 80, 95, 115, 140, 175, 220, 280, 360, 460]) {
-    if (axis === 'x' && v <= 142 && v >= 70) {
-      s.add(v)
-      continue // west of the old town the land is dense now (the Haunted Quarter); the east side stays coarse
-    }
-    s.add(v)
-    s.add(-v)
-  }
+  // dense (2 m) over the village plateau + its approaches; 4 m across the valley basin where the ground is gentler
+  const dense = axis === 'x' ? [-106, 142] : [-90, 160]
+  const wide = axis === 'x' ? [-232, 190] : [-90, 500]
+  for (let v = dense[0]; v <= dense[1]; v += 2) s.add(v)
+  for (let v = wide[0]; v < dense[0]; v += 4) s.add(v)
+  for (let v = dense[1]; v <= wide[1]; v += 4) s.add(v)
+  for (const v of [520, 560, 620, 700, 800, 920, -130, -170, -220, -280, -360, -460, -600, -800, -250, 250, 300, 380, 460]) if (!(axis === 'z' && v < -90 && v > -130)) s.add(v)
   // one line just outside the cut (ground level) + one just inside it (canal floor): a vertical drop hidden in the walls
   if (axis === 'z') for (const v of [CANAL.z0 - 0.42, CANAL.z0 - 0.25, CANAL.z1 + 0.25, CANAL.z1 + 0.42]) s.add(v)
   else for (const v of [CANAL.x0 - 0.42, CANAL.x0 - 0.25, CANAL.x1 + 0.25, CANAL.x1 + 0.42]) s.add(v)

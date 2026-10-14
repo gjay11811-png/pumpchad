@@ -29,15 +29,15 @@ const walk = async (name, x, z, yaw, axis, dir, min) => {
   check(moved >= min, `${name}: walked ${moved.toFixed(1)} m along the street (needs ≥ ${min})`)
 }
 const P = Math.PI
-await walk('Downtown boulevard (north from the east district)', 60, -10, P, 'z', -1, 7)
-await walk('Downtown avenue (east from the Gate Plaza)', 40, -55, P / 2, 'x', 1, 7)
-await walk('Downtown cross street (east)', 40, -30, P / 2, 'x', 1, 7)
+await walk('Downtown boulevard (north from the south end)', -60, 462, P, 'z', -1, 7)
+await walk('Downtown avenue (east from the Gate Plaza)', -82, 415, P / 2, 'x', 1, 7)
+await walk('Downtown cross street (east)', -82, 440, P / 2, 'x', 1, 7)
 await walk('Southshore Shore Road (east)', 70, 94, P / 2, 'x', 1, 7)
 await walk('Southshore Quay Lane (south from the lake)', 98.5, 68, 0, 'z', 1, 7)
 await walk('Mill Row lane (south from the estates)', -42, 78, 0, 'z', 1, 7)
 await walk('Mill Row Mill Road (east)', -68, 100, P / 2, 'x', 1, 7)
 // every fast-travel landmark spawn lands on walkable ground (the player is not pushed away)
-const places = [['Downtown', 60, -10], ['Castle Road', 10, -53], ['Chad Castle', 10, -141], ['Southshore', 70, 94], ['Mill Row', -42, 82]]
+const places = [['Chad City gateway', -10, 415], ['Valley overlook', 8, 89], ['Castle Road', -110, 417], ['Chad Castle', -110, 300], ['Southshore', 70, 94], ['Mill Row', -42, 82]]
 for (const [n, x, z] of places) {
   await C('teleport', x, z, 0)
   await p.waitForTimeout(500)

@@ -59,7 +59,7 @@ export function cityBannerTexture(D: D, field = '#e8641a') {
   g.fillRect(122, 205, 12, 22)
   g.font = '400 54px Anton, Impact, sans-serif'
   g.textAlign = 'center'
-  g.fillText('CHAD CITY', 128, 408)
+  g.fillText('CHAD VILLAGE', 128, 408)
   const t = new THREE.CanvasTexture(c)
   t.colorSpace = THREE.SRGBColorSpace
   D.push(t)
@@ -84,7 +84,7 @@ export function cityMapTexture(D: D, here: [number, number]) {
   g.fillStyle = '#2a2228'
   g.font = '400 54px Anton, Impact, sans-serif'
   g.textAlign = 'center'
-  g.fillText('CHAD CITY', W / 2, 62)
+  g.fillText('CHAD VILLAGE', W / 2, 62)
   // ground
   g.fillStyle = '#b9cf94'
   g.beginPath()
@@ -169,7 +169,7 @@ export const WELCOME = { x: -6.8, z: 59.6 }
 export const MAPBOARD = { x: 6.8, z: 59.6 }
 
 /**
- * The arrival: forecourt paving + planters + benches + lamps, the CHAD CITY gateway, the welcome board,
+ * The arrival: forecourt paving + planters + benches + lamps, the CHAD VILLAGE gateway, the welcome board,
  * the city map, and the closed valley gate on the road south.
  */
 export function arrival(T: Town, stone: THREE.Material, trim: THREE.Material) {
@@ -273,7 +273,7 @@ export function arrival(T: Town, stone: THREE.Material, trim: THREE.Material) {
       T.batch.put(new THREE.BoxGeometry(11.6, 1.75, 0.12), darkMetal, 0, y0 + 1.2, fz + side * 0.06)
       for (const dx of [-5.6, 5.6]) T.batch.put(new THREE.BoxGeometry(0.1, 1.75, 0.2), P.gold, dx, y0 + 1.2, fz + side * 0.08)
       const F = Frame.at(T.batch, 0, y0 + 0.62, fz + side * 0.13, side > 0 ? 0 : Math.PI)
-      channelLetters(F, 'CHAD CITY', 1.15, 0.14, letters)
+      channelLetters(F, 'CHAD VILLAGE', 1.15, 0.14, letters)
       // a thin light line under the letters (integrated lighting, not a glow wash)
       T.batch.put(new THREE.BoxGeometry(10.8, 0.05, 0.05), glow, 0, y0 + 0.36, fz + side * 0.2, 0, 1, 1, 1, { cast: false })
     }
@@ -329,7 +329,7 @@ export function arrival(T: Town, stone: THREE.Material, trim: THREE.Material) {
 
   // ── welcome board + city map (posted, roofed, readable from the spawn) ──
   const welcome = new THREE.MeshStandardMaterial({
-    map: boardTexture('WELCOME TO CHAD CITY', ['Chad Square · straight on, over the bridge', 'Pump Gym · east of the square', 'Pump Arcade · Arcade Street, far east', 'Market + Garden · west', 'Chad Citadel · north', 'Chad Rides · here, by the valley gate (soon)'], 1.6, PANEL.dark, Dp),
+    map: boardTexture('WELCOME TO CHAD VILLAGE', ['Chad Square · straight on, over the bridge', 'Pump Gym · east of the square', 'Pump Arcade · Arcade Street, far east', 'Market + Garden · west', 'Chad Citadel · north', 'Chad Rides · here, by the valley gate (soon)'], 1.6, PANEL.dark, Dp),
     roughness: 0.7,
   })
   const map = new THREE.MeshStandardMaterial({ map: cityMapTexture(Dp, [MAPBOARD.x, MAPBOARD.z]), roughness: 0.75 })
@@ -339,7 +339,7 @@ export function arrival(T: Town, stone: THREE.Material, trim: THREE.Material) {
   postedBoard(Frame.at(T.batch, MAPBOARD.x, 0, MAPBOARD.z, -0.38), 2.4, 1.8, 1.6, map, SMt, false)
   for (const b of [WELCOME, MAPBOARD]) T.colliders.push({ kind: 'box', minX: b.x - 1.5, maxX: b.x + 1.5, minZ: b.z - 0.3, maxZ: b.z + 0.3, h: 2.7 })
 
-  // ── the valley gate: the road south is closed for now (the rest of the city lies down there) ──
+  // ── the valley gate: thrown open — the valley road starts here and winds down to Chad City ──
   {
     const { x: vx, z: vz } = VALLEY_GATE
     for (const s of [-1, 1]) {
@@ -347,18 +347,18 @@ export function arrival(T: Town, stone: THREE.Material, trim: THREE.Material) {
       T.batch.put(boxUV(1.45, 0.25, 1.45, 1), trim, vx + s * 3.7, 3.72, vz)
       T.batch.put(new THREE.SphereGeometry(0.35, 14, 10), P.gold, vx + s * 3.7, 4.15, vz)
       T.colliders.push({ kind: 'box', minX: vx + s * 3.7 - 0.7, maxX: vx + s * 3.7 + 0.7, minZ: vz - 0.7, maxZ: vz + 0.7, h: 3.6 })
-      // gate leaf: frame, vertical bars with spear tips, a crown boss
-      const lx = vx + s * 1.55
-      for (const y of [0.25, 1.5, 2.6]) T.batch.put(new THREE.BoxGeometry(3.0, 0.08, 0.08), darkMetal, lx, y, vz)
+      // the gate leaf, swung open against its pier: frame, vertical bars with spear tips, a crown boss
+      const L = Frame.at(T.batch, vx + s * 3.2, 0, vz + 0.3, 0)
+      for (const y of [0.25, 1.5, 2.6]) L.box(0.08, 0.08, 3.0, darkMetal, 0, y, 1.5)
       for (let k = 0; k < 12; k++) {
-        const bx = lx - 1.45 + k * 0.265
-        const top = 2.7 + Math.sin((k / 11) * Math.PI) * 0.35 * (s > 0 ? 1 : 1)
-        T.batch.put(new THREE.BoxGeometry(0.04, top - 0.1, 0.04), darkMetal, bx, (top - 0.1) / 2 + 0.1, vz)
-        T.batch.put(new THREE.ConeGeometry(0.05, 0.16, 4), P.gold, bx, top + 0.06, vz)
+        const bz = 0.1 + k * 0.265
+        const top = 2.7 + Math.sin((k / 11) * Math.PI) * 0.35
+        L.box(0.04, top - 0.1, 0.04, darkMetal, 0, (top - 0.1) / 2 + 0.1, bz)
+        L.put(new THREE.ConeGeometry(0.05, 0.16, 4), P.gold, 0, top + 0.06, bz)
       }
-      T.batch.put(new THREE.CylinderGeometry(0.22, 0.22, 0.06, 18).rotateX(Math.PI / 2), P.gold, lx - s * 0.6, 1.5, vz)
+      L.put(new THREE.CylinderGeometry(0.22, 0.22, 0.06, 18).rotateZ(Math.PI / 2), P.gold, -s * 0.05, 1.5, 1.5)
     }
-    T.colliders.push({ kind: 'box', minX: vx - 3.2, maxX: vx + 3.2, minZ: vz - 0.2, maxZ: vz + 0.2, h: 2.8 })
+    // …and the way through is open: the valley road starts here
   }
   return { planters }
 }

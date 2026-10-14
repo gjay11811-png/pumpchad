@@ -5,7 +5,9 @@ import { Frame, channelLetters } from './signs'
 import { isNight } from './daylight'
 import { CARS, sportsCar } from './vehicles'
 import { planterBox } from './architecture'
-import { DISTRICTS, insideCity } from './city'
+import { insideCity } from './city'
+import { lampPosts } from './props'
+import { CASTLE_AT, GATE_PLAZA_LOCAL } from './mountain'
 
 /**
  * DOWNTOWN — the tall, colourful city beyond the east district (the third roadmap panel, "Chad City"): glass towers with
@@ -14,7 +16,8 @@ import { DISTRICTS, insideCity } from './city'
  * district north), a cross street, a monument plaza at the junction, parked cars along the kerbs, planters, lamps, and a
  * helipad with a turning helicopter on the tallest tower. The streets are walkable; the towers are solid.
  */
-export const DT = { x0: DISTRICTS.downtown.x0, x1: DISTRICTS.downtown.x1, z0: DISTRICTS.downtown.z0, z1: DISTRICTS.downtown.z1 }
+/** Downtown's rectangle in the valley city's LOCAL frame (the group sits at CASTLE_AT in the world) */
+export const DT = { x0: 34, x1: 112, z0: -76, z1: -6 }
 const AVE_Z = -55 // the avenue (east–west), 10 m of road
 const BLV_X = 60 // the boulevard (north–south)
 const CROSS_Z = -30
@@ -48,6 +51,7 @@ export const DOWNTOWN_LAMPS: [number, number][] = [
 ]
 
 export function downtown(T: Town) {
+  lampPosts(T, DOWNTOWN_LAMPS)
   const P = T.P
   const D = T.disposables
   const night = isNight()
@@ -234,7 +238,7 @@ export function downtown(T: Town) {
 
   /* ── a low stone balustrade along the outer edges of Downtown and the Gate Plaza, so the walkable ground ends at a wall, not thin air ── */
   for (const key of ['downtown', 'plaza'] as const) {
-    const r = DISTRICTS[key]
+    const r = key === 'downtown' ? DT : GATE_PLAZA_LOCAL
     const edges: [number, number, number, number, number, number][] = [
       [r.x0, r.z0, r.x1, r.z0, 0, -1],
       [r.x1, r.z0, r.x1, r.z1, 1, 0],
@@ -246,7 +250,7 @@ export function downtown(T: Town) {
       for (let d = 1; d < len; d += 2) {
         const x = ax + ((bx - ax) * d) / len
         const z = az + ((bz - az) * d) / len
-        if (insideCity(x + nx * 1.2, z + nz * 1.2) || insideCity(x + nx * 0.4, z + nz * 0.4, -0.1)) continue
+        if (insideCity(x + nx * 1.2 + CASTLE_AT.x, z + nz * 1.2 + CASTLE_AT.z) || insideCity(x + nx * 0.4 + CASTLE_AT.x, z + nz * 0.4 + CASTLE_AT.z, -0.1)) continue
         const ry = Math.atan2(bx - ax, bz - az)
         T.batch.put(boxUV(2.02, 0.9, 0.36, 1), P.stone, x + nx * 0.2, 0.45, z + nz * 0.2, ry)
         T.batch.put(boxUV(2.1, 0.12, 0.5, 1), P.stoneLight, x + nx * 0.2, 0.96, z + nz * 0.2, ry)
