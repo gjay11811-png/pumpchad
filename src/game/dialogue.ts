@@ -204,6 +204,15 @@ Object.assign(DIALOGUE, {
     role: 'Arcade Street · opening soon',
     lines: ['The marquee bulbs chase each other round the PUMP ARCADE sign. Behind the porthole doors: the glow of cabinets being polished.', 'The arcade isn’t open yet — new games are on the way. The posters out front are a preview.'],
   },
+  gravedig: {
+    speaker: 'Grim',
+    role: 'Gravedigger · Haunted Quarter',
+    lines: [
+      'Evening! Don’t let the name fool you — I’m the cheeriest fellow in the quarter. Somebody has to be.',
+      'Seven houses on these lanes and every one has a story. Go in, have a look. Mind the dolls.',
+      'And old Mortimer’s crypt there… they say he was the last Keeper of the Golden Pumpkin. Read what’s carved on his tomb, if you’ve the nerve.',
+    ],
+  },
   greeter: {
     speaker: 'Goldie',
     role: 'Chad City · greeter',

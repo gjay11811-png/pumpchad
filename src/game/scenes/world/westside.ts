@@ -58,7 +58,7 @@ export function westside(T: Town, stone: THREE.Material, trim: THREE.Material, s
   Dp.push(gravel)
 
   /* ═════════ the road west: Market Row continues past the wishing well to the social corner ═════════ */
-  pave(T, -48, -32.6, 0.2, 4.8, P.cobble)
+  pave(T, -58.6, -32.6, 0.2, 4.8, P.cobble) // on to the Haunted Quarter gate
 
   /* ═════════ SOCIAL CORNER: pergola with string lights, picnic tables, the shake stall ═════════ */
   {
@@ -189,7 +189,7 @@ export function westside(T: Town, stone: THREE.Material, trim: THREE.Material, s
     Dp.push(gname)
     postedBoard(Frame.at(T.batch, X1 + 0.8, 0, gz + 3.2, Math.PI / 2), 2.6, 0.8, 1.6, gname, SM, true)
     T.colliders.push({ kind: 'circle', x: X1 + 0.8, z: gz + 3.2, r: 1.4, h: 2.4 })
-    green.trees.push([X0 - 1.2, Z0 - 1.2], [-56.6, 31.0], [-56, 4], [-52, -4], [-34.5, 31.5])
+    green.trees.push([X0 - 1.2, Z0 - 1.2], [-56.6, 31.0], [-56, 6.6], [-52, -4], [-34.5, 31.5])
   }
 
   /* ═════════ the OVERLOOK: a terrace over the cliff — the valley, the gateway, the citadel ═════════ */

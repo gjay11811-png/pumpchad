@@ -57,6 +57,9 @@ export const RESIDENTS: ResidentDef[] = [
   // watching the training in the gym yard
   { id: 'stretcher', v: V({ body: 'm', cloth: '#c8c0d8', hair: 'buzzed', hairColor: '#2a1a12', skin: -0.2 }), x: 18.6, z: 7.4, face: Math.PI / 2, pose: 'folded', minQuality: 'medium' },
   { id: 'flexer', v: V({ body: 'f', outfit: 'ranger', cloth: '#d8e0c8', hair: 'buzzedfemale', hairColor: '#1a1210', skin: -0.6 }), x: 26.5, z: 8.2, face: -Math.PI / 2 - 0.5, pose: 'point', minQuality: 'high' },
+  // the Haunted Quarter: Grim the gravedigger at the graveyard gate, a mourner at Mortimer's crypt, a lamplighter's widow by the fountain
+  { id: 'gravedig', v: V({ body: 'm', cloth: '#8a8070', hat: 'cap', hatColor: '#2a2420', beard: true, hairColor: '#6a6050', prop: 'lantern', skin: 0.3, height: 1.04 }), x: -89.4, z: 21.6, face: -Math.PI / 2, talk: 'Talk to Grim, the gravedigger', pose: 'folded' },
+  { id: 'mourner', v: V({ body: 'f', cloth: '#5a5068', hat: 'bonnet', hatColor: '#1e1a24', hair: 'long', hairColor: '#1a1414', skin: 0.6 }), x: -92.6, z: 12.4, face: -Math.PI / 2 - 0.4, minQuality: 'medium' },
   // Pumbledore the wizard, reading in the garden
   { id: 'reader', v: V({ body: 'm', cloth: '#a8b8f0', hat: 'wizard', hatColor: '#1a2244', beard: true, hairColor: '#d8d4cc', skin: 0.6 }), x: -51.98, z: 23, face: Math.PI / 2, pose: 'sit', minQuality: 'medium' },
 ]

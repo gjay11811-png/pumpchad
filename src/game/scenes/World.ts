@@ -41,6 +41,7 @@ import { fingerpost } from './world/wayfinding'
 import { railingMaterial, waterfront } from './world/waterfront'
 import { chadSquareGate } from './world/squaregate'
 import { HOUSES, doorSpot } from './interiors/houses'
+import { hauntedQuarter } from './world/hauntedQuarter'
 
 /** where the player appears: the start, outside the gym, or outside a house door */
 export type SpawnAt = 'start' | 'gym' | { x: number; z: number; yaw: number }
@@ -293,6 +294,7 @@ export class World implements GameScene {
     eastside(T, tex.stone)
     const extraSeats: BenchSpot[] = []
     const greenery = westside(T, SM.stone, SM.trim, stripes[1], extraSeats)
+    hauntedQuarter(T, SM.stone, SM.trim)
     greenery.potted = citadelShrubs
     lawns(T, SM.trim, extraSeats, greenery)
     this.seats.push(...extraSeats)
@@ -315,6 +317,7 @@ export class World implements GameScene {
     // vegetation avoids roads, plaza and buildings
     const avoid = (x: number, z: number) => {
       if (Math.hypot(x, z) < 12.8) return true
+      if (x < -58) return true // the Haunted Quarter dresses its own ground
       for (const r of ROADS) {
         const dx = r.x1 - r.x0, dz = r.z1 - r.z0
         const t = Math.max(0, Math.min(1, ((x - r.x0) * dx + (z - r.z0) * dz) / (dx * dx + dz * dz)))
@@ -355,7 +358,7 @@ export class World implements GameScene {
       { label: 'PUMP GYM', to: [14.4, -4] },
       { label: 'ARCADE STREET', to: [40, 19] },
       { label: 'MARKET · GARDEN', to: [-30, 6] },
-      { label: 'CHAD VIEW', to: [-53, 38] },
+      { label: 'HAUNTED QUARTER', to: [-60, 2.5] },
       { label: 'CHAD RIDES', to: [12, 66.5] },
     ])
     streetDetails(T, SM.trim)
@@ -459,6 +462,8 @@ export class World implements GameScene {
       )
       // violet magic motes rising round the fountain and the citadel doors
       this.fireflies.push(new Fireflies([{ x: 0, y: 0.6, z: 0, r: 5.5, n: n(22) }, { x: 0, y: 0.8, z: -25, r: 5, n: n(16) }, { x: 0, y: 0.8, z: 51, r: 6, n: n(14) }], '#b98cff', 3.5))
+      // ghost wisps drifting over the Haunted Quarter's graveyard, its square and its lanes
+      this.fireflies.push(new Fireflies([{ x: -96, y: 0.5, z: 15, r: 5, n: n(18) }, { x: -80, y: 0.6, z: 2.5, r: 5, n: n(12) }, { x: -68, y: 0.5, z: 2.5, r: 6, n: n(10) }], '#a8ffe8'))
       for (const f of this.fireflies) this.scene.add(f.points)
     }
     this.leaves = new Leaves(q === 'high' ? 90 : q === 'medium' ? 55 : 25)

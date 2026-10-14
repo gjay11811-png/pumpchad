@@ -13,12 +13,14 @@
 /** walkable areas (union). The core is the old walled town; the rectangles are the new districts. */
 export const CORE_R = 34.5
 export type Rect = { x0: number; x1: number; z0: number; z1: number }
-export const DISTRICTS: Record<'south' | 'east' | 'west' | 'overlook', Rect> = {
+export const DISTRICTS: Record<'south' | 'east' | 'west' | 'overlook' | 'haunted', Rect> = {
   south: { x0: -32, x1: 32, z0: 20, z1: 75 },
   east: { x0: 28, x1: 58, z0: -6, z1: 34 },
   west: { x0: -58, x1: -28, z0: -6, z1: 34 },
   // the scenic overlook juts out over the cliff at the garden's south-west corner
   overlook: { x0: -60, x1: -46, z0: 33, z1: 42 },
+  // the HAUNTED QUARTER: crooked lanes of old houses beyond the garden, through the iron gate at the end of the west road
+  haunted: { x0: -102, x1: -58, z0: -18, z1: 24 },
 }
 const RECTS = Object.values(DISTRICTS)
 
@@ -41,6 +43,8 @@ export const COURTYARD = { x: 22, z: 6.5 }
 export const GARDEN = { x: -44, z: 23 }
 export const OVERLOOK = { x: -53, z: 38.5 }
 export const SOCIAL = { x: -38.5, z: 2.5 }
+/** Haunted Quarter: the gate on the west road, the main lane (z), the cross lane (x), the little square where they meet */
+export const HQ = { gateX: -58.6, laneZ: 2.5, crossX: -80, square: { x: -80, z: 2.5 } }
 
 const inRect = (x: number, z: number, r: Rect, m = 0) => x > r.x0 + m && x < r.x1 - m && z > r.z0 + m && z < r.z1 - m
 
@@ -118,10 +122,14 @@ export function terrainHeight(x: number, z: number) {
 /** grid lines for the terrain mesh: dense over the city, sparse toward the horizon, exact at canal edges */
 export function terrainLines(axis: 'x' | 'z') {
   const s = new Set<number>()
-  const lo = axis === 'x' ? -64 : -42
+  const lo = axis === 'x' ? -106 : -42
   const hi = axis === 'x' ? 64 : 74
   for (let v = lo; v <= hi; v += 2) s.add(v)
   for (const v of [70, 80, 95, 115, 140, 175, 220, 280, 360, 460]) {
+    if (axis === 'x' && v <= 106 && v >= 70) {
+      s.add(v)
+      continue // west of the old town the land is dense now (the Haunted Quarter); the east side stays coarse
+    }
     s.add(v)
     s.add(-v)
   }

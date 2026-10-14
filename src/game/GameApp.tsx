@@ -272,6 +272,7 @@ export function GameApp() {
       case 'potion':
       case 'captain':
       case 'guide':
+      case 'gravedig':
         discover(`talk_${id}`)
         w.faceNpcToPlayer(id)
         w.markTalked(id)

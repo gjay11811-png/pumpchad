@@ -5,6 +5,7 @@ import { ROT, type Facing } from '../world/buildings'
 import { floorboards, tiles, wallpaper } from './art'
 import * as Fu from './furniture'
 import type { Kit } from './furniture'
+import { HAUNTED_INTERIORS } from './haunted'
 
 /**
  * Every enterable building in the village: where its door is in the world, and the interior behind it.
@@ -649,5 +650,8 @@ export const HOUSES: HouseSpec[] = [
     },
   },
 ]
+
+// the Haunted Quarter's seven houses + the crypt
+HOUSES.push(...HAUNTED_INTERIORS)
 
 export const HOUSE = (id: string) => HOUSES.find((h) => h.id === id)

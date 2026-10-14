@@ -613,3 +613,99 @@ export function pumpkinPile(K: Kit, x: number, z: number, n = 3, y = 0) {
     K.B.put(new THREE.CylinderGeometry(0.015, 0.02, 0.08, 5), K.M.leaf, x + Math.cos(k * 2.1) * 0.25, y + r * 1.7 + 0.03, z + Math.sin(k * 2.1) * 0.25)
   }
 }
+
+/* ───────────────────────── the Haunted Quarter ───────────────────────── */
+
+/** a porcelain doll sitting on a shelf / chair: dress, head, button eyes, hair */
+export function doll(K: Kit, x: number, y: number, z: number, ry: number, dress: string, hair = '#3a2418', turned = false) {
+  const F = Frame.at(K.B, x, y, z, ry)
+  F.put(new THREE.ConeGeometry(0.09, 0.2, 10), K.M.fab(dress), 0, 0.1, 0)
+  F.put(new THREE.SphereGeometry(0.06, 12, 10), K.M.porcelain, 0, 0.26, 0)
+  F.put(new THREE.SphereGeometry(0.064, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.55), K.M.fab(hair), 0, 0.27, -0.006)
+  const face = turned ? Math.PI * 0.6 : 0 // one of them always faces you
+  for (const sx of [-1, 1]) F.put(new THREE.SphereGeometry(0.009, 6, 4), K.M.soot, Math.sin(face) * 0.05 + sx * 0.02 * Math.cos(face), 0.27, Math.cos(face) * 0.055 - sx * 0.02 * Math.sin(face), 0, 0, 0, false)
+  for (const sx of [-1, 1]) F.put(new THREE.CylinderGeometry(0.015, 0.015, 0.12, 6).rotateZ(sx * 0.4), K.M.porcelain, sx * 0.07, 0.15, 0.01)
+}
+
+export function coffin(K: Kit, x: number, z: number, ry: number, o: { open?: boolean; y?: number; level?: 0 | 1 } = {}) {
+  const s = new THREE.Shape([new THREE.Vector2(-0.24, -0.95), new THREE.Vector2(0.24, -0.95), new THREE.Vector2(0.34, 0.45), new THREE.Vector2(0.22, 0.95), new THREE.Vector2(-0.22, 0.95), new THREE.Vector2(-0.34, 0.45)])
+  const box = new THREE.ExtrudeGeometry(s, { depth: 0.45, bevelEnabled: false }).rotateX(-Math.PI / 2)
+  const F = Frame.at(K.B, x, o.y ?? 0, z, ry)
+  F.put(box, K.M.woodDark, 0, 0.05, 0)
+  F.put(new THREE.ShapeGeometry(s).rotateX(-Math.PI / 2), K.M.fab('#5a1a2a', 1), 0, 0.42, 0, 0, 0, 0, false) // satin lining
+  const lid = new THREE.ExtrudeGeometry(s, { depth: 0.05, bevelEnabled: false }).rotateX(-Math.PI / 2)
+  if (o.open) F.put(lid, K.M.wood, 0.52, 0.3, 0, 0, 0, -1.1)
+  else F.put(lid, K.M.wood, 0, 0.5, 0)
+  footprint(K, x, z, 0.7, 1.95, ry, o.level)
+}
+
+export function sarcophagus(K: Kit, x: number, z: number, ry: number, o: { ajar?: boolean } = {}) {
+  const F = Frame.at(K.B, x, 0, z, ry)
+  F.put(rbox(1.1, 0.8, 2.2, 0.03), K.M.stoneLight, 0, 0.4, 0)
+  F.put(rbox(1.2, 0.12, 2.3, 0.03), K.M.stone, 0, 0.06, 0)
+  // the lid with a carved figure (a long gisant shape, hands folded over a pumpkin)
+  const L = F.sub(o.ajar ? 0.25 : 0, 0.86, o.ajar ? 0.2 : 0, 0, o.ajar ? 0.18 : 0, 0)
+  L.put(rbox(1.18, 0.12, 2.28, 0.03), K.M.stoneLight, 0, 0, 0)
+  L.put(new THREE.CapsuleGeometry(0.22, 1.2, 4, 8).rotateX(Math.PI / 2).scale(1, 0.6, 1), K.M.stoneLight, 0, 0.16, 0.05)
+  L.put(new THREE.SphereGeometry(0.16, 12, 10), K.M.stoneLight, 0, 0.2, -0.8)
+  L.put(new THREE.SphereGeometry(0.12, 12, 8).scale(1.15, 0.85, 1.15), K.M.pumpkin, 0, 0.32, -0.1)
+  footprint(K, x, z, 1.2, 2.3, ry)
+}
+
+export function armorStand(K: Kit, x: number, z: number, ry: number) {
+  const F = Frame.at(K.B, x, 0, z, ry)
+  const steel = K.M.chrome
+  F.put(new THREE.CylinderGeometry(0.3, 0.34, 0.08, 16), K.M.woodDark, 0, 0.04, 0)
+  for (const sx of [-1, 1]) F.put(new THREE.CylinderGeometry(0.07, 0.06, 0.85, 10), steel, sx * 0.12, 0.5, 0)
+  F.put(new THREE.CylinderGeometry(0.2, 0.17, 0.62, 14), steel, 0, 1.25, 0) // cuirass
+  F.put(new THREE.SphereGeometry(0.2, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2), steel, 0, 1.56, 0)
+  for (const sx of [-1, 1]) {
+    F.put(new THREE.SphereGeometry(0.11, 10, 8), steel, sx * 0.26, 1.5, 0) // pauldrons
+    F.put(new THREE.CylinderGeometry(0.05, 0.045, 0.6, 8), steel, sx * 0.28, 1.15, 0.02)
+  }
+  F.put(new THREE.CylinderGeometry(0.13, 0.13, 0.28, 14), steel, 0, 1.82, 0) // helm
+  F.put(new THREE.SphereGeometry(0.13, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), steel, 0, 1.96, 0)
+  F.box(0.16, 0.02, 0.02, K.M.soot, 0, 1.84, 0.13) // visor slit
+  F.put(new THREE.CylinderGeometry(0.012, 0.012, 2.2, 6), K.M.woodDark, 0.38, 1.1, 0.05) // halberd shaft
+  F.put(new THREE.ConeGeometry(0.06, 0.3, 4), steel, 0.38, 2.3, 0.05)
+  K.block(x - 0.4, x + 0.4, z - 0.4, z + 0.4)
+}
+
+export function grandPiano(K: Kit, x: number, z: number, ry: number) {
+  const F = Frame.at(K.B, x, 0, z, ry)
+  const s = new THREE.Shape()
+  s.moveTo(-0.75, 0)
+  s.lineTo(0.75, 0)
+  s.lineTo(0.75, 1.0)
+  s.quadraticCurveTo(0.7, 1.9, 0.05, 2.0)
+  s.quadraticCurveTo(-0.75, 1.6, -0.75, 1.0)
+  s.closePath()
+  const body = new THREE.ExtrudeGeometry(s, { depth: 0.32, bevelEnabled: false }).rotateX(Math.PI / 2)
+  F.put(body, K.M.fab('#0e0c10', 0.25), 0, 0.98, 0)
+  F.put(new THREE.ShapeGeometry(s).rotateX(Math.PI / 2).rotateX(Math.PI).rotateZ(0), K.M.fab('#0e0c10', 0.25), 0, 0.99, 0, 0, 0, 0, false)
+  F.box(1.5, 0.05, 0.22, K.M.porcelain, 0, 0.78, -0.12) // keys
+  for (const [lx, lz] of [[-0.6, 0.2], [0.6, 0.2], [0, 1.7]] as const) F.put(new THREE.CylinderGeometry(0.05, 0.04, 0.66, 8), K.M.fab('#0e0c10', 0.25), lx, 0.33, lz)
+  F.put(new THREE.BoxGeometry(1.2, 0.02, 0.9).rotateX(-0.5), K.M.fab('#0e0c10', 0.25), 0.1, 1.25, 1.0) // propped lid
+  footprint(K, x, z, 1.6, 2.1, ry)
+}
+
+export function apothecaryJars(K: Kit, F: Frame, w: number) {
+  const colors = ['#7aff8a', '#c08aff', '#ffb24a', '#8ad8ff', '#ff6a8a']
+  for (const y of [0.9, 1.3, 1.7, 2.1]) {
+    F.box(w, 0.04, 0.26, K.M.woodDark, 0, y, 0.13)
+    for (let k = 0; k < Math.floor(w / 0.2); k++) {
+      const c = colors[(k * 7 + Math.round(y * 10)) % colors.length]
+      const h = 0.14 + ((k * 3) % 4) * 0.03
+      F.put(new THREE.CylinderGeometry(0.06, 0.06, h, 10), K.M.fab(c, 0.15), -w / 2 + 0.12 + k * 0.2, y + h / 2 + 0.02, 0.12)
+      F.put(new THREE.CylinderGeometry(0.035, 0.035, 0.03, 8), K.M.woodDark, -w / 2 + 0.12 + k * 0.2, y + h + 0.035, 0.12)
+    }
+  }
+}
+
+export function shovels(K: Kit, F: Frame) {
+  for (let k = 0; k < 3; k++) {
+    const g = F.sub(-0.4 + k * 0.4, 0, 0.12, 0, 0, (k - 1) * 0.08)
+    g.put(new THREE.CylinderGeometry(0.018, 0.018, 1.3, 6), K.M.wood, 0, 0.9, 0)
+    g.put(new THREE.BoxGeometry(0.22, 0.3, 0.02), K.M.iron, 0, 0.15, 0.02)
+  }
+}
