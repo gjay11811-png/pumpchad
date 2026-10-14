@@ -33,6 +33,8 @@ const VIEWS = {
   castle: { play: [0, -14, PI, -20, 0] },
   'castle-door': { cam: [[0, 2, -21.5], [0, 2.6, -31], 55] },
   gym: { play: [6.5, -4, PI / 2, -10, 0] },
+  'gym-front': { cam: [[7.5, 2.2, -4], [15.3, 3.9, -4], 66] },
+  'gym-roof': { cam: [[4, 6.5, 2.5], [16, 6.5, -4.5], 60] },
   courtyard: { play: [22, 12, PI, 10, 0] },
   arcade: { play: [33, 19, PI / 2, -10, 0] },
   market: { play: [-10.5, 2.5, -PI / 2, 0, 0] },
