@@ -132,3 +132,33 @@ if (want('skull')) {
   const tris = root.listMeshes().reduce((n, m) => n + m.listPrimitives().reduce((a, p) => a + (p.getIndices()?.getCount() ?? 0) / 3, 0), 0)
   console.log('skull →', out, kb(out), `${tris} tris`, 'textures', root.listTextures().map((t) => t.getName() || t.getURI()))
 }
+
+/* ── Villagers (CC0): Quaternius Fantasy Peasant / Ranger outfits on regular bodies, the female base (for her head),
+      and the head-rigged hairstyles + brows. All on the same 65-bone rig, so the game binds them to one skeleton
+      and the existing animation library drives them. ── */
+if (want('villagers')) {
+  const FANT = join(RAW, 'Modular Character Outfits - Fantasy[Standard]/Exports/glTF (Godot-Unreal)/Outfits')
+  const BASE = join(RAW, 'Universal Base Characters[Standard]')
+  const HAIR = join(BASE, 'Hairstyles/Rigged to Head Bone/glTF (Godot -Unreal)')
+  const jobs = [
+    [join(FANT, 'Male_Peasant.gltf'), 'villager_m.glb', { MI_Peasant: 'Outfit', MI_Regular_Male: 'Hands' }],
+    [join(FANT, 'Female_Peasant.gltf'), 'villager_f.glb', { MI_Peasant: 'Outfit', MI_Regular_Female: 'Hands' }],
+    [join(FANT, 'Female_Ranger.gltf'), 'villager_rf.glb', { MI_Ranger: 'Outfit', MI_Regular_Female: 'Hands' }],
+    [join(BASE, 'Base Characters/Godot - UE/Superhero_Female_FullBody.gltf'), 'villager_fbody.glb', { MI_Superhero_Female: 'Skin', MI_Eyes: 'EyeMat', MI_Hair_2: 'Brows' }],
+    ...['Hair_Beard', 'Hair_Buns', 'Hair_Buzzed', 'Hair_BuzzedFemale', 'Hair_Long', 'Hair_SimpleParted', 'Eyebrows_Female', 'Eyebrows_Regular'].map((h) => [join(HAIR, `${h}.gltf`), `vhair_${h.replace(/^(Hair_|Eyebrows_)/, (m) => (m === 'Hair_' ? '' : 'brows_')).toLowerCase()}.glb`, { MI_Hair_1: 'Hair', MI_Hair_2: 'Hair' }]),
+  ]
+  for (const [src, name, rename] of jobs) {
+    const doc = await io.read(src)
+    const root = doc.getRoot()
+    for (const mat of root.listMaterials()) if (rename[mat.getName()]) mat.setName(rename[mat.getName()])
+    for (const n of root.listNodes()) if (n.getMesh() && /Superhero_Female/.test(n.getName())) n.getMesh().setName('Body')
+    const size = name.startsWith('vhair') ? 512 : 1024
+    // no meshopt here: quantised positions put a dequantise scale on the mesh NODE, and the game lifts these parts
+    // (heads, hair) out of their nodes to bind them onto another skeleton
+    await doc.transform(prune(), dedup(), weld(), textureCompress({ encoder: sharp, targetFormat: 'webp', resize: [size, size], quality: 86 }))
+    const out = join(OUT, name)
+    await io.write(out, doc)
+    const tris = root.listMeshes().reduce((n, m) => n + m.listPrimitives().reduce((a, p) => a + (p.getIndices()?.getCount() ?? 0) / 3, 0), 0)
+    console.log('villager →', out, kb(out), `${tris} tris`, root.listMaterials().map((m) => m.getName()))
+  }
+}

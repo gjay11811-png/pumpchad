@@ -196,12 +196,7 @@ export function tavern(T: Town, x: number, z: number, face: Facing) {
   const awn = boxUV(10.8, 0.12, 3.4, 1.5)
   awn.rotateX(0.18)
   L.put(awn, P.roofOrange, 0, 3.2, 4.9)
-  // closed board on the door
-  const closedTex = shopSign('CLOSED', 'back after leg day', '#ff8a30')
-  T.disposables.push(closedTex)
-  const closed = new THREE.MeshStandardMaterial({ map: closedTex, roughness: 0.8 })
-  T.disposables.push(closed)
-  L.put(new THREE.PlaneGeometry(1.0, 0.5), closed, 0, 1.75, 3.55, 0, 1, 1, 1, false)
+  // (the CLOSED board came down: the Flexing Gourd is open — its door leads inside)
   // tables, benches, barrels on the patio
   const table = new THREE.CylinderGeometry(0.55, 0.55, 0.08, 12)
   const leg = new THREE.CylinderGeometry(0.07, 0.09, 0.75, 6)

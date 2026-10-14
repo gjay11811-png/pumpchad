@@ -5,6 +5,7 @@ import { disposeObject } from '../engine/Engine'
 import { buildCharacter, type Pose } from './build'
 import { PumpkinChad, loadChadAssets, type OneShot } from './chad'
 import { MODELS, TEST_MODEL, type ModelSpec } from './models'
+import { Villager } from './villager'
 import type { Appearance } from './types'
 
 /** What the game needs from any character, procedural or GLB. */
@@ -173,7 +174,7 @@ export async function createCharacter(a: Appearance): Promise<Character> {
 /** Free a character. GLB clones share geometry with the cache, so only procedural meshes are disposed. */
 export function disposeCharacter(c: Character) {
   c.root.removeFromParent()
-  if (c instanceof PumpkinChad) c.dispose()
+  if (c instanceof PumpkinChad || c instanceof Villager) c.dispose()
   else if (c.kind === 'procedural') disposeObject(c.root)
   else c.root.traverse((o) => (o as THREE.SkinnedMesh).isSkinnedMesh && (o as THREE.SkinnedMesh).skeleton.dispose()) // bone textures are per clone
 }

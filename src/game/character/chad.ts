@@ -22,6 +22,8 @@ const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder)
 const base = () => import.meta.env.BASE_URL
 export type ChadAssets = { body: THREE.Group; clips: Map<string, THREE.AnimationClip>; ranger?: THREE.Group; skull?: THREE.Group }
 const files = new Map<string, Promise<{ scene: THREE.Group; animations: THREE.AnimationClip[] }>>()
+/** shared GLB cache (villagers reuse the body + animation files already loaded for the Chads) */
+export const modelFile = (name: string) => file(name)
 function file(name: string) {
   if (!files.has(name)) {
     const pr = loader.loadAsync(`${base()}chadverse/models/${name}`).then((g) => ({ scene: g.scene, animations: g.animations }))

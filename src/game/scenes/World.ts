@@ -40,6 +40,10 @@ import { fountainV4 } from './world/fountain'
 import { fingerpost } from './world/wayfinding'
 import { railingMaterial, waterfront } from './world/waterfront'
 import { chadSquareGate } from './world/squaregate'
+import { HOUSES, doorSpot } from './interiors/houses'
+
+/** where the player appears: the start, outside the gym, or outside a house door */
+export type SpawnAt = 'start' | 'gym' | { x: number; z: number; yaw: number }
 import { arrival } from './world/gateway'
 import { perimeter } from './world/perimeter'
 import { citadel, CITADEL } from './world/citadel'
@@ -274,7 +278,9 @@ export class World implements GameScene {
     // fences: Hollow House front yard (broken), garden at the east house
     fence(T, [[18, -23.6], [15.4, -23.6], [15.4, -21.1]], true)
     fence(T, [[15.4, -17.9], [15.4, -15.6], [18, -15.6]], true)
-    fence(T, [[-22, 10.4], [-28.2, 10.4]])
+    // Hazel's garden fence, with a gate gap at her front door
+    fence(T, [[-22, 10.4], [-24.1, 10.4]])
+    fence(T, [[-25.9, 10.4], [-28.2, 10.4]])
 
     clutter(T)
     kingdom(T, style, SM, q)
@@ -531,6 +537,11 @@ export class World implements GameScene {
     add('statue', 'Read the fountain plaque', 0, 6.7, 1.6, 'info')
     add('gate', 'Knock on the citadel doors', 0, -28.2, 1.8, 'info')
     add('gym', 'Enter Pump Gym', 14.4, -4, 2.2, 'activity')
+    // every village home + Arcade Street shop: its front door opens into its own interior
+    for (const h of HOUSES) {
+      const d = doorSpot(h)
+      add(`house:${h.id}`, `Enter ${h.name}`, d.x, d.z, 1.15, 'activity')
+    }
     const nb = standFor(NOTICE)
     add('board', 'Read the community noticeboard', nb.x, nb.z, 1.5, 'info')
     const ch = standFor(CHAMPIONS, 1.8)
@@ -659,7 +670,7 @@ export class World implements GameScene {
   }
 
   /** Loads the player and townsfolk (async because GLB models may download). */
-  async populate(player: Appearance, spawn: 'start' | 'gym' = 'start', discoveries: string[] = []) {
+  async populate(player: Appearance, spawn: SpawnAt = 'start', discoveries: string[] = []) {
     const [p] = await Promise.all([createCharacter(player), this.crowd.load(this.scene, this.quality, groundHeight)])
     if (this.disposed) {
       disposeCharacter(p)
@@ -688,8 +699,12 @@ export class World implements GameScene {
     return this.emoter.start(this.player, id)
   }
 
-  spawn(where: 'start' | 'gym') {
-    if (where === 'gym') {
+  spawn(where: SpawnAt) {
+    if (typeof where === 'object') {
+      // back out of a house: on the step outside its door, facing the street
+      this.playerPos.set(where.x, 0, where.z)
+      this.playerYaw = where.yaw
+    } else if (where === 'gym') {
       this.playerPos.set(12.6, 0, -4)
       this.playerYaw = -Math.PI / 2
     } else {

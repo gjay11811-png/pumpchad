@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { createCharacter, disposeCharacter, type Character } from '../../character/character'
+import { createVillager, type VillagerLook } from '../../character/villager'
 import type { Appearance } from '../../character/types'
 import type { Pose } from '../../character/build'
 import { B4S_BENCH, PLAZA_BENCHES, SEAT_FWD } from './props'
@@ -22,45 +23,51 @@ const A = (p: Partial<Appearance> & Pick<Appearance, 'species'>): Appearance => 
 })
 
 /** Residents stand at a post (optionally with dialogue). Walkers follow waypoint loops. */
-export type ResidentDef = { id: string; a: Appearance; x: number; z: number; face: number; talk?: string; pose?: Pose; minQuality?: 'low' | 'medium' | 'high'; /** where the player stands to talk, if not next to the NPC (e.g. across a counter) */ talkAt?: [number, number] }
-export type WalkerDef = { id: string; a: Appearance; path: [number, number][]; speed: number; pause: number; minQuality?: 'low' | 'medium' | 'high' }
+export type ResidentDef = { id: string; a?: Appearance; v?: VillagerLook; x: number; z: number; face: number; talk?: string; pose?: Pose; minQuality?: 'low' | 'medium' | 'high'; /** where the player stands to talk, if not next to the NPC (e.g. across a counter) */ talkAt?: [number, number] }
+export type WalkerDef = { id: string; a?: Appearance; v?: VillagerLook; path: [number, number][]; speed: number; pause: number; minQuality?: 'low' | 'medium' | 'high' }
 
+/** a villager look with sensible defaults (peasant clothes as painted, natural skin, brown hair) */
+const V = (p: Partial<VillagerLook> & Pick<VillagerLook, 'body'>): VillagerLook => ({ outfit: 'peasant', cloth: '#ffffff', skin: 0, hair: p.body === 'f' ? 'long' : 'simpleparted', hairColor: '#4a3020', ...p })
+
+/**
+ * The people of Chad City are villagers (real human proportions, real clothes) — not copies of the playable Chads.
+ * Two special characters keep their own looks: Coach Gourdon (the Pump Gym's coach) and b4s (a community legend).
+ */
 export const RESIDENTS: ResidentDef[] = [
   { id: 'coach', a: A({ species: 'skeleton', glow: '#19f19a', headwear: 'cap', chain: true }), x: 13.4, z: 0.6, face: -2.2, talk: 'Talk to Coach Gourdon' },
-  // id stays 'hodl' (saves + achievements reference it); the visible name is b4s
+  // b4s keeps his bench by the fountain
   { id: 'hodl', a: A({ species: 'demon', outfit: '#2a262c', glow: '#ff4d3d', top: 'armor', headwear: 'horns' }), x: B4S_SEAT.x, z: B4S_SEAT.z, face: B4S_SEAT.face, talk: 'Talk to b4s', pose: 'sit' },
-  { id: 'barkeep', a: A({ species: 'pumpkin', skin: '#c9581a', outfit: '#5a3a26', top: 'hoodie', headwear: 'cap', chain: true }), x: -6.4, z: 21.2, face: Math.PI / 2, talk: 'Talk to Barley' },
-  { id: 'smith', a: A({ species: 'demon', skin: '#5b2a86', glow: '#ffb347', headwear: 'horns' }), x: -15.9, z: -11.6, face: 0.9, talk: 'Talk to Anvilus', pose: 'hammer' },
-  { id: 'potion', a: A({ species: 'skeleton', skin: '#cfd6dc', outfit: '#4b2a7a', glow: '#9b5cff', top: 'hoodie', eyewear: 'none' }), x: -21, z: -2.6, face: 0, talk: 'Talk to Madame Marrowpot', talkAt: [-21, 0.6] },
-  { id: 'captain', a: A({ species: 'skeleton', outfit: '#c89b3c', glow: '#ffb347', top: 'armor', headwear: 'crown' }), x: 3.6, z: -23.4, face: 0.25, talk: 'Talk to Captain Tibia' },
-  { id: 'guide', a: A({ species: 'skeleton', skin: '#e9e2d0', outfit: '#2f4a2c', glow: '#e8b84a', top: 'hoodie', headwear: 'cap' }), x: -27, z: -2.6, face: 0, talk: 'Talk to Pip, the village guide', talkAt: [-27, 0.7] },
-  // decorative stall keepers (no dialogue — they just mind their stalls)
-  { id: 'grocer', a: A({ species: 'pumpkin', skin: '#e0a23a', outfit: '#2f4a2c', top: 'hoodie' }), x: -15, z: -2.6, face: 0, minQuality: 'medium' },
-  { id: 'tailor', a: A({ species: 'demon', skin: '#1f6b5a', outfit: '#e9e4da', top: 'hoodie' }), x: -24, z: 7.6, face: Math.PI, minQuality: 'medium' },
-  // ── CHAD CITY residents ──
-  // the greeter on the arrival forecourt (off the avenue, turned toward new arrivals)
-  { id: 'greeter', a: A({ species: 'pumpkin', skin: '#f0a03a', outfit: '#e8641a', top: 'hoodie', headwear: 'crown', eyewear: 'shades', chain: true }), x: -3.6, z: 60.8, face: 0.9, talk: 'Talk to Goldie, the greeter' },
-  // the shake vendor behind the PUMP SHAKES counter (social corner)
-  { id: 'shakes', a: A({ species: 'skeleton', skin: '#e9e2d0', outfit: '#5fae6a', top: 'hoodie', headwear: 'cap', glow: '#5fe0d0' }), x: -39, z: -4.55, face: 0, talk: 'Talk to Mo at Pump Shakes', talkAt: [-39, -1.9] },
-  // two friends at the social-corner picnic table (seated, facing each other)
-  { id: 'sitterA', a: A({ species: 'demon', skin: '#7a2a2a', outfit: '#2f4a2c', top: 'hoodie' }), x: -43.2, z: 8.1, face: -Math.PI / 2, pose: 'sit', minQuality: 'medium' },
-  { id: 'sitterB', a: A({ species: 'pumpkin', skin: '#d8661a', outfit: '#5b2a86', top: 'shirtless', eyewear: 'shades' }), x: -44.2, z: 8.1, face: Math.PI / 2, pose: 'sit', minQuality: 'high' },
-  // two regulars chatting in Chad Square (one gesturing)
-  { id: 'chatA', a: A({ species: 'skeleton', outfit: '#e8641a', top: 'hoodie', glow: '#ffb347' }), x: -4.4, z: -7.4, face: 2.2, pose: 'point', minQuality: 'medium' },
-  { id: 'chatB', a: A({ species: 'demon', skin: '#2f2f3a', outfit: '#e9e4da', top: 'shirtless' }), x: -3.1, z: -8.3, face: -1.0, minQuality: 'high' },
-  // gym regulars warming up in the outdoor yard
-  { id: 'stretcher', a: A({ species: 'pumpkin', skin: '#c9581a', outfit: '#141216', top: 'shirtless', chain: true }), x: 18.6, z: 7.4, face: Math.PI / 2, pose: 'pushup', minQuality: 'medium' },
-  { id: 'flexer', a: A({ species: 'demon', skin: '#5b2a86', outfit: '#141216', top: 'shirtless', glow: '#ffb347' }), x: 26.5, z: 8.2, face: -Math.PI / 2 - 0.5, pose: 'flex', minQuality: 'high' },
-  // a reader on the garden bench
-  { id: 'reader', a: A({ species: 'skeleton', skin: '#cfd6dc', outfit: '#2f4a2c', top: 'hoodie', eyewear: 'none' }), x: -51.98, z: 23, face: Math.PI / 2, pose: 'sit', minQuality: 'medium' },
+  { id: 'barkeep', v: V({ body: 'm', cloth: '#e8dcc8', apron: '#efe6d4', beard: true, hair: 'buzzed', hairColor: '#6a3a1e', skin: 0.5 }), x: -6.4, z: 21.2, face: Math.PI / 2, talk: 'Talk to Barley' },
+  { id: 'smith', v: V({ body: 'm', cloth: '#9a948e', apron: '#4a3020', beard: true, hair: 'none', hairColor: '#2a1a12', skin: -0.4, height: 1.06 }), x: -15.9, z: -11.6, face: 0.9, talk: 'Talk to Anvilus', pose: 'hammer' },
+  { id: 'potion', v: V({ body: 'f', cloth: '#b8a0d8', hat: 'witch', hatColor: '#2a1838', hair: 'long', hairColor: '#1e1418', skin: 0.7, prop: 'broom' }), x: -21, z: -2.6, face: 0, talk: 'Talk to Madame Marrowpot', talkAt: [-21, 0.6] },
+  { id: 'captain', v: V({ body: 'm', outfit: 'ranger', cloth: '#d8c8a0', beard: true, hairColor: '#3a2a1a', skin: 0.2, height: 1.04 }), x: 3.6, z: -23.4, face: 0.25, talk: 'Talk to Captain Tibia', pose: 'folded' },
+  { id: 'guide', v: V({ body: 'f', cloth: '#d8eccc', hat: 'cap', hatColor: '#2f4a2c', hair: 'buns', hairColor: '#8a4a22', skin: 0.4 }), x: -27, z: -2.6, face: 0, talk: 'Talk to Pip, the village guide', talkAt: [-27, 0.7] },
+  // market traders
+  { id: 'grocer', v: V({ body: 'm', cloth: '#e0d0b0', apron: '#e8e0cc', hat: 'cap', hatColor: '#5a3a22', prop: 'basket', skin: -0.7 }), x: -15, z: -2.6, face: 0, minQuality: 'medium' },
+  { id: 'tailor', v: V({ body: 'f', cloth: '#f2d4e6', hat: 'bonnet', hatColor: '#efe4f2', hair: 'buns', hairColor: '#c8a070', skin: 0.8 }), x: -24, z: 7.6, face: Math.PI, minQuality: 'medium' },
+  // CHAD CITY: the greeter at the gate, Mo at the shake stall
+  { id: 'greeter', v: V({ body: 'f', cloth: '#ffe2b8', hair: 'long', hairColor: '#d8a03a', prop: 'lantern', skin: 0.3 }), x: -3.6, z: 60.8, face: 0.9, talk: 'Talk to Goldie, the greeter' },
+  { id: 'shakes', v: V({ body: 'm', cloth: '#d0f0dc', apron: '#5fae6a', hat: 'cap', hatColor: '#3a7a4a', hair: 'buzzed', hairColor: '#1a1210', skin: -0.9 }), x: -39, z: -4.55, face: 0, talk: 'Talk to Mo at Pump Shakes', talkAt: [-39, -1.9] },
+  // the social corner: a couple on the picnic bench
+  { id: 'sitterA', v: V({ body: 'm', cloth: '#c8d8f0', beard: true, hairColor: '#5a3a22', skin: 0.1 }), x: -43.2, z: 8.1, face: -Math.PI / 2, pose: 'sit', minQuality: 'medium' },
+  { id: 'sitterB', v: V({ body: 'f', cloth: '#f0c8c0', hair: 'buns', hairColor: '#2a1a14', skin: -0.5 }), x: -44.2, z: 8.1, face: Math.PI / 2, pose: 'sit', minQuality: 'high' },
+  // gossip by the noticeboard
+  { id: 'chatA', v: V({ body: 'f', cloth: '#ffd8a8', hat: 'bonnet', hatColor: '#e8641a', hair: 'long', hairColor: '#6a2a1a', skin: 0.6 }), x: -4.4, z: -7.4, face: 2.2, pose: 'point', minQuality: 'medium' },
+  { id: 'chatB', v: V({ body: 'm', cloth: '#e8e4da', hat: 'cap', hatColor: '#2a2a3a', beard: true, hairColor: '#8a8070', skin: 0.3 }), x: -3.1, z: -8.3, face: -1.0, minQuality: 'high' },
+  // watching the training in the gym yard
+  { id: 'stretcher', v: V({ body: 'm', cloth: '#c8c0d8', hair: 'buzzed', hairColor: '#2a1a12', skin: -0.2 }), x: 18.6, z: 7.4, face: Math.PI / 2, pose: 'folded', minQuality: 'medium' },
+  { id: 'flexer', v: V({ body: 'f', outfit: 'ranger', cloth: '#d8e0c8', hair: 'buzzedfemale', hairColor: '#1a1210', skin: -0.6 }), x: 26.5, z: 8.2, face: -Math.PI / 2 - 0.5, pose: 'point', minQuality: 'high' },
+  // Pumbledore the wizard, reading in the garden
+  { id: 'reader', v: V({ body: 'm', cloth: '#a8b8f0', hat: 'wizard', hatColor: '#1a2244', beard: true, hairColor: '#d8d4cc', skin: 0.6 }), x: -51.98, z: 23, face: Math.PI / 2, pose: 'sit', minQuality: 'medium' },
 ]
 
 export const WALKERS: WalkerDef[] = [
-  { id: 'guardN', a: A({ species: 'skeleton', outfit: '#2a262c', glow: '#9b5cff', top: 'armor', eyewear: 'visor' }), path: [[0.8, -12.5], [0.8, -23.6]], speed: 1.3, pause: 2.5 },
-  { id: 'guardW', a: A({ species: 'skeleton', outfit: '#2a262c', glow: '#9b5cff', top: 'armor', eyewear: 'visor' }), path: [[-12.5, 3.4], [-29, 3.4]], speed: 1.25, pause: 3 },
+  // the night watch: lanterns lit, walking their beats
+  { id: 'guardN', v: V({ body: 'm', cloth: '#9aa0b0', hat: 'guard', beard: true, hairColor: '#3a2a1a', prop: 'lantern', skin: 0.1, height: 1.05 }), path: [[0.8, -12.5], [0.8, -23.6]], speed: 1.3, pause: 2.5 },
+  { id: 'guardW', v: V({ body: 'm', cloth: '#9aa0b0', hat: 'guard', prop: 'lantern', skin: -0.8, height: 1.03 }), path: [[-12.5, 3.4], [-29, 3.4]], speed: 1.25, pause: 3 },
   {
     id: 'wander1',
-    a: A({ species: 'pumpkin', skin: '#f08a2a', outfit: '#ff7a1a', top: 'hoodie', eyewear: 'shades' }),
+    v: V({ body: 'f', cloth: '#f0e0c0', hair: 'buns', hairColor: '#4a2a1a', prop: 'basket', skin: 0.5 }),
     path: [[-1.2, 15.5], [-1, 12.5], [-6.5, 9.5], [-10.5, 4.5], [-18, 4], [-10.5, 4.5], [-8.7, -2], [-6.5, 9.5]],
     speed: 1.35,
     pause: 2,
@@ -68,17 +75,18 @@ export const WALKERS: WalkerDef[] = [
   },
   {
     id: 'wander2',
-    a: A({ species: 'demon', skin: '#2f2f3a', outfit: '#141216', top: 'hoodie', glow: '#19f19a' }),
+    v: V({ body: 'm', outfit: 'ranger', cloth: '#c8d0c0', hairColor: '#2a1a12', skin: -0.3 }),
     path: [[7, 19], [1.2, 15], [7.5, 8.5], [10.8, -3.2], [14.6, -3.2], [10.8, -3.2], [8, -8.8], [1.4, -11.5], [8, -8.8], [7.5, 8.5], [1.2, 15]],
     speed: 1.4,
     pause: 2.5,
     minQuality: 'medium',
   },
   // CHAD CITY walkers: Arcade Street, the canal promenade, the garden loop, the forecourt
-  { id: 'wander3', a: A({ species: 'skeleton', outfit: '#5b2a86', top: 'hoodie', glow: '#9b5cff', headwear: 'cap' }), path: [[6, 18.2], [43, 18.2], [43, 20], [6, 20]], speed: 1.3, pause: 3, minQuality: 'medium' },
-  { id: 'wander4', a: A({ species: 'pumpkin', skin: '#e0a23a', outfit: '#2f5f9a', top: 'hoodie' }), path: [[-24, 36.6], [-4.5, 36.6], [4.5, 36.6], [24, 36.6]], speed: 1.2, pause: 4, minQuality: 'medium' },
-  { id: 'wander5', a: A({ species: 'demon', skin: '#1f6b5a', outfit: '#e9e4da', top: 'hoodie' }), path: [[-54.2, 13.8], [-33.8, 13.8], [-33.8, 32.2], [-54.2, 32.2]], speed: 1.1, pause: 5, minQuality: 'high' },
-  { id: 'wander6', a: A({ species: 'skeleton', outfit: '#e8641a', top: 'armor', eyewear: 'visor' }), path: [[-5, 53.5], [-5, 66], [5, 66], [5, 53.5]], speed: 1.25, pause: 3, minQuality: 'high' },
+  { id: 'wander3', v: V({ body: 'm', cloth: '#d8d0f0', hat: 'cap', hatColor: '#5b2a86', skin: 0.4 }), path: [[6, 18.2], [43, 18.2], [43, 20], [6, 20]], speed: 1.3, pause: 3, minQuality: 'medium' },
+  { id: 'wander4', v: V({ body: 'f', cloth: '#c0a8d8', hat: 'witch', hatColor: '#1e1428', hair: 'long', hairColor: '#5a1a2a', prop: 'broom', skin: 0.9 }), path: [[-24, 36.6], [-4.5, 36.6], [4.5, 36.6], [24, 36.6]], speed: 1.2, pause: 4, minQuality: 'medium' },
+  { id: 'wander5', v: V({ body: 'f', cloth: '#e0f0d0', hat: 'bonnet', hatColor: '#d8e8c8', hair: 'buns', hairColor: '#a06a3a', prop: 'basket', skin: -0.2 }), path: [[-54.2, 13.8], [-33.8, 13.8], [-33.8, 32.2], [-54.2, 32.2]], speed: 1.1, pause: 5, minQuality: 'high' },
+  // the lamplighter on the arrival forecourt
+  { id: 'wander6', v: V({ body: 'm', cloth: '#e8d8c0', hat: 'cap', hatColor: '#26242a', beard: true, hairColor: '#6a6050', prop: 'lantern', skin: 0.2 }), path: [[-5, 53.5], [-5, 66], [5, 66], [5, 53.5]], speed: 1.25, pause: 3, minQuality: 'high' },
 ]
 
 type Live = { def: ResidentDef | WalkerDef; c: Character; pos: THREE.Vector3; yaw: number; target: number; wait: number; facing: number; walker: boolean; shadow: boolean }
@@ -93,7 +101,7 @@ export class Crowd {
     this.quality = quality
     const allowed = (m?: 'low' | 'medium' | 'high') => !m || (m === 'high' ? quality === 'high' : m === 'medium' ? quality !== 'low' : true)
     const defs: (ResidentDef | WalkerDef)[] = [...RESIDENTS.filter((r) => allowed(r.minQuality)), ...WALKERS.filter((w) => allowed(w.minQuality))]
-    const chars = await Promise.all(defs.map((d) => createCharacter(d.a)))
+    const chars = await Promise.all(defs.map((d) => (d.v ? createVillager(d.v) : createCharacter(d.a!))))
     if (this.disposed) return chars.forEach(disposeCharacter)
     defs.forEach((def, i) => {
       const c = chars[i]

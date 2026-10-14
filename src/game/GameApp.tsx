@@ -10,6 +10,9 @@ import { Input } from './input'
 import { ACHIEVEMENTS, defaultSave, levelFor, loadSave, writeSave, type SaveData, type Settings } from './save'
 import { STAT_FOR, levelsGained, rollDaily, setRewards } from './progression'
 import { Gym, type GymMode } from './scenes/Gym'
+import { Interior } from './scenes/Interior'
+import { HOUSE, HOUSES, doorSpot } from './scenes/interiors/houses'
+import type { SpawnAt } from './scenes/World'
 import { STATIONS, setXp, type SetState, type StationId } from './workout'
 import { WorkoutPanel } from './ui/WorkoutPanel'
 import { RushPanel, type RushResult } from './ui/RushPanel'
@@ -25,7 +28,7 @@ import { Joystick } from './ui/Joystick'
 import { AchievementsMenu, NoticeBoardMenu, PauseMenu, ProfileMenu, SettingsMenu, WellToss } from './ui/Menus'
 import { IntroOverlay, PhotoMode } from './ui/PhotoMode'
 
-type Phase = 'boot' | 'title' | 'creator' | 'world' | 'gym' | 'error'
+type Phase = 'boot' | 'title' | 'creator' | 'world' | 'gym' | 'interior' | 'error'
 type Overlay = null | 'pause' | 'settings' | 'achievements' | 'profile' | 'board' | 'welltoss' | 'photo' | 'intro'
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 const ACH_XP = 25
@@ -39,6 +42,7 @@ export function GameApp() {
   const showroom = useRef<Showroom | null>(null)
   const world = useRef<World | null>(null)
   const gym = useRef<Gym | null>(null)
+  const interior = useRef<Interior | null>(null)
   const pokes = useRef(0)
   const toastQueue = useRef<Toast[]>([])
   const toastBusy = useRef(false)
@@ -187,7 +191,7 @@ export function GameApp() {
   }, [])
 
   /* ── scene transitions ── */
-  const go = useCallback(async (next: 'creator' | 'world' | 'gym', opts: { spawn?: 'start' | 'gym'; label?: string } = {}) => {
+  const go = useCallback(async (next: 'creator' | 'world' | 'gym' | 'interior', opts: { spawn?: SpawnAt; label?: string; house?: string } = {}) => {
     const e = engine.current!
     const canvas = canvasRef.current!
     audio.play('portal')
@@ -200,6 +204,7 @@ export function GameApp() {
     const app = saveRef.current.character?.appearance
     world.current = null
     gym.current = null
+    interior.current = null
     if (next === 'creator') {
       const room = new Showroom(e, canvas)
       showroom.current = room
@@ -228,6 +233,15 @@ export function GameApp() {
       gym.current = g
       setGymMode('free')
       audio.setAmbience('gym')
+    } else if (next === 'interior' && app && opts.house) {
+      showroom.current = null
+      const r = new Interior(e, opts.house, input.current, { onPrompt: setPrompt, onInteract: (id) => handleInteriorRef.current(id) })
+      r.cameraSensitivity = saveRef.current.settings.cameraSensitivity
+      await r.populate(app)
+      await e.precompile(r)
+      e.setScene(r)
+      interior.current = r
+      audio.setAmbience('menu')
     }
     setPhase(next)
     await sleep(120)
@@ -237,6 +251,11 @@ export function GameApp() {
   handleInteractRef.current = (id: string) => {
     const w = world.current
     if (!w) return
+    if (id.startsWith('house:')) {
+      const h = HOUSE(id.slice(6))
+      if (h) void go('interior', { house: h.id, label: `Entering ${h.name}` })
+      return
+    }
     if (rushRef.current === 'run') return // mid-sprint: nothing else steals the E key
     if (overlay === 'photo' || overlay === 'intro') return // framing a shot / watching the intro: E does nothing
     switch (id) {
@@ -359,6 +378,28 @@ export function GameApp() {
     }
   }
 
+  /* ── house interiors: the door back out + things to look at (first visit to each home: a small XP reward) ── */
+  const handleInteriorRef = useRef<(id: string) => void>(() => {})
+  handleInteriorRef.current = (id: string) => {
+    const r = interior.current
+    if (!r) return
+    const h = r.house
+    if (id === 'exit') {
+      const d = doorSpot(h)
+      return void go('world', { spawn: { x: d.exit.x, z: d.exit.z, yaw: d.yaw }, label: 'Back outside' })
+    }
+    if (id.startsWith('look:')) {
+      const L = h.looks?.[id.slice(5)]
+      if (!L) return
+      setDialogue({ speaker: L.speaker, role: L.role, lines: L.lines })
+      const key = `look_${h.id}_${id.slice(5)}`
+      if (!saveRef.current.progress.discoveries.includes(key)) {
+        discover(key)
+        setSave((s) => ({ ...s, progress: { ...s.progress, xp: s.progress.xp + 10 } }))
+      }
+    }
+  }
+
   /* ── gym floor: stations + the door back out ── */
   handleGymRef.current = (id: string) => {
     const g = gym.current
@@ -406,6 +447,7 @@ export function GameApp() {
     const blocked = (!!overlay && overlay !== 'photo') || !!dialogue || !!portal || rush === 'ready' || rush === 'done'
     if (world.current) world.current.paused = blocked
     if (gym.current) gym.current.paused = blocked
+    if (interior.current) interior.current.paused = blocked
     if (input.current) {
       input.current.enabled = !blocked
       if (blocked) input.current.clear()
@@ -415,7 +457,7 @@ export function GameApp() {
   /* ── keyboard: Esc opens pause in the world ── */
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && (phase === 'world' || (phase === 'gym' && gymMode === 'free')) && !overlay && !dialogue && !portal && !rushRef.current) setOverlay('pause')
+      if (e.key === 'Escape' && (phase === 'world' || phase === 'interior' || (phase === 'gym' && gymMode === 'free')) && !overlay && !dialogue && !portal && !rushRef.current) setOverlay('pause')
     }
     window.addEventListener('keydown', k)
     return () => window.removeEventListener('keydown', k)
@@ -431,6 +473,7 @@ export function GameApp() {
     if (next.quality !== prev.quality || next.reducedEffects !== prev.reducedEffects) engine.current?.setQuality(next.quality, next.reducedEffects)
     if (world.current) world.current.cameraSensitivity = next.cameraSensitivity
     if (gym.current) gym.current.cameraSensitivity = next.cameraSensitivity
+    if (interior.current) interior.current.cameraSensitivity = next.cameraSensitivity
   }
 
   const enterFromTitle = (sound: boolean) => {
@@ -539,6 +582,9 @@ export function GameApp() {
       gymGoto: (id: string) => gym.current?.goto(id),
       gymTeleport: (x: number, z: number, yaw?: number) => gym.current?.teleport(x, z, yaw),
       gymInfo: () => gym.current?.info() ?? null,
+      interior: () => interior.current?.info() ?? null,
+      houses: () => HOUSES.map((h) => ({ id: h.id, name: h.name, door: doorSpot(h), room: h.room, looks: Object.fromEntries(Object.entries(h.looks ?? {}).map(([k, v]) => [k, { at: v.at, level: v.level ?? 0 }])) })),
+      interiorTeleport: (x: number, z: number, yaw?: number, level?: 0 | 1) => interior.current?.teleport(x, z, yaw, level),
       gymPhoto: (o: Parameters<Gym['setPhoto']>[0]) => gym.current?.setPhoto(o),
       anim: () => world.current?.animState() ?? gym.current?.animState() ?? null,
       seat: () => world.current?.seatState() ?? null,
@@ -606,6 +652,26 @@ export function GameApp() {
               </>
             )}
 
+            {phase === 'interior' && interior.current && (
+              <>
+                {touch && !overlay && input.current && <Joystick input={input.current} sensitivity={s.stickSensitivity} />}
+                <Hud
+                  save={save}
+                  prompt={overlay ? null : prompt}
+                  touch={touch}
+                  onPause={() => setOverlay('pause')}
+                  onProfile={() => setOverlay('profile')}
+                  onToggleSound={() => changeSettings({ muted: !s.muted })}
+                  onAction={() => input.current?.queueAction()}
+                  onEmote={(id) => interior.current?.emote(id)}
+                  onJump={() => input.current?.queueJump()}
+                  emotesDisabled={!!overlay}
+                  sprint={sprint}
+                  onSprint={toggleSprint}
+                />
+                <AnimatePresence>{dialogue && <DialoguePanel key={dialogue.speaker + dialogue.lines[0]} d={dialogue} onDone={closeDialogue} reduced={s.reducedEffects} />}</AnimatePresence>
+              </>
+            )}
             {phase === 'gym' && gym.current && gymMode === 'free' && (
               <>
                 {touch && !overlay && input.current && <Joystick input={input.current} sensitivity={s.stickSensitivity} />}

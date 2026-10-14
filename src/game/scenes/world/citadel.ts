@@ -203,8 +203,9 @@ export function citadel(T: Town, M: SM) {
   })
   // shrubs in low stone planters along the forecourt edges (leafy FoliageBuilder bushes, planted by vegetation())
   const pots: [number, number, number, number][] = []
+  // (kept clear of the steward's and Widow Marrow's front doors at z ≈ -19)
   for (const x of [x0 - 0.2, x1 + 0.2])
-    for (const z of [z0 + 5.5, z1 - 4.5]) {
+    for (const z of [z1 - 1.2, z1 - 4.5]) {
       T.batch.put(boxUV(1.3, 0.5, 1.3, 1), M.trim, x, 0.25, z)
       T.batch.put(boxUV(1.12, 0.04, 1.12, 1), P.soil, x, 0.5, z, 0, 1, 1, 1, { cast: false })
       pots.push([x, 0.48, z, 0.95])
