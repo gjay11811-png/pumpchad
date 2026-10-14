@@ -13,6 +13,7 @@ import { INDOOR, Jumper, SPEED_UNIT, leanFor, targetSpeed, turnRate, velocityRat
 import { interiorMats, type Kit } from './interiors/furniture'
 import { HOUSE, shell, type HouseSpec } from './interiors/houses'
 import { createVillager } from '../character/villager'
+import { Pet, type PetKind } from '../character/pet'
 
 export type InteriorEvents = {
   onPrompt(p: Interactable | null): void
@@ -145,6 +146,15 @@ export class Interior implements GameScene {
     p.onStep = () => audio.play('step')
     this.scene.add(p.root)
     this.spawn()
+  }
+
+  /** the companion following you (null = none); swapping replaces the old one beside you */
+  pet: Pet | null = null
+  setPet(kind: PetKind | null) {
+    if (this.pet?.kind === kind) return
+    this.pet?.dispose()
+    this.pet = kind ? new Pet(kind) : null
+    if (this.pet) this.scene.add(this.pet.root)
   }
 
   /** re-dress the player in place (a shop purchase put on): the new model takes over where the old one stood */
@@ -336,6 +346,7 @@ export class Interior implements GameScene {
       p.root.position.copy(this.pos)
       p.root.position.y += this.jumper.y
       p.root.rotation.y = this.yaw
+      this.pet?.update(dt, this.pos, this.yaw, (x, z) => this.heightAt(x, z), (q) => this.collide(q))
       p.update(dt)
     }
     this.lastSpeed = speed
@@ -370,6 +381,7 @@ export class Interior implements GameScene {
 
   dispose() {
     this.disposed = true
+    this.pet?.dispose()
     this.events?.onPrompt(null)
     if (this.player) disposeCharacter(this.player)
     if (this.keeper) disposeCharacter(this.keeper)

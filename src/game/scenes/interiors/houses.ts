@@ -31,7 +31,7 @@ export type HouseSpec = {
   looks?: Record<string, Line & { at: [number, number]; r?: number; level?: 0 | 1 }>
   build(K: Kit, S: Shell): void
   /** a shopkeeper (a villager) behind the counter; talk from `talkAt` (the customer side) */
-  keeper?: { look: VillagerLook; at: [number, number]; yaw: number; talkAt: [number, number]; line: Line; shop?: 'fits' }
+  keeper?: { look: VillagerLook; at: [number, number]; yaw: number; talkAt: [number, number]; line: Line; shop?: 'fits' | 'pets' }
 }
 
 /** world position + facing of a building's door prompt and where you reappear when you leave */

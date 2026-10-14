@@ -9,10 +9,9 @@ import type { HouseSpec } from './houses'
  * Motor Row's shops. CHAD PETS: a bright, lively shop — a black cat on her cushion, a ghost in a glass dome, a bat
  * on a perch, a hopping pumpkin critter, an aquarium, a cat tree — with Patches behind the counter. CHAD MOTORS:
  * a polished showroom, three cars on lit podiums with info lecterns, and Rex at the sales desk.
- * Adoption / purchase arrive with Chad Coins (an in-game currency, never real money): the dialogue says so plainly,
- * and nothing here pretends to sell anything yet.
+ * Patches runs adoptions for Chad Coins (an in-game currency, never real money); cars aren't for sale until driving exists.
  */
-const soon = 'Adoption opens when Chad Coins arrive — an in-game currency, never real money.'
+const soon = 'Patches at the counter can set up an adoption — paid in Chad Coins, an in-game currency, never real money.'
 
 export const SHOP_INTERIORS: HouseSpec[] = [
   {
@@ -27,8 +26,9 @@ export const SHOP_INTERIORS: HouseSpec[] = [
       at: [1.6, -3.3],
       yaw: 0,
       talkAt: [1.6, -1.1],
+      shop: 'pets',
       line: {
-        label: 'Talk to Patches',
+        label: 'Adopt with Patches',
         speaker: 'Patches',
         role: 'Chad Pets · keeper of critters',
         lines: [

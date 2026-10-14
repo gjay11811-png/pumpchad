@@ -227,6 +227,7 @@ export function GameApp() {
       w.cameraSensitivity = saveRef.current.settings.cameraSensitivity
       // load + compile behind the portal overlay; the previous scene keeps rendering until the swap
       await w.populate(app, opts.spawn ?? 'start', saveRef.current.progress.discoveries)
+      w.setPet(petKind())
       await e.precompile(w)
       e.setScene(w)
       if (saveRef.current.progress.discoveries.includes('stash')) w.revealStash()
@@ -249,6 +250,7 @@ export function GameApp() {
       const r = new Interior(e, opts.house, input.current, { onPrompt: setPrompt, onInteract: (id) => handleInteriorRef.current(id) })
       r.cameraSensitivity = saveRef.current.settings.cameraSensitivity
       await r.populate(app)
+      r.setPet(petKind())
       await e.precompile(r)
       e.setScene(r)
       interior.current = r
@@ -422,6 +424,10 @@ export function GameApp() {
     }
   }
 
+  const petKind = () => ITEM(saveRef.current.progress.pet ?? '')?.pet ?? null
+  /** pause menu: send the companion home, or call the last one back */
+  const lastPet = () => saveRef.current.progress.pet ?? [...saveRef.current.progress.owned].reverse().find((i) => ITEM(i)?.kind === 'pet') ?? null
+
   /** spend Chad Coins on a catalogue item: false (nothing changes) if already owned or not enough coins */
   const buy = (id: string) => {
     const it = ITEM(id)
@@ -431,11 +437,18 @@ export function GameApp() {
     audio.play('achievement')
     return true
   }
-  /** put on an owned colour: saved, and the player re-dressed on the spot */
+  /** put on an owned colour (saved, re-dressed on the spot), or bring an owned pet along / send it home */
   const wear = (id: string) => {
     const it = ITEM(id)
     const c = saveRef.current.character
     if (!it || !c || !saveRef.current.progress.owned.includes(id)) return
+    if (it.kind === 'pet') {
+      const pet = saveRef.current.progress.pet === id ? null : id
+      setSave((s) => ({ ...s, progress: { ...s.progress, pet } }))
+      world.current?.setPet(petKind())
+      interior.current?.setPet(petKind())
+      return
+    }
     const appearance = { ...c.appearance, [it.kind]: it.color }
     setSave((s) => ({ ...s, character: { ...c, appearance } }))
     void interior.current?.restyle(appearance)
@@ -633,6 +646,10 @@ export function GameApp() {
       gymTeleport: (x: number, z: number, yaw?: number) => gym.current?.teleport(x, z, yaw),
       gymInfo: () => gym.current?.info() ?? null,
       interior: () => interior.current?.info() ?? null,
+      pet: () => {
+        const pt = (world.current ?? interior.current)?.pet
+        return pt ? { kind: pt.kind, x: +pt.root.position.x.toFixed(2), y: +pt.root.position.y.toFixed(2), z: +pt.root.position.z.toFixed(2) } : null
+      },
       houses: () => HOUSES.map((h) => ({ id: h.id, name: h.name, door: doorSpot(h), room: h.room, looks: Object.fromEntries(Object.entries(h.looks ?? {}).map(([k, v]) => [k, { at: v.at, level: v.level ?? 0 }])) })),
       interiorTeleport: (x: number, z: number, yaw?: number, level?: 0 | 1) => interior.current?.teleport(x, z, yaw, level),
       gymPhoto: (o: Parameters<Gym['setPhoto']>[0]) => gym.current?.setPhoto(o),
@@ -787,6 +804,8 @@ export function GameApp() {
                   }}
                   onAchievements={() => setOverlay('achievements')}
                   onProfile={() => setOverlay('profile')}
+                  companion={lastPet() && phase !== 'gym' ? { name: ITEM(lastPet()!)!.name, along: !!save.progress.pet } : null}
+                  onCompanion={() => wear(lastPet()!)}
                   onEditCharacter={() => {
                     setEditing(true)
                     void go('creator', { label: 'Opening the wardrobe' })

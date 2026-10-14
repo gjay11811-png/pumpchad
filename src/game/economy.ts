@@ -9,8 +9,10 @@
 export const XP_PER_COIN = 2
 export const coinsForXp = (xp: number) => Math.floor(Math.max(0, xp) / XP_PER_COIN)
 
-export type ItemKind = 'outfit' | 'glow'
-export type Item = { id: string; shop: 'fits'; kind: ItemKind; name: string; desc: string; price: number; color: string }
+import type { PetKind } from './character/pet'
+
+export type ItemKind = 'outfit' | 'glow' | 'pet'
+export type Item = { id: string; shop: 'fits' | 'pets'; kind: ItemKind; name: string; desc: string; price: number; color: string; pet?: PetKind }
 
 export const CATALOG: Item[] = [
   { id: 'fit_pumpkinspice', shop: 'fits', kind: 'outfit', name: 'Pumpkin Spice', desc: 'Burnt-orange outfit colour', price: 40, color: '#c2540c' },
@@ -19,6 +21,10 @@ export const CATALOG: Item[] = [
   { id: 'fit_gold', shop: 'fits', kind: 'outfit', name: 'Gold Lamé', desc: 'Shiny gold outfit colour', price: 120, color: '#e0a83e' },
   { id: 'glow_teal', shop: 'fits', kind: 'glow', name: 'Ghostfire Teal', desc: 'Glow colour for eyes + visor', price: 50, color: '#5fe0d0' },
   { id: 'glow_gold', shop: 'fits', kind: 'glow', name: 'Royal Gold', desc: 'Glow colour for eyes + visor', price: 80, color: '#ffd25a' },
+  { id: 'pet_pumpkin', shop: 'pets', kind: 'pet', pet: 'pumpkin', name: 'Gourdy', desc: 'Mini pumpkin · hops after you', price: 80, color: '#e8641a' },
+  { id: 'pet_cat', shop: 'pets', kind: 'pet', pet: 'cat', name: 'Midnight', desc: 'Black cat · judges everyone', price: 100, color: '#121016' },
+  { id: 'pet_bat', shop: 'pets', kind: 'pet', pet: 'bat', name: 'Flapjack', desc: 'Fruit bat · flutters overhead', price: 120, color: '#3a2430' },
+  { id: 'pet_ghost', shop: 'pets', kind: 'pet', pet: 'ghost', name: 'Boo', desc: 'Pocket ghost · glows softly', price: 150, color: '#dfe6ff' },
 ]
 export const ITEM = (id: string) => CATALOG.find((i) => i.id === id)
 export const PREMIUM_OUTFITS = CATALOG.filter((i) => i.kind === 'outfit').map((i) => i.color)

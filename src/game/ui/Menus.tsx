@@ -16,8 +16,13 @@ export function PauseMenu({
   onSettings,
   onAchievements,
   onProfile,
+  companion,
+  onCompanion,
 }: {
   save: SaveData
+  /** an owned pet: whether it's following you now */
+  companion?: { name: string; along: boolean } | null
+  onCompanion?: () => void
   onResume: () => void
   onEditCharacter: () => void
   onSettings: () => void
@@ -43,6 +48,11 @@ export function PauseMenu({
         <Btn variant="ghost" onClick={onAchievements}>
           Achievements · {got}/{Object.keys(ACHIEVEMENTS).length}
         </Btn>
+        {companion && (
+          <Btn variant="ghost" onClick={() => onCompanion?.()} data-testid="pause-companion">
+            {companion.along ? `Send ${companion.name} home` : `Call ${companion.name}`}
+          </Btn>
+        )}
         <Btn variant="ghost" onClick={onEditCharacter}>
           Wardrobe — edit character
         </Btn>

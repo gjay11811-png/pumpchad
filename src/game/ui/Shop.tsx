@@ -44,7 +44,8 @@ export function ShopPanel({
       <ul className="mt-3 grid max-h-[52vh] gap-2 overflow-y-auto overscroll-contain pr-1" data-testid="shop-items">
         {items.map((it) => {
           const owned = p.owned.includes(it.id)
-          const wearing = owned && (it.kind === 'outfit' ? a?.outfit : a?.glow) === it.color
+          const pet = it.kind === 'pet'
+          const wearing = owned && (pet ? p.pet === it.id : (it.kind === 'outfit' ? a?.outfit : a?.glow) === it.color)
           return (
             <li key={it.id} className="flex items-center gap-3 rounded-2xl bg-bone/[0.04] p-2.5 ring-1 ring-bone/10" data-item={it.id}>
               <span
@@ -61,13 +62,13 @@ export function ShopPanel({
                   sound={null}
                   className={p.coins < it.price ? 'opacity-60' : ''}
                   onClick={() => {
-                    if (onBuy(it.id)) setMsg(`${keeper}: “${it.name} — it’s yours. Put it on whenever you like.”`)
+                    if (onBuy(it.id)) setMsg(`${keeper}: “${it.name} — ${pet ? 'adopted! Tap Bring along and they’ll follow you everywhere.' : 'it’s yours. Put it on whenever you like.'}”`)
                     else setMsg(`${keeper}: “That one’s ${it.price} coins — you have ${p.coins}. Earn more by exploring, training and playing.”`)
                   }}
                 >
                   ◉ {it.price}
                 </Btn>
-              ) : wearing ? (
+              ) : wearing && !pet ? (
                 <span className="px-3 font-mono text-[11px] uppercase tracking-[0.15em] text-[#ffd25a]">Wearing</span>
               ) : (
                 <Btn
@@ -75,17 +76,17 @@ export function ShopPanel({
                   variant="ghost"
                   onClick={() => {
                     onWear(it.id)
-                    setMsg(`${keeper}: “${it.name} suits you.”`)
+                    setMsg(`${keeper}: “${pet ? (wearing ? `${it.name} will wait for you at home.` : `${it.name} is right behind you.`) : `${it.name} suits you.`}”`)
                   }}
                 >
-                  Wear
+                  {pet ? (wearing ? 'Send home' : 'Bring along') : 'Wear'}
                 </Btn>
               )}
             </li>
           )
         })}
       </ul>
-      <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.15em] text-ash">Owned colours also appear in Edit Character</p>
+      <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.15em] text-ash">{shop === 'pets' ? 'Call or send home your companion from the pause menu' : 'Owned colours also appear in Edit Character'}</p>
     </Overlay>
   )
 }

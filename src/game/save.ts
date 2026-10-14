@@ -4,7 +4,7 @@
  * Never eval'd, never injected as HTML.
  */
 import { EYEWEAR, GLOWS, HEADWEAR, OUTFITS, SPECIES, TOPS, type Appearance } from './character/types'
-import { CATALOG, PREMIUM_GLOWS, PREMIUM_OUTFITS, coinsForXp, itemForColor } from './economy'
+import { CATALOG, ITEM, PREMIUM_GLOWS, PREMIUM_OUTFITS, coinsForXp, itemForColor } from './economy'
 
 export const SAVE_KEY = 'pumpchad.chadverse.save'
 /** v2: Chad Coins + owned items (v1 saves migrate: coins from XP already earned) */
@@ -45,6 +45,8 @@ export type Progress = {
   coins: number
   /** catalogue item ids the player owns */
   owned: string[]
+  /** the companion (a pet item id) following you, or null (left at home) */
+  pet: string | null
 }
 
 export type SaveData = {
@@ -71,7 +73,7 @@ export const defaultSettings = (): Settings => ({
 export const defaultSave = (): SaveData => ({
   version: SAVE_VERSION,
   character: null,
-  progress: { xp: 0, achievements: [], gymBest: 0, gymRuns: 0, discoveries: [], strength: 0, reps: {}, stamina: 0, stats: { sets: 0, clean: 0, bestCombo: 0 }, daily: { day: '', sets: {} }, records: {}, coins: 0, owned: [] },
+  progress: { xp: 0, achievements: [], gymBest: 0, gymRuns: 0, discoveries: [], strength: 0, reps: {}, stamina: 0, stats: { sets: 0, clean: 0, bestCombo: 0 }, daily: { day: '', sets: {} }, records: {}, coins: 0, owned: [], pet: null },
   settings: defaultSettings(),
 })
 
@@ -171,6 +173,7 @@ export function sanitizeSave(raw: unknown): SaveData {
       // v1 → v2 migration: coins for the XP already earned (the same 2 XP = 1 coin rule)
       coins: o.version < 2 ? coinsForXp(num(p.xp, 0, 1e7, 0)) : Math.floor(num(p.coins, 0, 1e7, 0)),
       owned: strList(p.owned).filter((id) => CATALOG.some((i) => i.id === id)),
+      pet: typeof p.pet === 'string' ? p.pet : null,
     },
     settings: {
       quality: oneOf(s.quality, ['low', 'medium', 'high'] as const, d.settings.quality),
@@ -185,8 +188,10 @@ export function sanitizeSave(raw: unknown): SaveData {
   }
 }
 
-/** a premium colour that isn't owned (edited save, refund…) falls back to the default colour */
+/** a pet you don't own stays home; a premium colour that isn't owned (edited save, refund…) falls back to the default colour */
 function enforceOwnership(d: SaveData): SaveData {
+  const pet = d.progress.pet
+  if (pet && !(d.progress.owned.includes(pet) && ITEM(pet)?.kind === 'pet')) d = { ...d, progress: { ...d.progress, pet: null } }
   const a = d.character?.appearance
   if (!a) return d
   const outfit = itemForColor('outfit', a.outfit)

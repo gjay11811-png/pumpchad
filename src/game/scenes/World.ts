@@ -59,6 +59,7 @@ import { CHAMPIONS, NOTICE, squareExtras, standFor } from './world/square'
 import { ARCADE, CANAL, OVERLOOK, RIDES, insideCity } from './world/city'
 import { PumpkinBuilder } from './world/pumpkins'
 import { stallV4 } from './world/market'
+import { Pet, type PetKind } from '../character/pet'
 
 export type Interactable = { id: string; label: string; pos: THREE.Vector3; radius: number; kind: 'talk' | 'activity' | 'info' | 'collect' | 'secret' }
 export type WorldEvents = {
@@ -680,6 +681,15 @@ export class World implements GameScene {
   }
 
   /** Loads the player and townsfolk (async because GLB models may download). */
+  /** the companion following you (null = none); swapping replaces the old one beside you */
+  pet: Pet | null = null
+  setPet(kind: PetKind | null) {
+    if (this.pet?.kind === kind) return
+    this.pet?.dispose()
+    this.pet = kind ? new Pet(kind) : null
+    if (this.pet) this.scene.add(this.pet.root)
+  }
+
   async populate(player: Appearance, spawn: SpawnAt = 'start', discoveries: string[] = []) {
     const [p] = await Promise.all([createCharacter(player), this.crowd.load(this.scene, this.quality, groundHeight)])
     if (this.disposed) {
@@ -1090,6 +1100,7 @@ export class World implements GameScene {
       p.root.position.copy(this.playerPos)
       p.root.position.y += this.jumper.y
       p.root.rotation.y = this.playerYaw
+      this.pet?.update(dt, this.playerPos, this.playerYaw, groundHeight, (q) => this.resolve(q, 0.2))
       p.speed = speed / SPEED_UNIT
       p.pose = this.seat && this.seat.phase !== 'exit' ? 'sit' : this.emoter.pose() ?? (speed > 0.1 ? 'walk' : 'idle')
       if (p.lean) {
@@ -1278,6 +1289,7 @@ export class World implements GameScene {
 
   dispose() {
     this.disposed = true
+    this.pet?.dispose()
     this.rush?.dispose()
     this.daylight?.dispose()
     if (this.player) disposeCharacter(this.player)
