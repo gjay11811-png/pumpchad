@@ -1,0 +1,66 @@
+# Chadverse master plan: the full spec, mapped to the real project
+
+Branch: `chadverse-dark-fantasy`, started from `chadverse-chad-city`. Rollback point: tag `checkpoint/pre-master-spec`.
+Nothing is pushed or deployed. To test on a phone over home Wi-Fi: http://192.168.1.165:5180/chadverse/
+
+## What exists today (inspected 2026-10-14)
+- **Engine:** Three.js scenes for the World (Chad City), the Gym and the Showroom. Static geometry is batched. There are quality tiers (low, medium and high), bloom, and day-sky shading in `daylight.ts`.
+- **World:** the core square plus south, east and west districts, the canal and bridges, Citadel facade, Arcade Street (shop facades), garden, overlook and Chad Rides teaser.
+- **Gym (complete, protected):**
+  - bench, squat, deadlift, pull-up and treadmill
+  - Chad Press timing game, strength and stamina, daily fatigue, records
+- **Progression:** XP, levels (`progression.ts`), achievements, discoveries, Discover Chad City (5 steps) and 6 hidden pumpkins.
+- **Minigames:** Pumpkin Rush (timed collect) and coin toss (no farming: rewards pay once).
+- **Characters:**
+  - Pumpkin, Skeleton and Demon species, with the creator and wardrobe
+  - About 26 NPCs (residents and walkers) with dialogue
+- **Save:** `localStorage`, versioned and sanitised (`save.ts`). **There is no backend.** Progress lives in one browser on one device.
+
+## Status key
+- ✅ = done and tested
+- 🔨 = this pass
+- 📋 = planned for a later phase, buildable without a backend
+- 🌐 = needs a backend/server first (accounts, shared data); it won't be faked
+
+| # | Requirement | Status | Notes |
+|---|---|---|---|
+| 1 | Cinematic dark fantasy look | ✅ first pass | Night is the default: midnight-blue sky, big cratered moon + halo, twinkling stars, drifting moonlit clouds, violet horizon haze + fog, cool moon key light, warm lamplit windows, glowing sign letters, embers, fireflies, violet magic motes, a light pool following the player + warm ground glow under every lamp. `?sky=day` keeps daylight. |
+| 2 | Distant Gothic city | ✅ first pass | Modern skyline replaced by `gothicCity.ts`: terraced townhouses with chimneys + smoke, Gothic needle-spire towers, 3 castles + the Great Citadel, cathedral with a lit clock face, giant PUMP CHAD banners, hundreds of lit windows, street lanterns, moving lantern lights, hanging light strings, drifting mist bands. Proper LOD tiers + walkable streets: later. |
+| 3 | Bridge fences across the walkway | ✅ | Root cause: canal railing code assumed bridges were sorted west→east; one railing ran across Chad Bridge. Sorted; collisions were already correct. |
+| 4 | GATES CLOSED sign + 2 bushes | ✅ | Sign moved off the house door to the foot of the citadel steps (clear of the lamp + path); faceted ball topiaries → leafy shrubs in low stone planters. |
+| 5 | Pathway leading nowhere | ✅ | The Hollow House track ran into the yard fence and the side wall. Re-routed to the yard gate + a path to the front door; the broken cart moved off it. |
+| 6 | Castle pumpkin decorations | ✅ | Low-res cloth banners (floating above the battlements, clipped by a lamp arm) → hi-res heraldic swallow-tail banners with a jack-o'-lantern crest, hung from iron poles; carved 3D jack-o'-lantern sconces on iron brackets with warm light along the castle walls. |
+| 7 | CHAD sign | ✅ | Timber beam + flat board → Gothic stone CHAD SQUARE gate: piers with colonnettes, niches with carved lit pumpkins, crocketed pinnacles, pointed arch, polished gold letters (glow at night), pumpkin crest pediment, hanging lantern, uplights. |
+| 8 | Windows show solid wall + glitch pass | ✅ windows / 🔨 audit ongoing | Shop glazing + doors were buried inside a solid box. Ground floors rebuilt with real 1.3 m display bays (platform, goods, lit interior, warm strip light) + real 0.35 m door recesses. Wider glitch audit continues. |
+| 9 | Bigger village; every house enterable, unique interiors | 📋 Phase 3 | The largest item. Needs an interior system (a door swaps to a lightweight interior scene, the same way the gym does) plus about 8 distinct house designs. |
+| 10 | Districts | 📋 Phase 3 | Pumpkin Square maps to Chad Square. Still to build: Haunted Quarter, Castle District, Festival Grounds, Chadville Estates, Enchanted Forest, Moonlight Lake. |
+| 11 | Replace outdated NPC models | 📋 Phase 3 | New non-Chad villager rig: merchants, guards, witches, wizards, travellers. Routines with destinations. |
+| 12 | Curse of the Chadverse story | 📋 Phase 4 | Quest graph, relic collection, guiding NPCs. |
+| 13 | Chad XP + levels | ✅ partly | XP and levels exist. Still to come: XP for quests and minigames, level-gated unlocks, a progress screen. |
+| 14 | Chad Coins | 📋 Phase 4 | In-game only. Never linked to $PCHAD and no real-money promises. |
+| 15 | Chadville Estates housing + building | 📋 Phase 5 | Plots, a snap/rotate/preview builder, and upgrades saved locally. Competitions and voting are 🌐. |
+| 16 | Playable minigames | 📋 Phases 4–5 | Pumpkin Rush and coin toss are live. Racing, target, ghost hunt, escape, parkour, maze, dungeon, fishing, farming, treasure hunts and gym challenges come later, each fully playable or not shipped. |
+| 17 | Daily/weekly competitions + leaderboards | 📋 local → 🌐 | Personal-best boards can be local. Shared boards need a server with anti-cheat. |
+| 18 | Dynamic world events | 📋 Phase 4 | Midnight Pumpkin Hunt, Ghost Invasion, Festival, Thunderstorm. |
+| 19 | Pets/companions | 📋 Phase 5 | |
+| 20 | Creature collection + journal | 📋 Phase 5 | |
+| 21 | Building restoration | 📋 Phase 5 | |
+| 22 | Order of the Golden Pumpkin | 📋 Phase 5 | Tied to the story. |
+| 23 | Legacy profile + home trophies | 📋 Phases 4–5 | |
+| 24 | Shops + economy | 📋 Phase 4 | Shop interiors come with Phase 3. Trading is 🌐. |
+| 25 | Map + quest journal | 📋 Phase 4 | |
+| 26 | First-time experience | ✅ partly | Flyover, greeter and objectives exist. Still to come: first quest, coin reward and castle clue. |
+| 27 | Sound + per-district music | ✅ partly → 📋 | Ambience exists, with volume sliders in settings. |
+| 28 | Reliable saves | ✅ local / 🌐 cross-device | `localStorage` survives reloads. Cross-device or permanent saves need accounts and a database (e.g. Supabase). This is a decision for you. |
+| 29 | Multiplayer-ready | 🌐 | Data will be shaped so it can sync later. Nothing will be claimed to work until it is networked and tested. |
+| 30 | Performance | ongoing | Every stage is measured; the baseline is about 21 ms/frame headless with a 10.4 s world load. |
+
+## Rules for every stage
+- Keep the gym, character systems, saves, `?pumpkin=classic` and `?castle=` working.
+- Run the full regression suite after each phase.
+- No fake buttons or decorative minigames.
+- Never deploy or push without approval.
+
+## Decisions needed from Jay
+1. **Backend for saves, leaderboards and multiplayer:** a yes/no and which provider. Until then, everything is single-player and saved on the device.
+2. **Night look approval** once Phase 2 shots are ready, before any further world-building.

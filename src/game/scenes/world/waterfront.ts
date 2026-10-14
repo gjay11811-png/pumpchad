@@ -73,7 +73,8 @@ export function waterfront(T: Town, waterNormal: THREE.Texture, stoneMat: THREE.
   for (const [z, s] of [[z0, 1], [z1, -1]] as const) T.batch.put(new THREE.PlaneGeometry(x1 - x0, 0.35), tide, (x0 + x1) / 2, CANAL.water + 0.12, z + s * 0.004, s > 0 ? 0 : Math.PI, 1, 1, 1, { cast: false })
 
   // ── railings along both banks and the ends, broken by the bridges; stone pillars every few metres ──
-  const gaps = BRIDGES.map((b) => [b.x - b.w / 2 - 0.3, b.x + b.w / 2 + 0.3] as const)
+  // west → east: BRIDGES isn't stored in x order, and an unsorted walk strung a railing across Chad Bridge
+  const gaps = BRIDGES.map((b) => [b.x - b.w / 2 - 0.3, b.x + b.w / 2 + 0.3] as const).sort((p, q) => p[0] - q[0])
   const runs: [number, number][] = []
   let start = x0 - 0.3
   for (const [a, b] of gaps) {

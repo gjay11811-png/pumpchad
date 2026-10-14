@@ -11,7 +11,7 @@ let fails = 0
 const check = (ok, msg) => { console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${msg}`); if (!ok) fails++ }
 p.on('pageerror', (e) => errs.push(e.message))
 p.on('console', (m) => m.type() === 'error' && errs.push(m.text().slice(0, 200)))
-await p.goto(BASE + '?intro=1', { waitUntil: 'networkidle' })
+await p.goto(BASE + '?intro=1' + (process.env.SKY ? '&sky=' + process.env.SKY : ''), { waitUntil: 'networkidle' })
 await p.evaluate(() => {
   localStorage.clear()
   localStorage.setItem('pumpchad.chadverse.save', JSON.stringify({ version: 1, character: null, progress: {}, settings: { quality: 'medium', muted: true } }))

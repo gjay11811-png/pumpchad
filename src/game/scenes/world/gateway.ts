@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { isNight } from './daylight'
 import type { Town } from './buildings'
 import { ARCADE, BRIDGES, CANAL, COURTYARD, DISTRICTS, GARDEN, GATEWAY, OVERLOOK, RIDES, SOCIAL, SPAWN, VALLEY_GATE } from './city'
 import { Cloth } from './fx'
@@ -199,7 +200,7 @@ export function arrival(T: Town, stone: THREE.Material, trim: THREE.Material) {
   // ── THE GATEWAY ──
   const banner = new THREE.MeshStandardMaterial({ map: cityBannerTexture(Dp), roughness: 0.75, side: THREE.DoubleSide, transparent: true, alphaTest: 0.5 })
   // brushed brass-orange letters: bright in sun, no glow wash
-  const letters = new THREE.MeshStandardMaterial({ color: '#f09a32', metalness: 0.35, roughness: 0.48 })
+  const letters = new THREE.MeshStandardMaterial({ color: '#f09a32', metalness: 0.35, roughness: 0.48, ...(isNight() ? { emissive: '#ff9a3a', emissiveIntensity: 1.9 } : {}) })
   const darkMetal = new THREE.MeshStandardMaterial({ color: '#25242a', metalness: 0.75, roughness: 0.4 })
   const glow = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffd08a').multiplyScalar(1.3), toneMapped: false })
   Dp.push(banner, letters, darkMetal, glow)

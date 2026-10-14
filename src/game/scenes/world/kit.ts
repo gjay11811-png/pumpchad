@@ -92,7 +92,7 @@ export function gableGeo(w: number, d: number, h: number, tile = 2) {
 }
 
 /** Shared material palette for the town. Created once per World and disposed with it. */
-export function makePalette(tex: Record<string, THREE.Texture>) {
+export function makePalette(tex: Record<string, THREE.Texture>, night = false) {
   const std = (p: THREE.MeshStandardMaterialParameters) => new THREE.MeshStandardMaterial({ roughness: 0.85, metalness: 0.02, ...p })
   return {
     plaster: std({ map: tex.plaster, color: '#d9cbb7', roughness: 0.92 }),
@@ -119,8 +119,8 @@ export function makePalette(tex: Record<string, THREE.Texture>) {
     flowers: std({ map: tex.flowers, alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.8 }),
     soil: std({ color: '#5a3f2c', roughness: 1 }),
     cloth: std({ color: '#2a1c24', roughness: 0.95, side: THREE.DoubleSide }),
-    // daytime glazing: dark, glossy, reflects the sky (the name is kept: every building uses it)
-    windowLit: std({ color: '#2a3a50', roughness: 0.1, metalness: 0.6, emissive: '#0c1422' }),
+    // night: warm lamplit glass (bright enough for the bloom to halo it); day: dark glossy glass reflecting the sky
+    windowLit: night ? std({ color: '#3a2a1a', roughness: 0.35, emissive: '#ffa64a', emissiveIntensity: 2.1 }) : std({ color: '#2a3a50', roughness: 0.1, metalness: 0.6, emissive: '#0c1422' }),
     windowDark: std({ color: '#1a2230', roughness: 0.15, metalness: 0.6 }),
     glowOrange: new THREE.MeshBasicMaterial({ color: new THREE.Color('#ff8a30').multiplyScalar(1.5), toneMapped: false }),
     glowGold: new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffc861').multiplyScalar(1.35), toneMapped: false }),

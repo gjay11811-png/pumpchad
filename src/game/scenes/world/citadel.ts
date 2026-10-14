@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import type { Town } from './buildings'
 import { CASTLE_Z } from './props'
+import { isNight } from './daylight'
 import { boxUV, rng } from './kit'
 import { Frame, PANEL, boardTexture, channelLetters, lectern, panelTexture, postedBoard, type SignMats } from './signs'
 import type { styleMaterials } from './style'
@@ -8,7 +9,7 @@ import type { styleMaterials } from './style'
 type SM = ReturnType<typeof styleMaterials>
 
 /** the citadel's door + forecourt anchors (World uses them for the inspect prompts) */
-export const CITADEL = { doorZ: CASTLE_Z + 1.25, forecourt: { x0: -6, x1: 6, z0: -23.8, z1: -11.5 }, lore: { x: -4.4, z: -21.4 }, notice: { x: 4.6, z: -19.6 } }
+export const CITADEL = { doorZ: CASTLE_Z + 1.25, forecourt: { x0: -6, x1: 6, z0: -23.8, z1: -11.5 }, lore: { x: -4.4, z: -21.4 }, notice: { x: 4.75, z: -22.9 } }
 
 /**
  * CHAD CITADEL gatehouse + forecourt. Replaces the old block door: a deep gatehouse with battlements and a
@@ -30,7 +31,7 @@ export function citadel(T: Town, M: SM) {
   const timberDark = new THREE.MeshStandardMaterial({ map: P.woodLight.map, color: '#5a3820', roughness: 0.8 })
   const ironM = new THREE.MeshStandardMaterial({ color: '#22211f', metalness: 0.75, roughness: 0.45 })
   const reveal = new THREE.MeshStandardMaterial({ map: M.stone.map, color: '#8d7f6a', roughness: 0.95 })
-  const nameMat = new THREE.MeshStandardMaterial({ color: '#e8b04a', metalness: 0.4, roughness: 0.45 })
+  const nameMat = new THREE.MeshStandardMaterial({ color: '#e8b04a', metalness: 0.4, roughness: 0.45, ...(isNight() ? { emissive: '#ffa648', emissiveIntensity: 1.6 } : {}) })
   Dp.push(timber, timberDark, ironM, reveal, nameMat)
 
   // ── gatehouse body: stone mass with a plinth, string courses, machicolation gallery + crenellations ──
@@ -200,13 +201,14 @@ export function citadel(T: Town, M: SM) {
       }
     },
   })
-  // clipped topiary in square stone planters along the forecourt edges
+  // shrubs in low stone planters along the forecourt edges (leafy FoliageBuilder bushes, planted by vegetation())
+  const pots: [number, number, number, number][] = []
   for (const x of [x0 - 0.2, x1 + 0.2])
     for (const z of [z0 + 5.5, z1 - 4.5]) {
-      T.batch.put(boxUV(1.1, 0.7, 1.1, 1), M.trim, x, 0.35, z)
-      T.batch.put(new THREE.SphereGeometry(0.62, 14, 10), P.foliage, x, 1.25, z)
-      T.batch.put(new THREE.SphereGeometry(0.4, 12, 8), P.foliage, x, 1.95, z)
-      T.colliders.push({ kind: 'box', minX: x - 0.6, maxX: x + 0.6, minZ: z - 0.6, maxZ: z + 0.6, h: 2.2 })
+      T.batch.put(boxUV(1.3, 0.5, 1.3, 1), M.trim, x, 0.25, z)
+      T.batch.put(boxUV(1.12, 0.04, 1.12, 1), P.soil, x, 0.5, z, 0, 1, 1, 1, { cast: false })
+      pots.push([x, 0.48, z, 0.95])
+      T.colliders.push({ kind: 'box', minX: x - 0.7, maxX: x + 0.7, minZ: z - 0.7, maxZ: z + 0.7, h: 1.8 })
     }
   // the lore lectern + the notice (doors are closed; a physical sign says so)
   const lore = new THREE.MeshStandardMaterial({
@@ -219,6 +221,8 @@ export function citadel(T: Town, M: SM) {
   T.colliders.push({ kind: 'circle', x: CITADEL.lore.x, z: CITADEL.lore.z, r: 0.45, h: 1.1 })
   const notice = new THREE.MeshStandardMaterial({ map: panelTexture('GATES CLOSED', 'the King is training · opens soon', 2.4, PANEL.cream, Dp), roughness: 0.75 })
   Dp.push(notice)
-  postedBoard(Frame.at(T.batch, CITADEL.notice.x, 0, CITADEL.notice.z, -0.4), 1.7, 0.7, 1.15, notice, signM, true)
-  T.colliders.push({ kind: 'circle', x: CITADEL.notice.x, z: CITADEL.notice.z, r: 1.0, h: 2 })
+  // stands at the foot of the citadel steps, beside (not across) the approach to the doors
+  postedBoard(Frame.at(T.batch, CITADEL.notice.x, 0, CITADEL.notice.z, -0.2), 1.7, 0.7, 1.15, notice, signM, true)
+  T.colliders.push({ kind: 'box', minX: CITADEL.notice.x - 0.9, maxX: CITADEL.notice.x + 0.9, minZ: CITADEL.notice.z - 0.25, maxZ: CITADEL.notice.z + 0.25, h: 2 })
+  return pots
 }

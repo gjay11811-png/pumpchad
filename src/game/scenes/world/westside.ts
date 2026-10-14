@@ -7,7 +7,7 @@ import { stallV4 } from './market'
 
 const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z)
 
-export type Greenery = { trees: [number, number][]; bushes: [number, number][]; hedges: [number, number, number, 'x' | 'z'][] }
+export type Greenery = { trees: [number, number][]; bushes: [number, number][]; hedges: [number, number, number, 'x' | 'z'][]; potted?: [number, number, number, number][] }
 /** sittable benches added by the districts (seat anchors for the sit system: ry = the way a sitter faces) */
 export type BenchSpot = { x: number; z: number; ry: number; label: string }
 

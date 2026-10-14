@@ -33,7 +33,7 @@ export function kingdomStyle(): KingdomStyle {
 }
 
 /** Materials shared by every kingdom piece for the active style (added to the town's disposables). */
-export function styleMaterials(style: KingdomStyle, tex: { stone?: THREE.Texture; roof?: THREE.Texture }, D: (THREE.Material | THREE.Texture | THREE.BufferGeometry)[]) {
+export function styleMaterials(style: KingdomStyle, tex: { stone?: THREE.Texture; roof?: THREE.Texture }, D: (THREE.Material | THREE.Texture | THREE.BufferGeometry)[], night = false) {
   const std = (p: THREE.MeshStandardMaterialParameters) => {
     const m = new THREE.MeshStandardMaterial({ roughness: 0.88, metalness: 0.02, ...p })
     D.push(m)
@@ -50,7 +50,9 @@ export function styleMaterials(style: KingdomStyle, tex: { stone?: THREE.Texture
     farRoof: std({ map: tex.roof, color: new THREE.Color(style.roof), roughness: 0.75 }),
     // keep windows read from across town through the fog: unlit, ignores scene fog, a little dimmer to compensate
     farWindow: (() => {
-      const m = new THREE.MeshStandardMaterial({ color: '#253348', roughness: 0.12, metalness: 0.6, emissive: '#0c1422' })
+      const m = night
+        ? new THREE.MeshBasicMaterial({ color: new THREE.Color(style.windowGlow).multiplyScalar(1.9), fog: false, toneMapped: false })
+        : new THREE.MeshStandardMaterial({ color: '#253348', roughness: 0.12, metalness: 0.6, emissive: '#0c1422' })
       D.push(m)
       return m
     })(),

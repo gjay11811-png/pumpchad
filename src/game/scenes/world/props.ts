@@ -35,7 +35,8 @@ export const ROADS: Road[] = [
   { x0: -2.5, z0: 19, x1: -5, z1: 19, w: 3 }, // tavern patio path
   { x0: 2.5, z0: 19, x1: 8, z1: 19, w: 3 }, // arcade path
   { x0: -11, z0: -9.8, x1: -16, z1: -9.8, w: 3 }, // forge path (from the plaza's north-west)
-  { x0: 12, z0: -12.6, x1: 21, z1: -15.6, w: 2.4 }, // overgrown track to the Hollow House
+  { x0: 12, z0: -12.6, x1: 14.6, z1: -19.5, w: 2.4 }, // overgrown track to the Hollow House yard gate (it used to dead-end in the fence)
+  { x0: 14.6, z0: -19.5, x1: 17.7, z1: -19.5, w: 1.6 }, // through the yard to the front door
 ]
 
 export function buildGround(T: Town, _tex: Record<string, THREE.Texture>) {
@@ -140,7 +141,7 @@ export function poles(T: Town, spots: [number, number][], h = 4.4) {
 }
 
 /* ───────── vegetation ───────── */
-export function vegetation(T: Town, q: Quality, avoid: (x: number, z: number) => boolean, extra: { trees: [number, number][]; bushes: [number, number][]; hedges: [number, number, number, 'x' | 'z'][] } = { trees: [], bushes: [], hedges: [] }) {
+export function vegetation(T: Town, q: Quality, avoid: (x: number, z: number) => boolean, extra: { trees: [number, number][]; bushes: [number, number][]; hedges: [number, number, number, 'x' | 'z'][]; potted?: [number, number, number, number][] } = { trees: [], bushes: [], hedges: [] }) {
   const P = T.P
   const r = rng(77)
   const F = new FoliageBuilder(77, q === 'high' ? 1 : q === 'medium' ? 0.7 : 0.45)
@@ -173,9 +174,11 @@ export function vegetation(T: Town, q: Quality, avoid: (x: number, z: number) =>
   }
   // garden bushes: lumpy cores + leaf shells, a few greens (and the odd autumn one)
   const greens = [C('#3d5a33'), C('#4a6b38'), C('#34502f'), C('#6b6a2a')]
-  const bushSpots: [number, number][] = [[-7, -10], [7, -10], [-7, 10.5], [7, 10.5], [-12.5, 6.5], [-12.5, -1.5], [12, 1.5], [12, -9.5], [-4, 27], [4, 27], [-24, 13], [-21, 19.5], [-18, -18], [-24, -6], [18, -12], [-29, 12], ...extra.bushes]
+  const bushSpots: [number, number][] = [[-7, -10], [7, -10], [-7, 10.5], [7, 10.5], [-12.5, 6.5], [-12.5, -1.5], [12, 1.5], [12, -9.5], [-6.6, 27.6], [6.6, 27.6], [-24, 13], [-21, 19.5], [-18, -18], [-24, -6], [18, -12], [-29, 12], ...extra.bushes]
   for (const [x, z] of bushSpots)
     for (let k = 0; k < 3; k++) F.bush(x + (r() - 0.5) * 1.6, 0, z + (r() - 0.5) * 1.6, 0.75 + r() * 0.45, greens[Math.floor(r() * greens.length)])
+  // planter shrubs (raised: they sit on the soil line of a stone planter)
+  for (const [x, y, z, s] of extra.potted ?? []) F.bush(x, y, z, s, C('#3f5e34'))
   // clipped hedges along the north road and the plaza mouth (same footprint + colliders as before)
   const hedgeGreen = C('#2f4a2b')
   for (const side of [-1, 1]) {
@@ -274,9 +277,9 @@ export function clutter(T: Town) {
     T.colliders.push({ kind: 'circle', x, z, r: 0.75, h: 0.9 })
   }
 
-  // broken cart by the Hollow House track
-  const cx = 14.5
-  const cz = -16.5
+  // broken cart beside (not on) the Hollow House track
+  const cx = 17.6
+  const cz = -13.1
   T.batch.put(boxUV(2.2, 0.5, 1.2, 1), P.woodRotten, cx, 0.55, cz, 0.4)
   const wheel = new THREE.TorusGeometry(0.42, 0.06, 6, 14)
   T.batch.put(wheel, P.woodRotten, cx + 0.6, 0.42, cz + 0.75, 0.4)
@@ -376,14 +379,31 @@ export function castle(T: Town, style: KingdomStyle, SM: StyleMats) {
     T.batch.put(new THREE.PlaneGeometry(0.5, 1), P.windowLit, x, h * 0.7, Z + r + 0.02, 0, 1, 1, 1, { cast: false })
     T.colliders.push({ kind: 'circle', x, z: Z, r: r + 0.3, h })
   }
+  // heraldic banners hung from iron poles under the battlements (they used to poke above the wall top),
+  // spaced clear of the forecourt houses' eaves, plus carved jack-o'-lantern sconces on iron brackets
   const bTex = bannerTexture()
-  const bMat = new THREE.MeshStandardMaterial({ map: bTex, roughness: 0.8, side: THREE.DoubleSide })
+  const bMat = new THREE.MeshStandardMaterial({ map: bTex, roughness: 0.78, side: THREE.DoubleSide, alphaTest: 0.5 })
   T.disposables.push(bTex, bMat)
-  for (const x of [-10, -16, 10, 16]) {
-    const c = new Cloth(2, 4, bMat, 0.18)
-    c.mesh.position.set(x, 7, Z + 1.28)
+  for (const x of [-14.5, -19.5, 14.5, 19.5]) {
+    T.batch.put(new THREE.CylinderGeometry(0.035, 0.035, 1.9, 8).rotateZ(Math.PI / 2), P.iron, x, 7.55, Z + 1.45)
+    for (const s of [-1, 1]) {
+      T.batch.put(new THREE.BoxGeometry(0.06, 0.06, 0.32), P.iron, x + s * 0.9, 7.55, Z + 1.32)
+      T.batch.put(new THREE.SphereGeometry(0.06, 10, 8), P.gold, x + s * 0.98, 7.55, Z + 1.45)
+    }
+    const c = new Cloth(1.6, 3.2, bMat, 0.12)
+    c.mesh.position.set(x, 7.45, Z + 1.47) // cloth hangs from its top edge, just under the pole
     T.scene.add(c.mesh)
     T.cloths.push(c)
+  }
+  for (const x of [-8, -11.6, -17, 8, 11.6, 17]) {
+    const y = 4.3
+    const fz = Z + 1.2
+    T.batch.put(boxUV(0.34, 0.5, 0.08, 1), P.iron, x, y + 0.1, fz + 0.04) // wall plate
+    T.batch.put(new THREE.BoxGeometry(0.05, 0.05, 0.5), P.iron, x, y + 0.22, fz + 0.3) // arm
+    T.batch.put(new THREE.TorusGeometry(0.27, 0.03, 6, 20).rotateX(Math.PI / 2), P.iron, x, y - 0.2, fz + 0.5) // cradle ring
+    T.batch.put(new THREE.CylinderGeometry(0.02, 0.02, 0.32, 6), P.iron, x, y + 0.07, fz + 0.5)
+    if (T.pumpkins) T.pumpkins.add(x, y - 0.12, fz + 0.5, { r: 0.3, face: Math.abs(x) % 4 > 2 ? 1 : 3, facing: 0, v: Math.abs(x) > 12 ? 2 : 0 })
+    T.lights.push({ x, y: y + 0.3, z: fz + 1.2, color: '#ff8a30', intensity: 4, dist: 5, priority: 5 })
   }
   keep(T, style, SM)
   // flags on the gatehouse
@@ -452,7 +472,7 @@ function keep(T: Town, style: KingdomStyle, SM0: StyleMats) {
   for (let k = 0; k < 4; k++) T.batch.put(new THREE.PlaneGeometry(0.6, 1.4), SM.farWindow, Math.sin((k * Math.PI) / 2) * (gr + 0.02), gh - 5, Z - 0.5 + Math.cos((k * Math.PI) / 2) * (gr + 0.02), (k * Math.PI) / 2, 1, 1, 1, { cast: false })
   // a pennant on the very top
   const flagTex = bannerTexture()
-  const flagMat = new THREE.MeshStandardMaterial({ map: flagTex, roughness: 0.8, side: THREE.DoubleSide, color: style.id === 'balanced' ? '#ffffff' : style.banner[0] })
+  const flagMat = new THREE.MeshStandardMaterial({ map: flagTex, roughness: 0.8, side: THREE.DoubleSide, alphaTest: 0.5, color: style.id === 'balanced' ? '#ffffff' : style.banner[0] })
   T.disposables.push(flagTex, flagMat)
   const flag = new Cloth(2.2, 1.2, flagMat, 0.3)
   flag.mesh.rotation.z = -Math.PI / 2

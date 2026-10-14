@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { isNight } from './daylight'
 import type { Town } from './buildings'
 import { boxUV, gableGeo } from './kit'
 import { Frame, PANEL, channelLetters, framedBoard, hangingSign, panelTexture, type PanelStyle, type SignMats } from './signs'
@@ -54,8 +55,36 @@ export function shop(T: Town, M: ArchMats, s: ShopSpec, letterMat?: THREE.Materi
   const F = Frame.at(T.batch, s.x, 0, s.z, s.ry)
   const H = GROUND_H + (s.floors - 1) * FLOOR_H
   const fz = s.d / 2 // facade plane
-  // body, plinth, string course between ground + upper floors, cornice
-  F.put(boxUV(s.w, H, s.d, 2), M.wall, 0, H / 2, 0)
+  // body, plinth, string course between ground + upper floors, cornice. The ground floor's display windows are
+  // real openings: the main body stops BAY behind the facade and the shopfront is built as piers, a riser and a
+  // lintel band around open display bays (the old glazing sat inside a solid box, so you saw wall in the frames)
+  const BAY = 1.3
+  const doorW = 1.3
+  const winW = Math.max(1.2, (s.w - doorW - 1.6) / 2)
+  F.put(boxUV(s.w, H, s.d - BAY, 2), M.wall, 0, H / 2, -BAY / 2)
+  if (H > GROUND_H) F.put(boxUV(s.w, H - GROUND_H, BAY, 2), M.wall, 0, GROUND_H + (H - GROUND_H) / 2, fz - BAY / 2)
+  {
+    const winTop = 2.95
+    const sill = 0.74
+    const inner = doorW / 2 + 0.4 // door bay half-width
+    const outer = inner + winW // outer edge of each window
+    F.put(boxUV(s.w, GROUND_H - winTop, BAY, 2), M.wall, 0, winTop + (GROUND_H - winTop) / 2, fz - BAY / 2) // lintel band
+    const REC = 0.35 // door recess
+    for (const sx of [-1, 1]) {
+      F.put(boxUV(winW, sill, BAY, 1), M.wall, sx * (inner + winW / 2), sill / 2, fz - BAY / 2) // riser under each window
+      if (s.w / 2 - outer > 0.01) F.put(boxUV(s.w / 2 - outer, winTop, BAY, 2), M.wall, sx * (outer + (s.w / 2 - outer) / 2), winTop / 2, fz - BAY / 2) // end pier
+      F.put(boxUV(inner - doorW / 2, winTop, REC, 1), M.wall, sx * (doorW / 2 + (inner - doorW / 2) / 2), winTop / 2, fz - REC / 2) // door jamb
+    }
+    F.put(boxUV(inner * 2, winTop, BAY - REC, 2), M.wall, 0, winTop / 2, fz - REC - (BAY - REC) / 2) // behind the door
+    // inside each bay: a display platform, a plinth of goods, the lit shop interior on the back wall
+    for (const sx of [-1, 1]) {
+      const cx = sx * (inner + winW / 2)
+      F.box(winW, 0.06, BAY - 0.12, M.plinth, cx, sill + 0.03, fz - BAY / 2 - 0.06)
+      F.box(Math.min(0.7, winW * 0.4), 0.45, 0.5, M.trim, cx + sx * winW * 0.15, sill + 0.28, fz - BAY + 0.45)
+      if (s.display) F.put(new THREE.PlaneGeometry(winW, winTop - sill), s.display, cx, sill + (winTop - sill) / 2, fz - BAY + 0.005, 0, 0, 0, false)
+      if (isNight()) F.box(winW - 0.14, 0.05, 0.05, T.P.glowGold, cx, winTop - 0.07, fz - 0.32) // warm strip light inside the window head
+    }
+  }
   F.put(boxUV(s.w + 0.12, 0.45, s.d + 0.12, 1.2), M.plinth, 0, 0.225, 0)
   if (s.floors > 1) F.put(boxUV(s.w + 0.16, 0.18, s.d + 0.16, 1.2), M.trim, 0, GROUND_H + 0.05, 0)
   F.put(boxUV(s.w + 0.34, 0.3, s.d + 0.34, 1.2), M.trim, 0, H + 0.12, 0)
@@ -66,23 +95,22 @@ export function shop(T: Town, M: ArchMats, s: ShopSpec, letterMat?: THREE.Materi
   }
 
   // ── ground floor shopfront: two display windows either side of a recessed door ──
-  const doorW = 1.3
-  const winW = Math.max(1.2, (s.w - doorW - 1.6) / 2)
   for (const sx of [-1, 1]) {
     const cx = sx * (doorW / 2 + 0.4 + winW / 2)
     // stall riser, sill, glazing recessed 0.12, frame, transom bar, mullion
     F.put(boxUV(winW + 0.2, 0.7, 0.16, 1), M.plinth, cx, 0.35, fz + 0.06)
     F.box(winW + 0.3, 0.08, 0.3, M.trim, cx, 0.74, fz + 0.12)
-    if (s.display) F.put(new THREE.PlaneGeometry(winW - 0.1, 1.9), s.display, cx, 1.75, fz - 0.24, 0, 0, 0, false)
     F.put(new THREE.PlaneGeometry(winW, 2.1), M.shopGlass, cx, 1.83, fz - 0.1, 0, 0, 0, false)
     for (const [bw, bh, bx, by] of [[winW + 0.16, 0.1, 0, 2.93], [0.1, 2.2, -winW / 2 - 0.03, 1.83], [0.1, 2.2, winW / 2 + 0.03, 1.83], [winW, 0.06, 0, 2.35], [0.06, 1.55, 0, 1.55]] as const) F.box(bw, bh, 0.1, M.frame, cx + bx, by, fz - 0.05)
   }
   // recessed door with a stone surround, panelled leaves, a step and a fanlight
-  F.box(doorW + 0.5, 3.0, 0.14, M.trim, 0, 1.5, fz + 0.02)
-  F.box(doorW, 2.5, 0.3, M.frame, 0, 1.25, fz - 0.2) // reveal (dark)
-  F.box(doorW - 0.08, 2.35, 0.06, M.door, 0, 1.22, fz - 0.33)
-  for (const dx of [-0.3, 0.3]) for (const y of [0.7, 1.7]) F.box(0.42, 0.7, 0.03, M.frame, dx, y, fz - 0.29)
-  F.put(new THREE.CircleGeometry(0.5, 16, 0, Math.PI), M.glass, 0, 2.5, fz - 0.31, 0, 0, 0, false)
+  // (the door sits at the back of a real 0.35 m recess: stone jambs either side, leaves, a fanlight above)
+  for (const sx of [-1, 1]) F.box(0.2, 2.95, 0.14, M.trim, sx * (doorW / 2 + 0.1), 1.475, fz + 0.02)
+  F.box(doorW - 0.04, 2.4, 0.06, M.door, 0, 1.2, fz - 0.32)
+  F.box(0.03, 2.4, 0.07, M.frame, 0, 1.2, fz - 0.31) // meeting stile
+  for (const dx of [-0.3, 0.3]) for (const y of [0.7, 1.7]) F.box(0.42, 0.7, 0.03, M.frame, dx, y, fz - 0.28)
+  F.box(doorW, 0.08, 0.1, M.frame, 0, 2.44, fz - 0.31) // transom
+  F.put(new THREE.CircleGeometry(0.48, 20, 0, Math.PI), M.glass, 0, 2.47, fz - 0.33, 0, 0, 0, false)
   F.box(doorW + 0.6, 0.12, 0.5, M.plinth, 0, 0.06, fz + 0.25)
   // fascia (above the shopfront) + its sign
   const fasciaY = 3.22
@@ -178,7 +206,10 @@ export function archMats(T: Town, style: ArchStyle, stoneTex: THREE.Texture | nu
     return m
   }
   const frame = std({ color: '#2a2c33', metalness: 0.45, roughness: 0.5 })
-  const shopGlass = std({ color: '#9fc0d8', metalness: 0.1, roughness: 0.08, transparent: true, opacity: 0.28, depthWrite: false })
+  // night: barely-there glazing so the lamplit display reads (a mirror of the night sky hid it)
+  const shopGlass = isNight()
+    ? std({ color: '#c8d4e0', metalness: 0, roughness: 0.25, transparent: true, opacity: 0.1, depthWrite: false, envMapIntensity: 0.25 })
+    : std({ color: '#9fc0d8', metalness: 0.1, roughness: 0.08, transparent: true, opacity: 0.28, depthWrite: false })
   const sign: SignMats = { frame: P.iron, metal: P.iron, gold: P.gold, stone: P.stoneLight }
   if (style === 'stone') return { wall: std({ map: stoneTex, color: '#dccbae' }), trim: std({ map: stoneTex, color: '#f1e6d1' }), plinth: std({ map: stoneTex, color: '#b9a88e' }), roof: P.roofSlate, glass, frame, shopGlass, door: std({ color: '#3a2a22', roughness: 0.6 }), sign }
   if (style === 'render') return { wall: std({ map: P.plaster.map, color: '#f0dcc0' }), trim: std({ map: stoneTex, color: '#f4ead8' }), plinth: std({ map: stoneTex, color: '#a9997f' }), roof: P.roofSlate, glass, frame, shopGlass, door: std({ color: '#24453a', roughness: 0.6 }), sign }
@@ -254,7 +285,7 @@ export function displayMaterial(T: Town, tint: string, goods: 'shelves' | 'racks
   }
   const t = new THREE.CanvasTexture(c)
   t.colorSpace = THREE.SRGBColorSpace
-  const m = new THREE.MeshBasicMaterial({ map: t, color: '#cfc6be' })
+  const m = new THREE.MeshBasicMaterial({ map: t, color: isNight() ? new THREE.Color('#ffd9a8').multiplyScalar(1.25) : '#cfc6be' })
   T.disposables.push(t, m)
   return m
 }

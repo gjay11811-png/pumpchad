@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { isNight } from './daylight'
 import type { Town } from './buildings'
 import { ARCADE, ARCADE_STREET } from './city'
 import { tube } from '../gym/gymArt'
@@ -63,7 +64,7 @@ export function eastside(T: Town, stoneTex: THREE.Texture) {
   const glass = std({ color: '#3a5068', roughness: 0.08, metalness: 0.65, emissive: '#0c1422' })
   const SM: SignMats = { frame: P.iron, metal: P.iron, gold: P.gold, stone: P.stoneLight }
   const darkMetal = std({ color: '#26252b', metalness: 0.7, roughness: 0.4 })
-  const orangeLetters = std({ color: '#ff8a2a', metalness: 0.3, roughness: 0.45 })
+  const orangeLetters = std({ color: '#ff8a2a', metalness: 0.3, roughness: 0.45, ...(isNight() ? { emissive: '#ff8a2a', emissiveIntensity: 1.8 } : {}) })
   const lightStrip = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffcf8a').multiplyScalar(1.25), toneMapped: false })
   Dp.push(lightStrip)
   const stone = archMats(T, 'stone', stoneTex, glass)
@@ -227,7 +228,7 @@ export function eastside(T: Town, stoneTex: THREE.Texture) {
     const panelDark = std({ color: '#2a2036', roughness: 0.55, metalness: 0.3 })
     const purpleTrim = std({ color: '#7a4ad8', roughness: 0.4, metalness: 0.4 })
     const bulb = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffd27a').multiplyScalar(1.4), toneMapped: false })
-    const neonLetters = new THREE.MeshStandardMaterial({ color: '#ffb24a', emissive: '#ff8a1a', emissiveIntensity: 0.55, metalness: 0.2, roughness: 0.4 })
+    const neonLetters = new THREE.MeshStandardMaterial({ color: '#ffb24a', emissive: '#ff8a1a', emissiveIntensity: isNight() ? 2.2 : 0.55, metalness: 0.2, roughness: 0.4 })
     Dp.push(bulb, neonLetters)
     F.put(boxUV(W, H, Dd, 2), stone.wall, 0, H / 2, 0)
     F.put(boxUV(W + 0.2, 0.6, Dd + 0.2, 1.2), stone.plinth, 0, 0.3, 0)

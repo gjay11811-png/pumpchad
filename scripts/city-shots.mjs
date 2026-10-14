@@ -31,6 +31,15 @@ const VIEWS = {
   lawn: { play: [14, 50, PI / 2 + 0.6, -10, 0] },
   aerial: { cam: [[-30, 45, 95], [0, 0, 5], 50] },
   'aerial-n': { cam: [[40, 40, -60], [0, 0, 10], 50] },
+  'castle-wall': { cam: [[-14, 3.2, -22.5], [-14, 5.5, -31], 60] },
+  'square-gate': { cam: [[0, 1.8, 36.5], [0, 4.6, 27.5], 60] },
+  'square-gate-n': { cam: [[2.5, 1.8, 20], [0, 4.4, 27.5], 60] },
+  'hollow-track': { cam: [[9, 6, -8], [16, 0, -18], 60] },
+  'shop-window': { cam: [[34, 1.7, 19.5], [34, 1.5, 13], 55] },
+  'plan-n': { cam: [[0, 70, -2], [0, 0, -1.9], 55] },
+  'plan-s': { cam: [[0, 70, 46], [0, 0, 46.1], 55] },
+  'plan-e': { cam: [[40, 70, 14], [40, 0, 14.1], 55] },
+  'plan-w': { cam: [[-40, 70, 14], [-40, 0, 14.1], 55] },
 }
 const b = await chromium.launch({ executablePath: process.env.LOCALAPPDATA + '/ms-playwright/chromium-1228/chrome-win64/chrome.exe' })
 const errs = []

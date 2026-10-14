@@ -8,14 +8,14 @@ import { audio } from '../audio'
 import { disposeObject, type Engine, type GameScene } from '../engine/Engine'
 import type { Input } from '../input'
 import type { Quality } from '../save'
-import { entranceArch, forge, hollowHouse, house, stripeMats, tavern, type Collider, type Town } from './world/buildings'
-import { Leaves, Particles, type Fire, type Cloth } from './world/fx'
+import { forge, hollowHouse, house, stripeMats, tavern, type Collider, type LightSpot, type Town } from './world/buildings'
+import { Fireflies, Leaves, Particles, type Fire, type Cloth } from './world/fx'
 import { StaticBatch, makePalette } from './world/kit'
 import { Crowd, RESIDENTS } from './world/npcs'
 import { CASTLE_Z, ROADS, buildGround, castle, clutter, fence, lampPosts, poles, stringLights, vegetation } from './world/props'
 import { BENCHES, kingdom, mountains, valleyRoad } from './world/kingdom'
 import { GARDEN, SPAWN, bridgeHeight, clampToCity } from './world/city'
-import { buildDaylight, skyPresetFromUrl } from './world/daylight'
+import { buildDaylight, isNight, skyPresetFromUrl } from './world/daylight'
 import { B4S_BENCH, PLAZA_BENCHES, SEAT_FWD } from './world/props'
 
 /** every bench the player can sit on: the lookout benches + the plaza benches b4s isn't using */
@@ -31,7 +31,7 @@ const BASE_SEATS = [
   ...BENCHES.map((b) => ({ x: b.x, z: b.z, ry: b.ry, label: 'Sit by the canal' })),
   ...PLAZA_BENCHES.filter((_, i) => i !== B4S_BENCH).map((b) => ({ x: b.x, z: b.z, ry: b.ry, label: 'Sit by the fountain' })),
 ]
-import { buildChadCity } from './world/skyline'
+import { buildChadCity } from './world/gothicCity'
 import { kingdomStyle, styleMaterials } from './world/style'
 import * as TX from './world/textures'
 import { RushGame } from '../minigames/pumpkinRush'
@@ -39,6 +39,7 @@ import { flowerTexture } from './world/foliage'
 import { fountainV4 } from './world/fountain'
 import { fingerpost } from './world/wayfinding'
 import { railingMaterial, waterfront } from './world/waterfront'
+import { chadSquareGate } from './world/squaregate'
 import { arrival } from './world/gateway'
 import { perimeter } from './world/perimeter'
 import { citadel, CITADEL } from './world/citadel'
@@ -141,6 +142,13 @@ export class World implements GameScene {
   private smoke: Particles | null = null
   private embers: Particles | null = null
   private leaves: Leaves | null = null
+  private cityStacks: Particles | null = null
+  private fireflies: Fireflies[] = []
+  /** night: a small pool of point lights handed to the lamps / torches / lanterns nearest the player */
+  private lightPool: { light: THREE.PointLight; spot: LightSpot | null; target: number }[] = []
+  private lightSpots: LightSpot[] = []
+  private poolTimer = 0
+  readonly night = isNight()
   private city: ReturnType<typeof buildChadCity> | null = null
   private daylight: ReturnType<typeof buildDaylight> | null = null
   private disposables: (THREE.Material | THREE.Texture | THREE.BufferGeometry)[] = []
@@ -178,7 +186,7 @@ export class World implements GameScene {
     const s = this.scene
     s.environment = engine.env
     s.environmentIntensity = 0.5
-    this.bloom = 0.22 // daylight: only the sun glints and a few accents bloom
+    this.bloom = this.night ? 0.6 : 0.22 // night: windows, lanterns, the moon and the fires halo; day: only glints
     this.buildTown(quality)
     this.camYaw = this.playerYaw + Math.PI
   }
@@ -200,7 +208,7 @@ export class World implements GameScene {
       stone: stoneBlocks(),
       flowers: flowerTexture([]),
     }
-    const P = makePalette(tex)
+    const P = makePalette(tex, this.night)
     Object.values(tex).forEach((t) => this.disposables.push(t))
     Object.values(P).forEach((m) => this.disposables.push(m))
     const T: Town = { batch: new StaticBatch(), P, scene: this.scene, colliders: this.colliders, smoke: [], embers: [], fires: [], cloths: [], lights: [], dynamic: [], disposables: this.disposables, pumpkins: new PumpkinBuilder() }
@@ -228,13 +236,13 @@ export class World implements GameScene {
 
     // ── districts ──
     const style = kingdomStyle()
-    const SM = styleMaterials(style, tex, this.disposables)
+    const SM = styleMaterials(style, tex, this.disposables, this.night)
     castle(T, style, SM)
-    citadel(T, SM)
+    const citadelShrubs = citadel(T, SM)
     tavern(T, -12, 19, 'e')
     forge(T, -16, -13, 's')
     hollowHouse(T, 21, -19.5, 'w')
-    entranceArch(T, 27.5)
+    chadSquareGate(T, 27.5, SM.stone, SM.trim)
     house(T, { x: -9.5, z: -19, w: 6, d: 5, face: 'e', roof: P.roofSlate, seed: 3 })
     house(T, { x: 9.5, z: -19.5, w: 6, d: 5, face: 'w', roof: P.roofRed, seed: 7 })
     house(T, { x: -25, z: 13.5, w: 6, d: 5, face: 'n', roof: P.roofOrange, seed: 11 })
@@ -279,6 +287,7 @@ export class World implements GameScene {
     eastside(T, tex.stone)
     const extraSeats: BenchSpot[] = []
     const greenery = westside(T, SM.stone, SM.trim, stripes[1], extraSeats)
+    greenery.potted = citadelShrubs
     lawns(T, SM.trim, extraSeats, greenery)
     this.seats.push(...extraSeats)
     chadRides(T, SM.trim)
@@ -290,11 +299,11 @@ export class World implements GameScene {
     lampPosts(T, [
       [-4.4, 48.5], [4.4, 48.5], [-4.4, 56.5], [4.4, 56.5], [-4.4, 69.5], [4.4, 69.5],
       [-8, 35.8], [8, 35.8], [-15, 35.8], [15, 35.8], [-23, 35.8], [23, 35.8], [-12, 46.4], [12, 46.4], [-24, 46.4], [24, 46.4],
-      [14, 15.6], [22, 15.6], [14, 22.4], [22, 22.4], [29.6, 15.7], [29.6, 22.3], [46.2, 15.7], [46.2, 22.3],
+      [14, 15.6], [22, 15.6], [14, 22.4], [22, 22.4], [29.6, 15.7], [29.6, 22.3], [37.45, 15.7], [37.45, 22.3], [46.2, 15.7], [46.2, 22.3],
       [-33.5, 12.4], [-54.5, 12.4], [-33.5, 33.6], [-46, 5.4], [-47, 42], [-58.4, 34],
       [-7.2, -12.6], [7.2, -12.6],
     ])
-    this.city = buildChadCity(this.scene, q, this.disposables)
+    this.city = buildChadCity(this.scene, q, this.disposables, this.night)
     valleyRoad(T, this.city.road)
 
     // vegetation avoids roads, plaza and buildings
@@ -356,22 +365,95 @@ export class World implements GameScene {
     this.fires = T.fires
     this.cloths = T.cloths
     this.dynamic = T.dynamic
-    const maxLights = q === 'high' ? 3 : q === 'medium' ? 2 : 0 // daylight: lamps are accents, not light sources
-    T.lights
-      .sort((a, b) => a.priority - b.priority)
-      .slice(0, maxLights)
-      .forEach((L) => {
-        const pl = new THREE.PointLight(L.color, L.intensity, L.dist, 1.6)
-        pl.position.set(L.x, L.y, L.z)
-        this.scene.add(pl)
-        if (L.fire) {
-          L.fire.light = pl
-          L.fire.baseIntensity = L.intensity
-        }
+    if (this.night) {
+      // night: every lamp, torch and lantern is a candidate; the pool follows the player (see updateLightPool)
+      this.lightSpots = T.lights
+      const N = q === 'high' ? 4 : q === 'medium' ? 3 : 0
+      for (let i = 0; i < N; i++) {
+        const light = new THREE.PointLight('#ffb060', 0, 10, 1.6)
+        light.position.set(0, -50, 0)
+        this.scene.add(light)
+        this.lightPool.push({ light, spot: null, target: 0 })
+      }
+      this.updateLightPool(99)
+      // warm light pools on the ground under every lamp, torch and lantern: one instanced, additive draw call,
+      // so the whole town reads lamplit without paying per-pixel point lights everywhere
+      const spots = T.lights.filter((L) => L.y < 7)
+      const c = document.createElement('canvas')
+      c.width = c.height = 128
+      const g = c.getContext('2d')!
+      const grd = g.createRadialGradient(64, 64, 0, 64, 64, 64)
+      grd.addColorStop(0, 'rgba(255,255,255,0.55)')
+      grd.addColorStop(0.35, 'rgba(255,255,255,0.22)')
+      grd.addColorStop(1, 'rgba(255,255,255,0)')
+      g.fillStyle = grd
+      g.fillRect(0, 0, 128, 128)
+      const pt = new THREE.CanvasTexture(c)
+      const pg = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2)
+      const pm = new THREE.MeshBasicMaterial({ map: pt, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -2, fog: true })
+      this.disposables.push(pt, pg, pm)
+      const pools = new THREE.InstancedMesh(pg, pm, Math.max(1, spots.length))
+      const m4 = new THREE.Matrix4()
+      const col = new THREE.Color()
+      spots.forEach((L, i) => {
+        const r = Math.min(9, Math.max(3.5, L.dist * 0.75))
+        m4.makeScale(r, 1, r).setPosition(L.x, groundHeight(L.x, L.z) + 0.05, L.z)
+        pools.setMatrixAt(i, m4)
+        pools.setColorAt(i, col.set(L.color).multiplyScalar(Math.min(1.1, 0.35 + L.intensity / 22)))
       })
+      pools.count = spots.length
+      pools.renderOrder = 1
+      pools.frustumCulled = false
+      this.scene.add(pools)
+    } else {
+      const maxLights = q === 'high' ? 3 : q === 'medium' ? 2 : 0 // daylight: lamps are accents, not light sources
+      T.lights
+        .sort((a, b) => a.priority - b.priority)
+        .slice(0, maxLights)
+        .forEach((L) => {
+          const pl = new THREE.PointLight(L.color, L.intensity, L.dist, 1.6)
+          pl.position.set(L.x, L.y, L.z)
+          this.scene.add(pl)
+          if (L.fire) {
+            L.fire.light = pl
+            L.fire.baseIntensity = L.intensity
+          }
+        })
+    }
     if (q !== 'low') {
-      this.smoke = new Particles(T.smoke, q === 'high' ? 14 : 9, 'smoke', '#5a5260', false)
-      this.scene.add(this.smoke.points) // (no embers by day)
+      this.smoke = new Particles(T.smoke, q === 'high' ? 14 : 9, 'smoke', this.night ? '#3e3850' : '#5a5260', false)
+      this.scene.add(this.smoke.points)
+      if (this.night && T.embers.length) {
+        this.embers = new Particles(T.embers, q === 'high' ? 10 : 6, 'embers', '#ff8a30', true)
+        this.scene.add(this.embers.points)
+      }
+      // chimney smoke over the Gothic city (scaled up: it's hundreds of metres away)
+      if (this.city.chimneys.length) {
+        this.cityStacks = new Particles(this.city.chimneys, q === 'high' ? 6 : 4, 'smoke', this.night ? '#4a4262' : '#9a96a0', false, 7)
+        this.scene.add(this.cityStacks.points)
+      }
+    }
+    if (this.night) {
+      const k = q === 'high' ? 1 : q === 'medium' ? 0.6 : 0.35
+      const n = (v: number) => Math.max(2, Math.round(v * k))
+      // fireflies over the garden, the canal banks, the orchard, the pumpkin patch and the lawns
+      this.fireflies.push(
+        new Fireflies(
+          [
+            { x: -44, y: 0.4, z: 23, r: 9, n: n(26) },
+            { x: -14, y: 0.3, z: 46.5, r: 7, n: n(12) },
+            { x: 14, y: 0.3, z: 46.5, r: 7, n: n(12) },
+            { x: 44, y: 0.5, z: 1, r: 8, n: n(16) },
+            { x: -23, y: 0.3, z: 60, r: 6, n: n(12) },
+            { x: 16, y: 0.3, z: 54, r: 7, n: n(12) },
+            { x: -53, y: 0.6, z: 38, r: 5, n: n(8) },
+          ],
+          '#d6ff7a',
+        ),
+      )
+      // violet magic motes rising round the fountain and the citadel doors
+      this.fireflies.push(new Fireflies([{ x: 0, y: 0.6, z: 0, r: 5.5, n: n(22) }, { x: 0, y: 0.8, z: -25, r: 5, n: n(16) }, { x: 0, y: 0.8, z: 51, r: 6, n: n(14) }], '#b98cff', 3.5))
+      for (const f of this.fireflies) this.scene.add(f.points)
     }
     this.leaves = new Leaves(q === 'high' ? 90 : q === 'medium' ? 55 : 25)
     this.scene.add(this.leaves.mesh)
@@ -441,7 +523,7 @@ export class World implements GameScene {
   }
 
   private buildSky() {
-    mountains(this.scene, this.disposables)
+    mountains(this.scene, this.disposables, this.night)
   }
 
   private buildInteractables(T: Town) {
@@ -853,6 +935,44 @@ export class World implements GameScene {
     this.camera.lookAt(this.camTarget)
   }
 
+  /**
+   * Night lighting: hand the pool's point lights to the light spots nearest the player (priority breaks ties),
+   * re-chosen a few times a second; intensities ease in/out so lamps never pop. Fires flicker their light.
+   */
+  private updateLightPool(dt: number) {
+    this.poolTimer -= dt
+    const p = this.playerPos
+    if (this.poolTimer <= 0) {
+      this.poolTimer = 0.4
+      const ranked = this.lightSpots
+        .map((L) => ({ L, d: Math.hypot(L.x - p.x, L.z - p.z) + L.priority * 1.5 }))
+        .filter((r) => r.d < 34)
+        .sort((a, b) => a.d - b.d)
+        .slice(0, this.lightPool.length)
+        .map((r) => r.L)
+      const keep = new Set(ranked)
+      // slots already showing a wanted spot keep it; the rest fade out and are reassigned once dark
+      for (const slot of this.lightPool) slot.target = slot.spot && keep.has(slot.spot) ? slot.spot.intensity : 0
+      const shown = new Set(this.lightPool.map((s) => s.spot).filter((s) => s && keep.has(s)))
+      for (const L of ranked) {
+        if (shown.has(L)) continue
+        const free = this.lightPool.find((s) => s.target === 0 && s.light.intensity < 0.05)
+        if (!free) break
+        free.spot = L
+        free.target = L.intensity
+        free.light.color.set(L.color)
+        free.light.distance = L.dist
+        free.light.position.set(L.x, L.y, L.z)
+        shown.add(L)
+      }
+    }
+    const k = Math.min(1, dt * 3)
+    for (const slot of this.lightPool) {
+      const flick = slot.spot?.fire ? 0.85 + Math.sin(this.t * 13 + slot.spot.x) * 0.08 + Math.sin(this.t * 7.3 + slot.spot.z) * 0.07 : 1
+      slot.light.intensity += (slot.target * flick - slot.light.intensity) * k
+    }
+  }
+
   resize(w: number, h: number) {
     const portrait = h > w
     this.camera.fov = portrait ? 66 : 55
@@ -861,6 +981,8 @@ export class World implements GameScene {
     const pr = this.engine.renderer.getPixelRatio()
     this.smoke?.setPixelScale(h, pr)
     this.embers?.setPixelScale(h, pr)
+    this.cityStacks?.setPixelScale(h, pr)
+    for (const f of this.fireflies) f.setPixelScale(h, pr)
   }
 
   update(dt: number) {
@@ -1001,6 +1123,9 @@ export class World implements GameScene {
     this.embers?.update(dt, t)
     this.leaves?.update(dt, t, this.playerPos.x, this.playerPos.z)
     this.city?.update(dt)
+    this.cityStacks?.update(dt, t)
+    for (const f of this.fireflies) f.update(dt, t)
+    if (this.lightPool.length) this.updateLightPool(dt)
     this.daylight?.update(dt, this.playerPos)
     // fountain splash gets louder as you walk up to it
     audio.setWater(1 - Math.min(1, Math.max(0, (Math.hypot(this.playerPos.x, this.playerPos.z) - 5) / 13)))
@@ -1136,6 +1261,8 @@ export class World implements GameScene {
     this.disposables.forEach((d) => d.dispose())
     ;(this.smoke?.points.material as THREE.ShaderMaterial | undefined)?.uniforms.uMap.value.dispose()
     ;(this.embers?.points.material as THREE.ShaderMaterial | undefined)?.uniforms.uMap.value.dispose()
+    ;(this.cityStacks?.points.material as THREE.ShaderMaterial | undefined)?.uniforms.uMap.value.dispose()
+    for (const f of this.fireflies) (f.points.material as THREE.ShaderMaterial).uniforms.uMap.value.dispose()
     this.events.onPrompt(null)
   }
 }

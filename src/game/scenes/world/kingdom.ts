@@ -54,7 +54,7 @@ export function kingdom(T: Town, style: KingdomStyle, M: SM, q: Quality) {
 
   /* ── towers: two along the wall, two closing its ends ── */
   const banner = bannerTexture()
-  const bannerMat = new THREE.MeshStandardMaterial({ map: banner, roughness: 0.8, side: THREE.DoubleSide, color: style.id === 'balanced' ? '#ffffff' : style.banner[0] })
+  const bannerMat = new THREE.MeshStandardMaterial({ map: banner, roughness: 0.8, side: THREE.DoubleSide, alphaTest: 0.5, color: style.id === 'balanced' ? '#ffffff' : style.banner[0] })
   T.disposables.push(banner, bannerMat)
   for (const deg of [192, 210, 330, 348]) {
     const a = deg * DEG
@@ -205,10 +205,11 @@ export function valleyRoad(T: Town, curve: THREE.Curve<THREE.Vector3>) {
 }
 
 /** Distant mountain ranges: two hazy blue layers (unlit, fog-free) framing the valley. */
-export function mountains(scene: THREE.Scene, D: (THREE.Material | THREE.Texture | THREE.BufferGeometry)[]) {
-  const near = new THREE.MeshBasicMaterial({ color: '#8fa7bf', fog: false })
-  const far = new THREE.MeshBasicMaterial({ color: '#a9bdd2', fog: false })
-  const snow = new THREE.MeshBasicMaterial({ color: '#eef3f8', fog: false })
+export function mountains(scene: THREE.Scene, D: (THREE.Material | THREE.Texture | THREE.BufferGeometry)[], night = false) {
+  // night: moonlit violet silhouettes with pale-lilac snow (bright enough to frame the skyline, never glaring)
+  const near = new THREE.MeshBasicMaterial({ color: night ? '#2a2948' : '#8fa7bf', fog: false })
+  const far = new THREE.MeshBasicMaterial({ color: night ? '#3a3762' : '#a9bdd2', fog: false })
+  const snow = new THREE.MeshBasicMaterial({ color: night ? '#8f94c8' : '#eef3f8', fog: false })
   D.push(near, far, snow)
   const R = rng(99)
   for (let i = 0; i < 26; i++) {

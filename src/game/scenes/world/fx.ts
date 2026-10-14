@@ -44,6 +44,8 @@ export class Particles {
     private kind: 'smoke' | 'embers',
     color: string,
     additive: boolean,
+    /** world-size multiplier (distant chimneys: their smoke has to read from hundreds of metres) */
+    private scale = 1,
   ) {
     const n = Math.max(1, emitters.length * perEmitter)
     this.pos = new Float32Array(n * 3)
@@ -88,11 +90,12 @@ export class Particles {
       const k = this.age[i] / this.life[i]
       const s = this.seed[i]
       if (this.kind === 'smoke') {
-        const rise = k * 4.5
-        this.pos[i * 3] = e.x + Math.sin(s + t * 0.3) * 0.3 * k + k * 1.6 // wind drifts east
+        const S = this.scale
+        const rise = k * 4.5 * S
+        this.pos[i * 3] = e.x + (Math.sin(s + t * 0.3) * 0.3 * k + k * 1.6) * S // wind drifts east
         this.pos[i * 3 + 1] = e.y + rise
-        this.pos[i * 3 + 2] = e.z + Math.cos(s + t * 0.25) * 0.3 * k
-        this.size[i] = 1.2 + k * 3.2
+        this.pos[i * 3 + 2] = e.z + Math.cos(s + t * 0.25) * 0.3 * k * S
+        this.size[i] = (1.2 + k * 3.2) * S
         this.alpha[i] = Math.sin(Math.PI * Math.min(1, k * 1.15)) * 0.32
       } else {
         this.pos[i * 3] = e.x + Math.sin(s * 3 + t * 2) * 0.35 * k
@@ -211,5 +214,64 @@ export class Cloth {
     }
     p.needsUpdate = true
     this.mesh.geometry.computeVertexNormals()
+  }
+}
+
+/* ───────── fireflies + magic motes: wandering, blinking HDR points around anchors (one draw call) ───────── */
+export class Fireflies {
+  points: THREE.Points
+  private base: Float32Array
+  private seed: Float32Array
+  private pos: Float32Array
+  private alpha: Float32Array
+  constructor(anchors: { x: number; y: number; z: number; r: number; n: number }[], color: string, private rise = 0) {
+    const n = Math.max(1, anchors.reduce((a, b) => a + b.n, 0))
+    this.base = new Float32Array(n * 3)
+    this.pos = new Float32Array(n * 3)
+    this.seed = new Float32Array(n)
+    this.alpha = new Float32Array(n)
+    const sizes = new Float32Array(n)
+    let i = 0
+    for (const a of anchors)
+      for (let k = 0; k < a.n; k++, i++) {
+        const ang = Math.random() * Math.PI * 2
+        const d = Math.sqrt(Math.random()) * a.r
+        this.base.set([a.x + Math.cos(ang) * d, a.y + Math.random() * 1.6, a.z + Math.sin(ang) * d], i * 3)
+        this.seed[i] = Math.random() * 100
+        sizes[i] = 0.09 + Math.random() * 0.07
+      }
+    const g = new THREE.BufferGeometry()
+    g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3).setUsage(THREE.DynamicDrawUsage))
+    g.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1))
+    g.setAttribute('aAlpha', new THREE.BufferAttribute(this.alpha, 1).setUsage(THREE.DynamicDrawUsage))
+    const m = new THREE.ShaderMaterial({
+      vertexShader: particleVS,
+      fragmentShader: particleFS,
+      uniforms: { uMap: { value: softDot() }, uColor: { value: new THREE.Color(color).multiplyScalar(3) }, uScale: { value: 300 } },
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    })
+    this.points = new THREE.Points(g, m)
+    this.points.frustumCulled = false
+    this.update(0, 0)
+  }
+  setPixelScale(h: number, pr: number) {
+    ;(this.points.material as THREE.ShaderMaterial).uniforms.uScale.value = h * pr * 0.5
+  }
+  update(_dt: number, t: number) {
+    const n = this.seed.length
+    for (let i = 0; i < n; i++) {
+      const s = this.seed[i]
+      const up = this.rise ? ((t * 0.15 + s) % 1) * this.rise : 0
+      this.pos[i * 3] = this.base[i * 3] + Math.sin(t * 0.37 + s) * 0.9 + Math.sin(t * 0.91 + s * 2.3) * 0.3
+      this.pos[i * 3 + 1] = this.base[i * 3 + 1] + Math.sin(t * 0.53 + s * 1.7) * 0.35 + up
+      this.pos[i * 3 + 2] = this.base[i * 3 + 2] + Math.cos(t * 0.41 + s * 0.8) * 0.9
+      const blink = Math.max(0, Math.sin(t * (0.9 + (s % 1) * 0.8) + s * 7))
+      this.alpha[i] = (this.rise ? 0.75 * (1 - ((t * 0.15 + s) % 1)) : 0.15 + 0.85 * blink * blink)
+    }
+    const g = this.points.geometry
+    g.attributes.position.needsUpdate = true
+    g.attributes.aAlpha.needsUpdate = true
   }
 }

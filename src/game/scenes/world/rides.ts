@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { isNight } from './daylight'
 import type { Town } from './buildings'
 import { RIDES, VALLEY_GATE } from './city'
 import { tube } from '../gym/gymArt'
@@ -70,7 +71,7 @@ export function chadRides(T: Town, trim: THREE.Material) {
   const tyre = new THREE.MeshStandardMaterial({ color: '#141316', roughness: 0.85 })
   const seat = new THREE.MeshStandardMaterial({ color: '#1e1b1f', roughness: 0.6 })
   const paints = [new THREE.MeshStandardMaterial({ color: '#ff7a1a', metalness: 0.4, roughness: 0.35 }), new THREE.MeshStandardMaterial({ color: '#6b3fc8', metalness: 0.4, roughness: 0.35 }), new THREE.MeshStandardMaterial({ color: '#e9e3d6', metalness: 0.3, roughness: 0.4 })]
-  const letters = new THREE.MeshStandardMaterial({ color: '#ffb24a', metalness: 0.3, roughness: 0.45 })
+  const letters = new THREE.MeshStandardMaterial({ color: '#ffb24a', metalness: 0.3, roughness: 0.45, ...(isNight() ? { emissive: '#ffa040', emissiveIntensity: 1.7 } : {}) })
   Dp.push(dark, tyre, seat, letters, ...paints)
   const BM = { tyre, steel: P.iron, seat, chrome: P.gold }
 
