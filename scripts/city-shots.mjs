@@ -8,6 +8,16 @@ const URL = process.env.URL || 'http://localhost:4318/chadverse/'
 const PI = Math.PI
 // name: play = [x, z, yaw, dragUp, dragTurn] (gameplay camera)  |  cam = [[cx,cy,cz],[lx,ly,lz],fov] (fixed)
 const VIEWS = {
+  'forest-gate': { cam: [[-80, 2.2, -8], [-80, 2.6, -22], 55] },
+  'forest-path': { play: [-79, -27, PI, -10, 0] },
+  'forest-clearing': { cam: [[-70, 3.2, -41], [-70, 2.4, -56], 55] },
+  'forest-glade': { cam: [[-88, 2.2, -50], [-93, 1.4, -57], 55] },
+  'forest-aerial': { cam: [[-50, 40, -2], [-72, 0, -45], 50] },
+  'lake-arrive': { play: [72, 36.25, -PI / 2, -10, 0] },
+  'lake-shore': { cam: [[78, 2.0, 40], [100, 0.5, 26], 55] },
+  'lake-pier': { play: [98, 40, PI, -10, 0] },
+  'lake-pavilion': { cam: [[98, 2.4, 20], [98, 2.6, 9.4], 55] },
+  'lake-aerial': { cam: [[60, 42, 72], [98, 0, 30], 50] },
   spawn: { play: null },
   gateway: { cam: [[0, 2.2, 66.5], [0, 6.5, 40], 55] },
   'gateway-back': { play: [0, 44.5, 0, 0, 0] },

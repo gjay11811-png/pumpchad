@@ -190,6 +190,15 @@ export function GameApp() {
   cityStepRef.current = (id: string) => {
     if (saveRef.current.progress.discoveries.includes(id)) return
     discover(id)
+    const wilds: Record<string, [string, string]> = {
+      visit_forest: ['Enchanted Forest', 'Follow the lanterns to the Elder Oak'],
+      visit_lake: ['Moonlight Lake', 'Walk the shore path · the pier reaches the middle'],
+    }
+    if (wilds[id]) {
+      notify(`Discovered: ${wilds[id][0]}`, `${wilds[id][1]} · +25 XP`, 'discover')
+      setSave((s) => ({ ...s, progress: { ...s.progress, xp: s.progress.xp + 25 } }))
+      return
+    }
     const names: Record<string, string> = { visit_square: 'Chad Square', visit_gym: 'Pump Gym', visit_arcade: 'Pump Arcade', visit_citadel: 'Chad Citadel', visit_rides: 'Chad Rides' }
     const n = CITY_STEPS.filter((k) => saveRef.current.progress.discoveries.includes(k) || k === id).length
     notify(`Discovered: ${names[id] ?? id}`, n >= CITY_STEPS.length ? 'Chad City explored. Every district, every landmark.' : `Discover Chad City ${n}/${CITY_STEPS.length}`, 'discover')

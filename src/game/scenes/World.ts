@@ -59,6 +59,8 @@ import { CHAMPIONS, NOTICE, squareExtras, standFor } from './world/square'
 import { ARCADE, CANAL, OVERLOOK, RIDES, insideCity } from './world/city'
 import { PumpkinBuilder } from './world/pumpkins'
 import { stallV4 } from './world/market'
+import { FOREST_WISPS, LAKE_FIREFLIES, enchantedForest, lakeLamps, moonlightLake } from './world/wilds'
+import { lakeR } from './world/city'
 import { Pet, type PetKind } from '../character/pet'
 
 export type Interactable = { id: string; label: string; pos: THREE.Vector3; radius: number; kind: 'talk' | 'activity' | 'info' | 'collect' | 'secret' }
@@ -83,6 +85,9 @@ const ZONES: { id: string; inside: (x: number, z: number) => boolean }[] = [
   { id: 'visit_square', inside: (x, z) => Math.hypot(x, z) < 11.5 },
   { id: 'visit_gym', inside: (x, z) => Math.hypot(x - 14.4, z + 4) < 3.5 },
   { id: 'visit_citadel', inside: (x, z) => Math.abs(x) < 6 && z < -12 && z > -26 },
+  // the wilds: districts of their own (a discovery each, not part of Discover Chad City)
+  { id: 'visit_forest', inside: (x, z) => x < -40 && z < -22 },
+  { id: 'visit_lake', inside: (x, z) => x > 66 && lakeR(x, z) < 1.5 },
 ]
 
 /** the Pumpkin Rush cart (start point of the mini-game) on the plaza */
@@ -298,6 +303,8 @@ export class World implements GameScene {
     const greenery = westside(T, SM.stone, SM.trim, stripes[1], extraSeats)
     hauntedQuarter(T, SM.stone, SM.trim)
     motorRow(T, tex.stone)
+    enchantedForest(T, q, extraSeats)
+    moonlightLake(T, wn, q, extraSeats)
     greenery.potted = citadelShrubs
     lawns(T, SM.trim, extraSeats, greenery)
     this.seats.push(...extraSeats)
@@ -315,6 +322,7 @@ export class World implements GameScene {
       [-33.5, 12.4], [-54.5, 12.4], [-33.5, 33.6], [-46, 5.4], [-47, 42], [-58.4, 34],
       [-7.2, -12.6], [7.2, -12.6],
       ...MOTOR_ROW_LAMPS,
+      ...lakeLamps(),
     ])
     this.city = buildChadCity(this.scene, q, this.disposables, this.night)
     valleyRoad(T, this.city.road)
@@ -323,6 +331,7 @@ export class World implements GameScene {
     const avoid = (x: number, z: number) => {
       if (Math.hypot(x, z) < 12.8) return true
       if (x < -58) return true // the Haunted Quarter dresses its own ground
+      if (x > 64 || (x < -40 && z < -18)) return true // so do Moonlight Lake + the Enchanted Forest
       if (x > 28 && z > 29 && z < 58 && (Math.abs(z - 36.25) < 3 || z > 38)) return true // Motor Row: street, forecourts, shops
       for (const r of ROADS) {
         const dx = r.x1 - r.x0, dz = r.z1 - r.z0
@@ -470,6 +479,9 @@ export class World implements GameScene {
       this.fireflies.push(new Fireflies([{ x: 0, y: 0.6, z: 0, r: 5.5, n: n(22) }, { x: 0, y: 0.8, z: -25, r: 5, n: n(16) }, { x: 0, y: 0.8, z: 51, r: 6, n: n(14) }], '#b98cff', 3.5))
       // ghost wisps drifting over the Haunted Quarter's graveyard, its square and its lanes
       this.fireflies.push(new Fireflies([{ x: -96, y: 0.5, z: 15, r: 5, n: n(18) }, { x: -80, y: 0.6, z: 2.5, r: 5, n: n(12) }, { x: -68, y: 0.5, z: 2.5, r: 6, n: n(10) }], '#a8ffe8'))
+      // wisps among the forest trees, fireflies over the lake shore
+      this.fireflies.push(new Fireflies(FOREST_WISPS.map((a) => ({ ...a, n: n(a.n) })), '#a8ffe8', 1.5))
+      this.fireflies.push(new Fireflies(LAKE_FIREFLIES.map((a) => ({ ...a, n: n(a.n) })), '#d6ff7a'))
       for (const f of this.fireflies) this.scene.add(f.points)
     }
     this.leaves = new Leaves(q === 'high' ? 90 : q === 'medium' ? 55 : 25)

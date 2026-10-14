@@ -89,5 +89,6 @@ Nothing is pushed or deployed. To test on a phone over home Wi-Fi: http://192.16
 
 **Known issues:** this laptop (3.5 GB RAM) loses the WebGL context in long or high-quality test runs, so most visual checks are at low/medium quality; long e2e runs time out. Chad Motors cars were reshaped after a first boxy pass — check in person.
 
-**Next task:** double the playable area (now ~11,200 m², target ≥17,000 m²): Moonlight Lake + Enchanted Forest edge first, measured with the same Monte Carlo walkable-union method; then the opening adventure.
+**Next task:** opening adventure (keeper, restore 3 lanterns, golden symbol, first XP + coins, points to the castle; no repeat).
+**Map:** walkable area 17,568 m² (Monte Carlo over the walkable union, canal + lake water excluded) = 2.07× the original Chad City (~8,500 m²). New: Enchanted Forest (3,091 m², via the Haunted Quarter) + Moonlight Lake (3,208 m², via Motor Row). wilds-test passes; e2e/city-test re-run pending (machine memory).
 **Testing note:** this machine (~0.6 GB free RAM) loses the WebGL context during long runs; shop-test treats that as an environment warning. Use Q=low.
