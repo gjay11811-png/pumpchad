@@ -12,7 +12,7 @@ import { ACHIEVEMENTS, defaultSave, levelFor, loadSave, writeSave, type SaveData
 import { STAT_FOR, levelsGained, rollDaily, setRewards } from './progression'
 import { Gym, type GymMode } from './scenes/Gym'
 import { Interior } from './scenes/Interior'
-import { HOUSE, HOUSES, doorSpot } from './scenes/interiors/houses'
+import { HOUSE, HOUSES, doorSpot, setHome } from './scenes/interiors/houses'
 import type { SpawnAt } from './scenes/World'
 import { STATIONS, setXp, type SetState, type StationId } from './workout'
 import { WorkoutPanel } from './ui/WorkoutPanel'
@@ -32,7 +32,8 @@ import { ChallengePanel } from './ui/Challenges'
 import { ShopPanel } from './ui/Shop'
 import { MapJournal } from './ui/MapJournal'
 import { EstateEditor } from './ui/EstateEditor'
-import { PLOT, PLOT_PRICE, type Piece } from './estates'
+import { PLOT, PLOT_PRICE, cottageDoor, type Piece } from './estates'
+import { homeSpec } from './scenes/interiors/home'
 import { FishingPanel, type FishingResult } from './ui/FishingPanel'
 import { fishingXp, type Catch } from './minigames/fishing'
 import { ITEM, coinsForXp } from './economy'
@@ -297,6 +298,12 @@ export function GameApp() {
   handleInteractRef.current = (id: string) => {
     const w = world.current
     if (!w) return
+    if (id === 'house:home') {
+      // build the cottage's interior from the save right now (its door + trophy wall follow your progress)
+      const door = cottageDoor(saveRef.current.progress.estate)
+      if (!door) return
+      setHome(homeSpec(door, saveRef.current))
+    }
     if (id.startsWith('house:')) {
       const h = HOUSE(id.slice(6))
       if (h) void go('interior', { house: h.id, label: `Entering ${h.name}` })

@@ -82,6 +82,15 @@ export function pieceWorld(plot: Plot, p: Piece) {
   return { x: plot.x0 + (f.x0 + f.w / 2) * CELL, z: plot.z0 + (f.z0 + f.h / 2) * CELL, ry: (-p.r * Math.PI) / 2, w: f.w * CELL, d: f.h * CELL }
 }
 
+/** the front door of the first cottage on the plot (world x/z, facing in radians, half-depth to the door face) */
+export function cottageDoor(e: Estate) {
+  const plot = PLOT(e.plot ?? '')
+  const c = e.pieces.find((p) => p.k === 'cottage')
+  if (!plot || !c) return null
+  const w = pieceWorld(plot, c)
+  return { x: w.x, z: w.z, face: w.ry, half: 1.75 }
+}
+
 /** a stored estate, cleaned: unknown plot → none; pieces must be known kinds, in bounds and not overlapping */
 export function sanitizeEstate(v: unknown): Estate {
   const o = (v ?? {}) as Record<string, unknown>

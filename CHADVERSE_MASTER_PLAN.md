@@ -35,20 +35,20 @@ Nothing is pushed or deployed. To test on a phone over home Wi-Fi: http://192.16
 | 9 | Bigger village; every house enterable, unique interiors | ✅ interiors / 📋 more streets | Every existing village building is now enterable — 12 interiors, each with its own layout, wallpaper, floor, lighting and things to inspect: Steward Barnaby, Widow Marrow (witch), Hazel (gardener), Pumbledore (wizard) — all with stairs + lofts — Old Finn, Ivy's lantern workshop, the Flexing Gourd tavern (open again, upstairs rooms), the haunted Hollow House (first Curse clue), and the four Arcade Street shops. New streets of new houses: next. |
 | 10 | Districts | 🔨 1 of 6 built | **Haunted Quarter ✅** — new land west of the garden through an iron gate: two crooked lanes, a square with a weeping-statue fountain and a dead oak, a graveyard + crypt, green ghost lamps, ghost wisps, Grim the gravedigger + a mourner; 7 distinct haunted houses + the crypt, all enterable (Crooked House, Apothecary's Rest, Ravenswood Manor, Dollmaker, Widow's Watch, Lanternless House, Grim's Cottage, Mortimer's Crypt) with Curse clues. Still to build: Castle District interior, Festival Grounds, Chadville Estates, Enchanted Forest, Moonlight Lake. |
 | 11 | Replace outdated NPC models | ✅ first pass | 22 NPCs are now villagers: real human bodies, heads, hair, beards, outfits (CC0 Quaternius, same rig as the animation library), tinted per person, with role pieces (witch / wizard hats, guard helmets + lanterns, caps, bonnets, aprons, baskets, brooms). Coach Gourdon and b4s keep their own looks. Routines with destinations: later. |
-| 12 | Curse of the Chadverse story | 📋 Phase 4 | Quest graph, relic collection, guiding NPCs. |
+| 12 | Curse of the Chadverse story | ✅ ch.1–2 / 📋 ch.3+ | Quest graph, relic collection, guiding NPCs. |
 | 13 | Chad XP + levels | ✅ partly | XP and levels exist. Still to come: XP for quests and minigames, level-gated unlocks, a progress screen. |
 | 14 | Chad Coins | ✅ done (1 coin / 2 XP, save v2) | In-game only. Never linked to $PCHAD and no real-money promises. |
-| 15 | Chadville Estates housing + building | 📋 Phase 5 | Plots, a snap/rotate/preview builder, and upgrades saved locally. Competitions and voting are 🌐. |
-| 16 | Playable minigames | 📋 Phases 4–5 | Pumpkin Rush and coin toss are live. Racing, target, ghost hunt, escape, parkour, maze, dungeon, fishing, farming, treasure hunts and gym challenges come later, each fully playable or not shipped. |
+| 15 | Chadville Estates housing + building | ✅ plots, builder, cottage interior | Plots, a snap/rotate/preview builder, and upgrades saved locally. Competitions and voting are 🌐. |
+| 16 | Playable minigames | ✅ Rush, coin toss, fishing / 📋 rest | Pumpkin Rush and coin toss are live. Racing, target, ghost hunt, escape, parkour, maze, dungeon, fishing, farming, treasure hunts and gym challenges come later, each fully playable or not shipped. |
 | 17 | Daily/weekly competitions + leaderboards | 📋 local → 🌐 | Personal-best boards can be local. Shared boards need a server with anti-cheat. |
 | 18 | Dynamic world events | 📋 Phase 4 | Midnight Pumpkin Hunt, Ghost Invasion, Festival, Thunderstorm. |
-| 19 | Pets/companions | 📋 Phase 5 | |
-| 20 | Creature collection + journal | 📋 Phase 5 | |
+| 19 | Pets/companions | ✅ | |
+| 20 | Creature collection + journal | ✅ fish log / 📋 pets journal | |
 | 21 | Building restoration | 📋 Phase 5 | |
 | 22 | Order of the Golden Pumpkin | 📋 Phase 5 | Tied to the story. |
-| 23 | Legacy profile + home trophies | 📋 Phases 4–5 | |
-| 24 | Shops + economy | 📋 Phase 4 | Shop interiors come with Phase 3. Trading is 🌐. |
-| 25 | Map + quest journal | 📋 Phase 4 | |
+| 23 | Legacy profile + home trophies | ✅ home trophy wall / 📋 legacy | |
+| 24 | Shops + economy | ✅ coins, Fits, Pets / 📋 Motors, furniture, café | Shop interiors come with Phase 3. Trading is 🌐. |
+| 25 | Map + quest journal | ✅ | |
 | 26 | First-time experience | ✅ partly | Flyover, greeter and objectives exist. Still to come: first quest, coin reward and castle clue. |
 | 27 | Sound + per-district music | ✅ partly → 📋 | Ambience exists, with volume sliders in settings. |
 | 28 | Reliable saves | ✅ local / 🌐 cross-device | `localStorage` survives reloads. Cross-device or permanent saves need accounts and a database (e.g. Supabase). This is a decision for you. |
@@ -79,10 +79,11 @@ Nothing is pushed or deployed. To test on a phone over home Wi-Fi: http://192.16
 | Mobile stuck movement + portrait challenges | COMPLETE (simulated) | input.ts, Joystick.tsx, Challenges.tsx | mobile-input-test 51/51 (emulated iPhone 13, NOT a real phone) |
 | Art direction: shopping street style | PARTIAL | ornament.ts (signs, ivy, wisteria, window boxes), architecture.ts | Motor Row + Arcade Street shots |
 | CHAD PETS / CHAD MOTORS / CHAD FITS | PARTIAL: CHAD FITS buying (Vera) + CHAD PETS adoption (Patches) work; Motors talk-only until driving | motorRow.ts, interiors/shops.ts, vehicles.ts, ui/Shop.tsx | interior-test, shop-test, pet-test |
-| Map doubling | PARTIAL: ~8,500 → ~11,200 m² (1.3×); need ~17,000 | city.ts DISTRICTS | Monte-Carlo over walkable union, canal water excluded |
+| Map doubling | DONE: ~8,500 → 18,642 m² (2.19×) | city.ts DISTRICTS | Monte-Carlo over walkable union, canal water excluded |
 | Coins + inventory/ownership (save v2 migration, HUD balance, never negative, unowned colours fall back) | DONE | economy.ts, save.ts, GameApp setSave/buy/wear | shop-test (16 checks) |
 | Companions: cat/ghost/bat/pumpkin; adopt, follow at your side (world + interiors), catch up, send home/call (pause menu), saved | DONE (not in the gym yet; creature journal still missing) | character/pet.ts, economy.ts, World/Interior setPet | pet-test (16 checks) + screenshots |
-| Quests, activities, housing, events, map/journal | MISSING | — | — |
+| Quests (ch.1–2), fishing, housing, map/journal | DONE | atlas.ts, estates.ts, fishing.ts | quest/chapter2/fishing/estates/home/map tests |
+| World events, more activities, NPC routines, Castle District, restoration | MISSING | — | — |
 | Online leaderboards / multiplayer / account saves | BLOCKED: needs backend + identity (decision for Jay) | — | — |
 
 **Area method:** sample the union of the core circle (r 34.5) + district rectangles in `city.ts`, minus canal water; buildings/props are not subtracted (they're small vs. the total).
@@ -95,6 +96,7 @@ Nothing is pushed or deployed. To test on a phone over home Wi-Fi: http://192.16
 **Done:** Fishing at Moonlight Lake (pier head): aim → wait → strike → reel-tension fight, 6 species (rarer further out), 5 casts/round, score + record + XP (daily fatigue) + fish log in the journal; Fish again / Esc. Tuned by simulation (common ~100% landed, Lantern Eel ~97%, Old Gnarly ~11% for a quick player; careless holding always snaps). fishing-test 14/14 (an automated angler plays a full round).
 **Done:** GPU context-loss recovery — a clear 'graphics took a nap' screen with Reload (progress is saved on every change); if the browser restores the context the game rebuilds post-processing and carries on (verified visually). gfx-lost-test 8/8. e2e: 55/57 with the only failure being a context loss on this 3.5 GB machine.
 **Done:** Chadville Estates (west of the arrival lawns, below Chad View): 4 plots, buy one for 120 coins at its gate (one per player), top-down editor on a 2 m grid with 11 pieces (cottage 2×2, tower, fountain, tree, lamp, bench, hedge, fence, flowers, pumpkins, path), place / rotate / move / remove (full refund) / undo, checks for bounds, overlap, coins (never negative) and a 30-piece cap; built pieces render in 3D with collision, signs show ownership, saved + sanitised on load; journal 'A Place of Your Own' + map/travel. Walkable area now 18,642 m² (2.19× the original). estates-test 18/18.
-**Next task:** enter your cottage (a small interior reusing the Interior scene, decorate with a few furniture pieces) — then NPC routines.
+**Done:** your cottage interior — a cottage on your plot gets a working front door (follows the piece's rotation); inside: furnished room + trophy wall (sigil, moonstone, gym cup, rush medal, a mounted fish per species), empty slots show what's left. home-test 8/8.
+**Next task:** NPC daily routines (bounded walks between spots, never blocking doors), then world events.
 **Map:** walkable area 17,568 m² (Monte Carlo over the walkable union, canal + lake water excluded) = 2.07× the original Chad City (~8,500 m²). New: Enchanted Forest (3,091 m², via the Haunted Quarter) + Moonlight Lake (3,208 m², via Motor Row). wilds-test passes; e2e/city-test re-run pending (machine memory).
 **Testing note:** this machine (~0.6 GB free RAM) loses the WebGL context during long runs; shop-test treats that as an environment warning. Use Q=low.

@@ -63,7 +63,7 @@ import { FOREST, FOREST_WISPS, LAKE_FIREFLIES, enchantedForest, lakeLamps, moonl
 import { lakeR } from './world/city'
 import { LANTERNS, SIGIL, guardianLanterns, type GuardianLanterns } from './world/lanterns'
 import { ESTATE_LAMPS, EstateView, estatesDistrict } from './world/estates'
-import { PLOTS, PLOT_PRICE, plotGate, type Estate } from '../estates'
+import { PLOTS, PLOT_PRICE, cottageDoor, plotGate, type Estate } from '../estates'
 import { Pet, type PetKind } from '../character/pet'
 
 export type Interactable = { id: string; label: string; pos: THREE.Vector3; radius: number; kind: 'talk' | 'activity' | 'info' | 'collect' | 'secret' }
@@ -580,6 +580,7 @@ export class World implements GameScene {
     add('gym', 'Enter Pump Gym', 14.4, -4, 2.2, 'activity')
     // every village home + Arcade Street shop: its front door opens into its own interior
     for (const h of HOUSES) {
+      if (h.id === 'home') continue // your cottage's door follows your build (setEstate)
       const d = doorSpot(h)
       add(`house:${h.id}`, `Enter ${h.name}`, d.x, d.z, 1.15, 'activity')
     }
@@ -804,6 +805,13 @@ export class World implements GameScene {
       const mine = e.plot === p.id
       it.label = mine ? 'Build on your plot' : e.plot ? `${p.name} · sold` : `Buy ${p.name} · ${PLOT_PRICE} coins`
       it.kind = mine || !e.plot ? 'activity' : 'info'
+    }
+    // your cottage's front door (the first cottage on your plot)
+    this.interactables = this.interactables.filter((i) => i.id !== 'house:home')
+    const door = cottageDoor(e)
+    if (door) {
+      const out = door.half + 0.7
+      this.interactables.push({ id: 'house:home', label: 'Enter your cottage', pos: new THREE.Vector3(door.x + Math.sin(door.face) * out, 0, door.z + Math.cos(door.face) * out), radius: 1.1, kind: 'activity' })
     }
   }
 

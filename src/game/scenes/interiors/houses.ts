@@ -669,3 +669,9 @@ HOUSES.push(...HAUNTED_INTERIORS)
 HOUSES.push(...SHOP_INTERIORS)
 
 export const HOUSE = (id: string) => HOUSES.find((h) => h.id === id)
+/** your cottage in Chadville Estates: registered (or refreshed) from the save just before you go in */
+export function setHome(spec: HouseSpec) {
+  const i = HOUSES.findIndex((h) => h.id === 'home')
+  if (i >= 0) HOUSES.splice(i, 1)
+  HOUSES.push(spec)
+}
