@@ -6,6 +6,7 @@
 import type { SaveData } from './save'
 import { LANTERNS, SIGIL } from './scenes/world/lanterns'
 import { FOREST } from './scenes/world/wilds'
+import { SPECIES } from './minigames/fishing'
 
 export type MapKind = 'place' | 'shop' | 'quest'
 export type Landmark = {
@@ -102,6 +103,12 @@ export function journal(save: SaveData): JournalEntry[] {
     { id: 'city', title: 'Discover Chad City', status: status(city), steps: city },
     { id: 'wilds', title: 'Beyond the Old Town', status: status(wilds), steps: wilds },
     { id: 'hidden', title: 'Hidden Pumpkins', status: hp >= 6 ? 'done' : 'active', steps: [{ label: `${hp}/6 found · fair spots, no climbing`, done: hp >= 6 }] },
+    {
+      id: 'fish',
+      title: 'Moonlight Lake Fish Log',
+      status: SPECIES.every((s) => has(`fish_${s.id}`)) ? 'done' : SPECIES.some((s) => has(`fish_${s.id}`)) ? 'active' : 'open',
+      steps: SPECIES.map((s) => ({ label: has(`fish_${s.id}`) ? `${s.name} — ${s.blurb}` : '??? · fish off the Moonlight Lake pier', done: has(`fish_${s.id}`) })),
+    },
     { id: 'seeds', title: 'Golden Seeds', status: seeds >= 5 ? 'done' : 'active', steps: [{ label: `${seeds}/5 collected around the city`, done: seeds >= 5 }] },
   ]
 }

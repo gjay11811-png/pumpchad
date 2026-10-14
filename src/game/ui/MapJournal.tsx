@@ -170,8 +170,8 @@ export function MapJournal({
                 </span>
               </div>
               <ul className="mt-2 grid gap-1">
-                {e.steps.map((s) => (
-                  <li key={s.label} className={`flex gap-2 text-[13px] ${s.done ? 'text-bone/50 line-through decoration-bone/30' : 'text-bone/85'}`}>
+                {e.steps.map((s, i) => (
+                  <li key={i} className={`flex gap-2 text-[13px] ${s.done ? 'text-bone/50 line-through decoration-bone/30' : 'text-bone/85'}`}>
                     <span aria-hidden="true">{s.done ? '✓' : '○'}</span>
                     {s.label}
                   </li>

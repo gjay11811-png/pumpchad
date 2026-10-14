@@ -31,10 +31,12 @@ import { IntroOverlay, PhotoMode } from './ui/PhotoMode'
 import { ChallengePanel } from './ui/Challenges'
 import { ShopPanel } from './ui/Shop'
 import { MapJournal } from './ui/MapJournal'
+import { FishingPanel, type FishingResult } from './ui/FishingPanel'
+import { fishingXp, type Catch } from './minigames/fishing'
 import { ITEM, coinsForXp } from './economy'
 
 type Phase = 'boot' | 'title' | 'creator' | 'world' | 'gym' | 'interior' | 'error'
-type Overlay = null | 'pause' | 'settings' | 'achievements' | 'profile' | 'board' | 'welltoss' | 'photo' | 'intro' | 'shop' | 'map'
+type Overlay = null | 'pause' | 'settings' | 'achievements' | 'profile' | 'board' | 'welltoss' | 'photo' | 'intro' | 'shop' | 'map' | 'fishing'
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 const ACH_XP = 25
 /** Discover Chad City: the five places (discovery ids) */
@@ -337,6 +339,10 @@ export function GameApp() {
       return void setDialogue(QUEST2_STONE)
     }
     switch (id) {
+      case 'fishing':
+        input.current?.clear()
+        setOverlay('fishing')
+        break
       case 'rush':
         input.current?.clear()
         setRush('ready')
@@ -691,6 +697,32 @@ export function GameApp() {
     return { xp: r.xp, mult: r.mult, best: Math.max(prev, st.score), newBest: st.score > prev }
   }
 
+  /** a finished fishing round: XP (daily fatigue like the other activities), best score, new species in the log */
+  const finishFishing = (score: number, catches: Catch[]): FishingResult => {
+    const p0 = saveRef.current.progress
+    const r = setRewards(fishingXp(score), 0, rollDaily(p0.daily).sets.fishing ?? 0)
+    const prev = p0.records.fishing ?? 0
+    const fresh = [...new Set(catches.map((c) => c.species.id))].filter((id) => !p0.discoveries.includes(`fish_${id}`))
+    setSave((s) => {
+      const d = rollDaily(s.progress.daily)
+      return {
+        ...s,
+        progress: {
+          ...s.progress,
+          xp: s.progress.xp + (score > 0 ? r.xp : 0),
+          records: { ...s.progress.records, fishing: Math.max(s.progress.records.fishing ?? 0, score) },
+          daily: { day: d.day, sets: { ...d.sets, fishing: (d.sets.fishing ?? 0) + 1 } },
+          discoveries: [...s.progress.discoveries, ...fresh.map((id) => `fish_${id}`)],
+        },
+      }
+    })
+    for (const id of fresh) {
+      const c = catches.find((k) => k.species.id === id)!
+      notify(`New catch: ${c.species.name}`, `${c.species.blurb} · added to your fish log`, 'discover')
+    }
+    return { xp: score > 0 ? r.xp : 0, mult: r.mult, best: Math.max(prev, score), newBest: score > prev }
+  }
+
   const resetProgress = () => {
     const fresh = { ...defaultSave(), settings: saveRef.current.settings }
     setSave(() => fresh)
@@ -919,6 +951,17 @@ export function GameApp() {
                     world.current?.cooldown()
                     notify(`Travelled to ${l.name}`, 'Fast travel · places you’ve reached on foot', 'discover')
                   }}
+                  onBack={() => {
+                    setOverlay(null)
+                    world.current?.cooldown()
+                  }}
+                />
+              )}
+              {overlay === 'fishing' && phase === 'world' && (
+                <FishingPanel
+                  key="fishing"
+                  best={save.progress.records.fishing ?? 0}
+                  onFinish={finishFishing}
                   onBack={() => {
                     setOverlay(null)
                     world.current?.cooldown()

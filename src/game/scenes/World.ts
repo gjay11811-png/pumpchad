@@ -565,6 +565,8 @@ export class World implements GameScene {
   private buildInteractables(T: Town) {
     const add = (id: string, label: string, x: number, z: number, radius: number, kind: Interactable['kind']) => this.interactables.push({ id, label, pos: new THREE.Vector3(x, 0, z), radius, kind })
     add('statue', 'Read the fountain plaque', 0, 6.7, 1.6, 'info')
+    // Moonlight Lake: fishing off the end of the pier
+    add('fishing', 'Fish off the pier', 98, 33.2, 1.6, 'activity')
     add('gate', 'Knock on the citadel doors', 0, -28.2, 1.8, 'info')
     add('gym', 'Enter Pump Gym', 14.4, -4, 2.2, 'activity')
     // every village home + Arcade Street shop: its front door opens into its own interior

@@ -158,6 +158,7 @@ export function ProfileMenu({ save, onBack }: { save: SaveData; onBack: () => vo
       <div className="mt-2 grid grid-cols-2 gap-2 text-[13px]">
         <Row k="Chad Press best" v={p.gymBest ? String(p.gymBest) : '—'} />
         <Row k="Pumpkin Rush best" v={p.records.pumpkin_rush ? String(p.records.pumpkin_rush) : '—'} />
+        <Row k="Fishing best" v={p.records.fishing ? String(p.records.fishing) : '—'} />
         <Row k="Golden seeds" v={`${seeds}/5`} />
         <Row k="Achievements" v={`${p.achievements.length}/${Object.keys(ACHIEVEMENTS).length}`} />
       </div>
