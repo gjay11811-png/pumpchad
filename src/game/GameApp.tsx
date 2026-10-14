@@ -70,6 +70,8 @@ export function GameApp() {
   const [editing, setEditing] = useState(false)
   const [gymMode, setGymMode] = useState<GymMode>('free')
   const [error, setError] = useState('')
+  /** the GPU context was lost (low memory, backgrounded tab): offer a reload — progress is saved on every change */
+  const [gfxLost, setGfxLost] = useState(false)
   const [touch] = useState(() => window.matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window)
   const [levelUp, setLevelUp] = useState<number | null>(null)
   const [sprint, setSprint] = useState(false)
@@ -125,6 +127,8 @@ export function GameApp() {
     let e: Engine
     try {
       e = new Engine(canvas)
+      e.onContextLost = () => setGfxLost(true)
+      e.onContextRestored = () => setGfxLost(false)
     } catch {
       setError('Your browser could not start WebGL, which the Chadverse needs. Try a recent Safari, Chrome or Firefox, or turn on hardware acceleration.')
       setPhase('error')
@@ -999,6 +1003,17 @@ export function GameApp() {
           <AnimatePresence>{phase === 'boot' && <Loading key="loading" pct={boot.pct} label={boot.label} />}</AnimatePresence>
           <Portal show={!!portal} label={portal ?? ''} />
 
+          {gfxLost && phase !== 'error' && (
+            <div className="absolute inset-0 z-[70] flex items-center justify-center bg-ink/85 p-6" role="alertdialog" aria-label="Graphics reset" data-testid="gfx-lost">
+              <div className="panel max-w-md rounded-[24px] p-6 text-center">
+                <p className="font-display text-3xl uppercase">The graphics took a nap</p>
+                <p className="mt-3 text-[15px] text-bone/70">Your device ran low on graphics memory. Your progress is saved — reload to jump back in.</p>
+                <button type="button" onClick={() => location.reload()} className="btn-primary mt-5 inline-flex min-h-12 items-center rounded-full px-6 font-semibold uppercase tracking-wider">
+                  Reload
+                </button>
+              </div>
+            </div>
+          )}
           {phase === 'error' && (
             <div className="absolute inset-0 z-[70] flex items-center justify-center bg-ink p-6">
               <div className="panel max-w-md rounded-[24px] p-6 text-center">

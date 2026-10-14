@@ -92,12 +92,26 @@ export class Engine {
     this.ro = new ResizeObserver(() => this.resize())
     this.ro.observe(canvas.parentElement ?? canvas)
     canvas.addEventListener('webglcontextlost', this.onLost, false)
+    canvas.addEventListener('webglcontextrestored', this.onRestored, false)
     document.addEventListener('visibilitychange', this.onVis)
   }
 
+  /** the app shows a recovery screen while the GPU context is gone (phones drop it when memory runs low) */
+  onContextLost: (() => void) | null = null
+  onContextRestored: (() => void) | null = null
   private onLost = (e: Event) => {
-    e.preventDefault()
+    e.preventDefault() // lets the browser try to restore it
     console.error('[chadverse] WebGL context lost') // always visible: a real failure, not a warning
+    this.onContextLost?.()
+  }
+  private onRestored = () => {
+    // three.js re-uploads its state; the post-processing targets are ours to rebuild
+    try {
+      this.buildComposer()
+      this.onContextRestored?.()
+    } catch (err) {
+      console.error('[chadverse] could not rebuild after a context restore', err) // keep the Reload screen up
+    }
   }
   private onVis = () => (document.hidden ? this.stop() : this.start())
 
@@ -241,6 +255,7 @@ export class Engine {
     this.env.dispose()
     this.ro.disconnect()
     this.canvas.removeEventListener('webglcontextlost', this.onLost)
+    this.canvas.removeEventListener('webglcontextrestored', this.onRestored)
     document.removeEventListener('visibilitychange', this.onVis)
     this.renderer.dispose()
   }
