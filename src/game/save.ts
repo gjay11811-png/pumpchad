@@ -4,9 +4,11 @@
  * Never eval'd, never injected as HTML.
  */
 import { EYEWEAR, GLOWS, HEADWEAR, OUTFITS, SPECIES, TOPS, type Appearance } from './character/types'
+import { CATALOG, PREMIUM_GLOWS, PREMIUM_OUTFITS, coinsForXp, itemForColor } from './economy'
 
 export const SAVE_KEY = 'pumpchad.chadverse.save'
-export const SAVE_VERSION = 1
+/** v2: Chad Coins + owned items (v1 saves migrate: coins from XP already earned) */
+export const SAVE_VERSION = 2
 
 export type Quality = 'low' | 'medium' | 'high'
 
@@ -39,6 +41,10 @@ export type Progress = {
   daily: { day: string; sets: Record<string, number> }
   /** mini-game personal bests (Chad Press best stays in gymBest) */
   records: Record<string, number>
+  /** Chad Coins (in-game currency, never real money) */
+  coins: number
+  /** catalogue item ids the player owns */
+  owned: string[]
 }
 
 export type SaveData = {
@@ -65,7 +71,7 @@ export const defaultSettings = (): Settings => ({
 export const defaultSave = (): SaveData => ({
   version: SAVE_VERSION,
   character: null,
-  progress: { xp: 0, achievements: [], gymBest: 0, gymRuns: 0, discoveries: [], strength: 0, reps: {}, stamina: 0, stats: { sets: 0, clean: 0, bestCombo: 0 }, daily: { day: '', sets: {} }, records: {} },
+  progress: { xp: 0, achievements: [], gymBest: 0, gymRuns: 0, discoveries: [], strength: 0, reps: {}, stamina: 0, stats: { sets: 0, clean: 0, bestCombo: 0 }, daily: { day: '', sets: {} }, records: {}, coins: 0, owned: [] },
   settings: defaultSettings(),
 })
 
@@ -99,8 +105,8 @@ function sanitizeAppearance(a: unknown): Appearance | null {
   return {
     species,
     skin: color(o.skin, skins, skins[0]),
-    outfit: color(o.outfit, OUTFITS, OUTFITS[0]),
-    glow: color(o.glow, GLOWS, GLOWS[0]),
+    outfit: color(o.outfit, [...OUTFITS, ...PREMIUM_OUTFITS], OUTFITS[0]),
+    glow: color(o.glow, [...GLOWS, ...PREMIUM_GLOWS], GLOWS[0]),
     top: oneOf(o.top, TOPS.map((t) => t.id), 'shirtless'),
     headwear: oneOf(o.headwear, HEADWEAR.map((t) => t.id), 'none'),
     eyewear: oneOf(o.eyewear, EYEWEAR.map((t) => t.id), 'shades'),
@@ -162,6 +168,9 @@ export function sanitizeSave(raw: unknown): SaveData {
         return { day, sets: countMap(dl.sets, [...STATION_KEYS, ...RECORD_KEYS], 1000) }
       })(),
       records: countMap(p.records, RECORD_KEYS, 1e6),
+      // v1 → v2 migration: coins for the XP already earned (the same 2 XP = 1 coin rule)
+      coins: o.version < 2 ? coinsForXp(num(p.xp, 0, 1e7, 0)) : Math.floor(num(p.coins, 0, 1e7, 0)),
+      owned: strList(p.owned).filter((id) => CATALOG.some((i) => i.id === id)),
     },
     settings: {
       quality: oneOf(s.quality, ['low', 'medium', 'high'] as const, d.settings.quality),
@@ -176,11 +185,23 @@ export function sanitizeSave(raw: unknown): SaveData {
   }
 }
 
+/** a premium colour that isn't owned (edited save, refund…) falls back to the default colour */
+function enforceOwnership(d: SaveData): SaveData {
+  const a = d.character?.appearance
+  if (!a) return d
+  const outfit = itemForColor('outfit', a.outfit)
+  const glow = itemForColor('glow', a.glow)
+  const fix: Partial<Appearance> = {}
+  if (outfit && !d.progress.owned.includes(outfit.id)) fix.outfit = OUTFITS[0]
+  if (glow && !d.progress.owned.includes(glow.id)) fix.glow = GLOWS[0]
+  return Object.keys(fix).length ? { ...d, character: { ...d.character!, appearance: { ...a, ...fix } } } : d
+}
+
 export function loadSave(): SaveData {
   try {
     const raw = localStorage.getItem(SAVE_KEY)
     if (!raw || raw.length > 50_000) return defaultSave()
-    return sanitizeSave(JSON.parse(raw))
+    return enforceOwnership(sanitizeSave(JSON.parse(raw)))
   } catch {
     return defaultSave() // corrupt JSON or storage blocked: start fresh, never crash
   }

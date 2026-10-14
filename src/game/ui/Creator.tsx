@@ -1,6 +1,7 @@
 import { m } from 'framer-motion'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { GLOWS, OUTFITS, SPECIES, SPECIES_OPTIONS, defaultAppearance, normaliseForSpecies, randomAppearance, type Appearance, type Species } from '../character/types'
+import { CATALOG } from '../economy'
 import { validateName } from '../save'
 import type { PreviewPose, Showroom } from '../scenes/Showroom'
 import { audio } from '../audio'
@@ -42,12 +43,15 @@ export function Creator({
   initialName,
   editing,
   onConfirm,
+  owned = [],
 }: {
   showroom: Showroom
   initial: Appearance | null
   initialName: string
   editing: boolean
   onConfirm: (name: string, a: Appearance) => void
+  /** catalogue items bought at Chad Fits: their colours join the swatches */
+  owned?: string[]
 }) {
   const [a, setA] = useState<Appearance>(() => normaliseForSpecies(initial ?? defaultAppearance('pumpkin')))
   const [name, setName] = useState(initialName)
@@ -112,13 +116,13 @@ export function Creator({
       {tab === 'look' && (
         <div className="space-y-6">
           <Swatches label={a.species === 'skeleton' ? 'Bone' : a.species === 'pumpkin' ? 'Pumpkin skin' : 'Skin'} colors={sp.skins} value={a.skin} onPick={(c) => update({ skin: c })} />
-          <Swatches label="Glow" hint={({ pumpkin: 'Carved face, eyes and visor', skeleton: 'Eye sockets and visor', demon: 'Eyes, skin veins and visor' } as Record<string, string>)[a.species] ?? 'Eyes and visor'} colors={GLOWS} value={a.glow} onPick={(c) => update({ glow: c })} glow />
+          <Swatches label="Glow" hint={({ pumpkin: 'Carved face, eyes and visor', skeleton: 'Eye sockets and visor', demon: 'Eyes, skin veins and visor' } as Record<string, string>)[a.species] ?? 'Eyes and visor'} colors={[...GLOWS, ...CATALOG.filter((i) => i.kind === 'glow' && owned.includes(i.id)).map((i) => i.color)]} value={a.glow} onPick={(c) => update({ glow: c })} glow />
         </div>
       )}
       {tab === 'outfit' && (
         <div className="space-y-6">
           <Segmented label="Top" value={a.top} options={opts.tops} onChange={(v) => update({ top: v })} />
-          <Swatches label={a.top === 'shirtless' ? 'Shorts colour' : a.species === 'skeleton' ? 'Gear colour' : 'Outfit colour'} colors={OUTFITS} value={a.outfit} onPick={(c) => update({ outfit: c })} />
+          <Swatches label={a.top === 'shirtless' ? 'Shorts colour' : a.species === 'skeleton' ? 'Gear colour' : 'Outfit colour'} colors={[...OUTFITS, ...CATALOG.filter((i) => i.kind === 'outfit' && owned.includes(i.id)).map((i) => i.color)]} value={a.outfit} onPick={(c) => update({ outfit: c })} />
         </div>
       )}
       {tab === 'gear' && (

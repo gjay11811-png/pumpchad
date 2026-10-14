@@ -420,7 +420,7 @@ export function SettingsMenu({
   )
 }
 
-function Header({ title, onBack }: { title: string; onBack: () => void }) {
+export function Header({ title, onBack }: { title: string; onBack: () => void }) {
   return (
     <div className="flex items-center justify-between">
       <h2 className="font-display text-4xl uppercase leading-none">{title}</h2>
@@ -431,7 +431,7 @@ function Header({ title, onBack }: { title: string; onBack: () => void }) {
   )
 }
 
-function Overlay({ label, children }: { label: string; children: React.ReactNode }) {
+export function Overlay({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <m.div
       role="dialog"
@@ -456,7 +456,7 @@ function Overlay({ label, children }: { label: string; children: React.ReactNode
   )
 }
 
-function useEsc(fn: () => void) {
+export function useEsc(fn: () => void) {
   useEffect(() => {
     const k = (e: KeyboardEvent) => e.key === 'Escape' && fn()
     window.addEventListener('keydown', k)

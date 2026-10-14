@@ -86,6 +86,7 @@ export function Hud({
                 <div className="h-full rounded-full bg-[linear-gradient(90deg,#f6c870,#ff7a1a)] transition-[width] duration-700" style={{ width: `${pct}%` }} />
               </div>
               <span className="font-mono text-[10px] text-moon">{xp} XP</span>
+              <span className="font-mono text-[10px] font-semibold text-[#ffd25a]" data-testid="hud-coins" aria-label={`${save.progress.coins} Chad Coins`}>◉ {save.progress.coins}</span>
             </div>
           </div>
         </button>

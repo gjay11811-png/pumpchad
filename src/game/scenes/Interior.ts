@@ -147,6 +147,22 @@ export class Interior implements GameScene {
     this.spawn()
   }
 
+  /** re-dress the player in place (a shop purchase put on): the new model takes over where the old one stood */
+  async restyle(a: Appearance) {
+    const p = await createCharacter(a)
+    if (this.disposed) return void disposeCharacter(p)
+    const old = this.player
+    p.onStep = () => audio.play('step')
+    if (old) {
+      p.root.position.copy(old.root.position)
+      p.root.rotation.copy(old.root.rotation)
+      this.scene.remove(old.root)
+      disposeCharacter(old)
+    }
+    this.scene.add(p.root)
+    this.player = p
+  }
+
   /** just inside the front door, facing into the room */
   spawn() {
     this.pos.set(0, 0, this.house.room.d / 2 - 2.0)

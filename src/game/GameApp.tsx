@@ -28,9 +28,11 @@ import { Joystick } from './ui/Joystick'
 import { AchievementsMenu, NoticeBoardMenu, PauseMenu, ProfileMenu, SettingsMenu, WellToss } from './ui/Menus'
 import { IntroOverlay, PhotoMode } from './ui/PhotoMode'
 import { ChallengePanel } from './ui/Challenges'
+import { ShopPanel } from './ui/Shop'
+import { ITEM, coinsForXp } from './economy'
 
 type Phase = 'boot' | 'title' | 'creator' | 'world' | 'gym' | 'interior' | 'error'
-type Overlay = null | 'pause' | 'settings' | 'achievements' | 'profile' | 'board' | 'welltoss' | 'photo' | 'intro'
+type Overlay = null | 'pause' | 'settings' | 'achievements' | 'profile' | 'board' | 'welltoss' | 'photo' | 'intro' | 'shop'
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 const ACH_XP = 25
 /** Discover Chad City: the five places (discovery ids) */
@@ -103,7 +105,11 @@ export function GameApp() {
 
   /** Single write path: updates React state + localStorage together. */
   const setSave = useCallback((fn: (s: SaveData) => SaveData) => {
-    const next = fn(saveRef.current)
+    const prevXp = saveRef.current.progress.xp
+    const next0 = fn(saveRef.current)
+    // Chad Coins follow XP: every XP gain pays coins at the same fixed rate (spending never touches XP)
+    const gained = coinsForXp(next0.progress.xp) - coinsForXp(prevXp)
+    const next = gained > 0 ? { ...next0, progress: { ...next0.progress, coins: next0.progress.coins + gained } } : next0
     saveRef.current = next
     setSaveState(next)
     writeSave(next)
@@ -394,6 +400,7 @@ export function GameApp() {
       const d = doorSpot(h)
       return void go('world', { spawn: { x: d.exit.x, z: d.exit.z, yaw: d.yaw }, label: 'Back outside' })
     }
+    if (id === 'keeper' && h.keeper?.shop) return void setOverlay('shop')
     if (id === 'keeper' && h.keeper) {
       setDialogue({ speaker: h.keeper.line.speaker, role: h.keeper.line.role, lines: h.keeper.line.lines })
       const key = `look_${h.id}_keeper`
@@ -413,6 +420,25 @@ export function GameApp() {
         setSave((s) => ({ ...s, progress: { ...s.progress, xp: s.progress.xp + 10 } }))
       }
     }
+  }
+
+  /** spend Chad Coins on a catalogue item: false (nothing changes) if already owned or not enough coins */
+  const buy = (id: string) => {
+    const it = ITEM(id)
+    const p = saveRef.current.progress
+    if (!it || p.owned.includes(id) || p.coins < it.price) return false
+    setSave((s) => ({ ...s, progress: { ...s.progress, coins: s.progress.coins - it.price, owned: [...s.progress.owned, id] } }))
+    audio.play('achievement')
+    return true
+  }
+  /** put on an owned colour: saved, and the player re-dressed on the spot */
+  const wear = (id: string) => {
+    const it = ITEM(id)
+    const c = saveRef.current.character
+    if (!it || !c || !saveRef.current.progress.owned.includes(id)) return
+    const appearance = { ...c.appearance, [it.kind]: it.color }
+    setSave((s) => ({ ...s, character: { ...c, appearance } }))
+    void interior.current?.restyle(appearance)
   }
 
   /* ── gym floor: stations + the door back out ── */
@@ -629,7 +655,7 @@ export function GameApp() {
 
           <div className="absolute inset-0" style={{ zoom: s.uiScale } as React.CSSProperties}>
             {phase === 'creator' && showroom.current && (
-              <Creator showroom={showroom.current} initial={save.character?.appearance ?? null} initialName={save.character?.name ?? ''} editing={editing} onConfirm={confirmCharacter} />
+              <Creator showroom={showroom.current} initial={save.character?.appearance ?? null} initialName={save.character?.name ?? ''} editing={editing} owned={save.progress.owned} onConfirm={confirmCharacter} />
             )}
 
             {phase === 'world' && (
@@ -697,6 +723,20 @@ export function GameApp() {
                   onChallenges={() => setChallenges(true)}
                 />
                 <AnimatePresence>{dialogue && <DialoguePanel key={dialogue.speaker + dialogue.lines[0]} d={dialogue} onDone={closeDialogue} reduced={s.reducedEffects} />}</AnimatePresence>
+                <AnimatePresence>
+                  {overlay === 'shop' && interior.current.house.keeper?.shop && (
+                    <ShopPanel
+                      key="shop"
+                      shop={interior.current.house.keeper.shop}
+                      title={interior.current.house.name}
+                      keeper={interior.current.house.keeper.line.speaker}
+                      save={save}
+                      onBuy={buy}
+                      onWear={wear}
+                      onBack={() => setOverlay(null)}
+                    />
+                  )}
+                </AnimatePresence>
               </>
             )}
             {phase === 'gym' && gym.current && gymMode === 'free' && (

@@ -37,7 +37,7 @@ Nothing is pushed or deployed. To test on a phone over home Wi-Fi: http://192.16
 | 11 | Replace outdated NPC models | ✅ first pass | 22 NPCs are now villagers: real human bodies, heads, hair, beards, outfits (CC0 Quaternius, same rig as the animation library), tinted per person, with role pieces (witch / wizard hats, guard helmets + lanterns, caps, bonnets, aprons, baskets, brooms). Coach Gourdon and b4s keep their own looks. Routines with destinations: later. |
 | 12 | Curse of the Chadverse story | 📋 Phase 4 | Quest graph, relic collection, guiding NPCs. |
 | 13 | Chad XP + levels | ✅ partly | XP and levels exist. Still to come: XP for quests and minigames, level-gated unlocks, a progress screen. |
-| 14 | Chad Coins | 📋 Phase 4 | In-game only. Never linked to $PCHAD and no real-money promises. |
+| 14 | Chad Coins | ✅ done (1 coin / 2 XP, save v2) | In-game only. Never linked to $PCHAD and no real-money promises. |
 | 15 | Chadville Estates housing + building | 📋 Phase 5 | Plots, a snap/rotate/preview builder, and upgrades saved locally. Competitions and voting are 🌐. |
 | 16 | Playable minigames | 📋 Phases 4–5 | Pumpkin Rush and coin toss are live. Racing, target, ghost hunt, escape, parkour, maze, dungeon, fishing, farming, treasure hunts and gym challenges come later, each fully playable or not shipped. |
 | 17 | Daily/weekly competitions + leaderboards | 📋 local → 🌐 | Personal-best boards can be local. Shared boards need a server with anti-cheat. |
@@ -78,13 +78,15 @@ Nothing is pushed or deployed. To test on a phone over home Wi-Fi: http://192.16
 | Haunted Quarter | PARTIAL (built; restoration/passages/story encounters missing) | hauntedQuarter.ts, interiors/haunted.ts | interior-test |
 | Mobile stuck movement + portrait challenges | COMPLETE (simulated) | input.ts, Joystick.tsx, Challenges.tsx | mobile-input-test 51/51 (emulated iPhone 13, NOT a real phone) |
 | Art direction: shopping street style | PARTIAL | ornament.ts (signs, ivy, wisteria, window boxes), architecture.ts | Motor Row + Arcade Street shots |
-| CHAD PETS / CHAD MOTORS / CHAD FITS | PARTIAL: buildings + interiors + keepers; no buying (needs coins + inventory) | motorRow.ts, interiors/shops.ts, vehicles.ts | interior-test (pets, motors) |
+| CHAD PETS / CHAD MOTORS / CHAD FITS | PARTIAL: CHAD FITS buying works (Vera: browse → buy → wear, owned colours in Creator); Pets/Motors still talk-only | motorRow.ts, interiors/shops.ts, vehicles.ts, ui/Shop.tsx | interior-test, shop-test |
 | Map doubling | PARTIAL: ~8,500 → ~11,200 m² (1.3×); need ~17,000 | city.ts DISTRICTS | Monte-Carlo over walkable union, canal water excluded |
-| Coins, inventory, shops buying, pets, quests, activities, housing, events, map/journal | MISSING | — | — |
+| Coins + inventory/ownership (save v2 migration, HUD balance, never negative, unowned colours fall back) | DONE | economy.ts, save.ts, GameApp setSave/buy/wear | shop-test (16 checks) |
+| Pets adoption/follow, quests, activities, housing, events, map/journal | MISSING | — | — |
 | Online leaderboards / multiplayer / account saves | BLOCKED: needs backend + identity (decision for Jay) | — | — |
 
 **Area method:** sample the union of the core circle (r 34.5) + district rectangles in `city.ts`, minus canal water; buildings/props are not subtracted (they're small vs. the total).
 
 **Known issues:** this laptop (3.5 GB RAM) loses the WebGL context in long or high-quality test runs, so most visual checks are at low/medium quality; long e2e runs time out. Chad Motors cars were reshaped after a first boxy pass — check in person.
 
-**Next task:** shared progression foundation — Chad Coins + inventory/ownership in the save (versioned migration), then make CHAD FITS / CHAD PETS purchases real (browse → buy → own → equip/follow), then the opening adventure.
+**Next task:** CHAD PETS adoption — buy a companion from Patches with Chad Coins (catalogue `shop: 'pets'`), a pet that follows / catches up / can be dismissed + recalled, saved; then the opening adventure.
+**Testing note:** this machine (~0.6 GB free RAM) loses the WebGL context during long runs; shop-test treats that as an environment warning. Use Q=low.

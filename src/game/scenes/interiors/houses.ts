@@ -31,7 +31,7 @@ export type HouseSpec = {
   looks?: Record<string, Line & { at: [number, number]; r?: number; level?: 0 | 1 }>
   build(K: Kit, S: Shell): void
   /** a shopkeeper (a villager) behind the counter; talk from `talkAt` (the customer side) */
-  keeper?: { look: VillagerLook; at: [number, number]; yaw: number; talkAt: [number, number]; line: Line }
+  keeper?: { look: VillagerLook; at: [number, number]; yaw: number; talkAt: [number, number]; line: Line; shop?: 'fits' }
 }
 
 /** world position + facing of a building's door prompt and where you reappear when you leave */
@@ -633,15 +633,23 @@ export const HOUSES: HouseSpec[] = [
     door: { x: 41.4, z: 26.0, face: Math.PI, half: 3.0, out: 0.85 },
     room: { w: 8.2, d: 7, h: 3.6 },
     look: { wall: ['plaster', '#2a2230', '#3a2a44'], floor: '#8a6a4a', trim: '#9b6bff', ceiling: '#2a2230' },
+    keeper: {
+      look: { body: 'f', outfit: 'peasant', cloth: '#2a2230', skin: 0.1, hair: 'buns', hairColor: '#1a1210', apron: '#9b6bff' },
+      at: [0, -3.15],
+      yaw: 0,
+      talkAt: [0, -1.4],
+      shop: 'fits',
+      line: { label: 'Shop with Vera', speaker: 'Vera', role: 'Chad Fits · tailor', lines: ['Welcome to CHAD FITS. Premium colours, paid in Chad Coins — in-game only, never real money.'] },
+    },
     looks: {
-      rack: { at: [0, 0.6], label: 'Browse the racks', speaker: 'Chad Fits', role: 'tees · hoodies · caps', lines: ['Hoodies in pumpkin orange, tees in midnight purple, caps with a tiny gold crown.', 'The changing room has a mirror that makes everyone look 10% more jacked. Clothes arrive with Chad Coins.'] },
+      rack: { at: [0, 0.6], label: 'Browse the racks', speaker: 'Chad Fits', role: 'tees · hoodies · caps', lines: ['Hoodies in pumpkin orange, tees in midnight purple, caps with a tiny gold crown.', 'The changing room has a mirror that makes everyone look 10% more jacked. Vera at the counter sells premium colours for Chad Coins.'] },
     },
     build(K, S) {
       Fu.clothesRack(K, -1.4, 0.6, 0, ['#e8641a', '#5b2a86', '#1a1a1e', '#e8e0cc'])
       Fu.clothesRack(K, 1.6, 0.6, 0, ['#9b6bff', '#e8641a', '#2a5a3a', '#1a1a1e'])
       Fu.mannequin(K, -2.8, -2.4, 0.3, '#e8641a')
       Fu.mannequin(K, 2.8, -2.4, -0.3, '#5b2a86')
-      Fu.shopCounter(K, 0, -2.6, 0, 2.2, '#3a2a44')
+      Fu.shopCounter(K, 0, -2.5, 0, 2.2, '#3a2a44')
       // changing booth with a curtain + a tall mirror
       const cb = S.on('right', 1.8)
       cb.box(1.2, 2.2, 0.04, K.M.fab('#9b6bff', 1), 0, 1.25, 1.2)
