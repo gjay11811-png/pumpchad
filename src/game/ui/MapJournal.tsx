@@ -1,0 +1,186 @@
+import { useMemo, useState } from 'react'
+import { LANDMARKS, canTravel, journal, objectiveTarget, type Landmark, type MapKind } from '../atlas'
+import type { SaveData } from '../save'
+import { BRIDGES, CANAL, CORE_R, DISTRICTS, LAKE, PIER } from '../scenes/world/city'
+import { LANTERNS } from '../scenes/world/lanterns'
+import { Btn, Segmented } from './kit'
+import { Header, Overlay, useEsc } from './Menus'
+
+/** world bounds drawn by the map (x right = east, z down = south, so north is up) */
+const VB = { x: -108, z: -72, w: 240, h: 146 }
+const KIND_COLOR: Record<MapKind, string> = { place: '#e9e4da', shop: '#ffd25a', quest: '#ff9a3c' }
+
+/**
+ * Map + journal. The map is drawn from the same layout the world is built from (walkable districts, the canal,
+ * the lake + pier), with your position and facing, the tracked objective, and filters for places / shops / quest
+ * markers. Places you've reached on foot offer fast travel. The journal lists quests and collections with steps.
+ */
+export function MapJournal({
+  save,
+  player,
+  onTravel,
+  onBack,
+}: {
+  save: SaveData
+  player: { x: number; z: number; yaw: number } | null
+  onTravel: (l: Landmark) => void
+  onBack: () => void
+}) {
+  useEsc(onBack)
+  const [tab, setTab] = useState<'map' | 'journal'>('map')
+  const [show, setShow] = useState<Record<MapKind, boolean>>({ place: true, shop: true, quest: true })
+  const [sel, setSel] = useState<Landmark | null>(null)
+  const target = objectiveTarget(save)
+  const entries = useMemo(() => journal(save), [save])
+  const d = save.progress.discoveries
+  const dist = (x: number, z: number) => (player ? Math.round(Math.hypot(x - player.x, z - player.z)) : null)
+
+  return (
+    <Overlay label="Map and journal" wide>
+      <Header title={tab === 'map' ? 'Map' : 'Journal'} onBack={onBack} />
+      <div className="mt-3">
+        <Segmented
+          label="View"
+          value={tab}
+          options={[
+            { id: 'map', name: 'Map' },
+            { id: 'journal', name: 'Journal' },
+          ]}
+          onChange={(v) => setTab(v)}
+        />
+      </div>
+
+      {tab === 'map' ? (
+        <>
+          {target && (
+            <p className="mt-3 text-[13px] text-bone/85" data-testid="map-tracked">
+              <span className="text-[#ff9a3c]">◆ Tracking:</span> {target.label}
+              {dist(target.x, target.z) !== null && <span className="font-mono text-[11px] text-ash"> · {dist(target.x, target.z)} m</span>}
+            </p>
+          )}
+          <div className="relative mt-2 overflow-hidden rounded-2xl bg-[#14111c] ring-1 ring-bone/10">
+            <svg viewBox={`${VB.x} ${VB.z} ${VB.w} ${VB.h}`} className="mx-auto block h-auto max-h-[52svh] w-full" role="img" aria-label="Map of the Chadverse" data-testid="map">
+              {/* walkable ground */}
+              <g fill="#2e2840">
+                <circle cx={0} cy={0} r={CORE_R} />
+                {Object.entries(DISTRICTS).map(([k, r]) => (
+                  <rect key={k} x={r.x0} y={r.z0} width={r.x1 - r.x0} height={r.z1 - r.z0} fill={k === 'forest' ? '#24382e' : k === 'haunted' ? '#2a2e30' : undefined} />
+                ))}
+              </g>
+              {/* water + crossings */}
+              <rect x={CANAL.x0} y={CANAL.z0} width={CANAL.x1 - CANAL.x0} height={CANAL.z1 - CANAL.z0} fill="#1e4a6e" />
+              {BRIDGES.map((b) => (
+                <rect key={b.x} x={b.x - b.w / 2} y={CANAL.z0 - 0.5} width={b.w} height={CANAL.z1 - CANAL.z0 + 1} fill="#5a5068" />
+              ))}
+              <ellipse cx={LAKE.x} cy={LAKE.z} rx={LAKE.rx} ry={LAKE.rz} fill="#1e4a6e" />
+              <rect x={PIER.x0} y={PIER.head.z0} width={PIER.x1 - PIER.x0} height={PIER.z1 - PIER.head.z0} fill="#8a6040" />
+              <rect x={PIER.head.x0} y={PIER.head.z0} width={PIER.head.x1 - PIER.head.x0} height={PIER.head.z1 - PIER.head.z0} fill="#8a6040" />
+              {/* the castle */}
+              <rect x={-9} y={-40} width={18} height={9} fill="#4a4258" />
+
+              {/* quest markers: unlit lanterns while the adventure runs */}
+              {show.quest &&
+                d.includes('q1_start') &&
+                !d.includes('q1_sigil') &&
+                LANTERNS.filter((l) => !d.includes(`q1_lantern_${l.id}`)).map((l) => <rect key={l.id} x={l.x - 1.6} y={l.z - 1.6} width={3.2} height={3.2} transform={`rotate(45 ${l.x} ${l.z})`} fill="#ffd25a" />)}
+
+              {/* landmarks */}
+              {LANDMARKS.filter((l) => show[l.kind]).map((l) => {
+                const open = canTravel(l, save)
+                const known = !l.visit || d.includes(l.visit)
+                return (
+                  <g key={l.id} onClick={() => setSel(l)} className="cursor-pointer" data-landmark={l.id}>
+                    <circle cx={l.x} cy={l.z} r={7} fill="transparent" />
+                    {l.kind === 'shop' ? (
+                      <rect x={l.x - 1.8} y={l.z - 1.8} width={3.6} height={3.6} rx={0.8} fill={KIND_COLOR.shop} />
+                    ) : (
+                      <circle cx={l.x} cy={l.z} r={2.4} fill={known ? KIND_COLOR.place : '#6a6478'} stroke={open && l.visit ? '#ffd25a' : 'none'} strokeWidth={0.8} />
+                    )}
+                    <text x={l.x} y={l.below ? l.z + 7 : l.z - 4} textAnchor="middle" fontSize={4.2} fill={known ? '#e9e4da' : '#8a8498'} style={{ fontFamily: 'ui-monospace, monospace', letterSpacing: 0.2 }}>
+                      {known ? l.name : '???'}
+                    </text>
+                  </g>
+                )
+              })}
+
+              {/* tracked objective */}
+              {show.quest && target && (
+                <g data-testid="map-target">
+                  <circle cx={target.x} cy={target.z} r={4} fill="none" stroke="#ff9a3c" strokeWidth={0.9}>
+                    <animate attributeName="r" values="3;6.5;3" dur="1.8s" repeatCount="indefinite" />
+                    <animate attributeName="opacity" values="1;0.2;1" dur="1.8s" repeatCount="indefinite" />
+                  </circle>
+                  <circle cx={target.x} cy={target.z} r={1.5} fill="#ff9a3c" />
+                </g>
+              )}
+
+              {/* you */}
+              {player && (
+                <g transform={`translate(${player.x} ${player.z}) rotate(${(-player.yaw * 180) / Math.PI + 180})`} data-testid="map-player">
+                  <circle r={3.2} fill="#ff7a1a" opacity={0.25} />
+                  <path d="M0 -3.4 L2.4 2.6 L0 1.3 L-2.4 2.6 Z" fill="#ff7a1a" stroke="#14111c" strokeWidth={0.5} />
+                </g>
+              )}
+            </svg>
+          </div>
+
+          {/* filters */}
+          <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Map filters">
+            {(['place', 'shop', 'quest'] as const).map((k) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => setShow((s) => ({ ...s, [k]: !s[k] }))}
+                aria-pressed={show[k]}
+                data-filter={k}
+                className={`min-h-9 rounded-full px-3.5 font-mono text-[11px] uppercase tracking-[0.15em] ring-1 ${show[k] ? 'bg-bone/10 text-bone ring-bone/30' : 'text-ash ring-bone/10'}`}
+              >
+                <span style={{ color: KIND_COLOR[k] }}>●</span> {k === 'place' ? 'Places' : k === 'shop' ? 'Shops' : 'Quest'}
+              </button>
+            ))}
+          </div>
+
+          {/* selected landmark */}
+          {sel && (
+            <div className="mt-3 flex items-center gap-3 rounded-2xl bg-bone/[0.05] p-3 ring-1 ring-bone/10" data-testid="map-selected">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[14px] font-semibold">{!sel.visit || d.includes(sel.visit) ? sel.name : 'Undiscovered'}</p>
+                <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ash">
+                  {dist(sel.x, sel.z) !== null ? `${dist(sel.x, sel.z)} m away` : ''}
+                  {sel.spawn && !canTravel(sel, save) ? ' · reach it on foot to unlock travel' : ''}
+                  {!sel.spawn ? ' · a shop' : ''}
+                </p>
+              </div>
+              {canTravel(sel, save) && (
+                <Btn size="sm" onClick={() => onTravel(sel)} data-testid="map-travel">
+                  Travel
+                </Btn>
+              )}
+            </div>
+          )}
+        </>
+      ) : (
+        <ul className="mt-4 grid gap-2.5" data-testid="journal">
+          {entries.map((e) => (
+            <li key={e.id} className="rounded-2xl bg-bone/[0.04] p-3.5 ring-1 ring-bone/10" data-quest={e.id}>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[15px] font-semibold">{e.title}</p>
+                <span className={`font-mono text-[10px] uppercase tracking-[0.15em] ${e.status === 'done' ? 'text-[#7affb0]' : e.status === 'active' ? 'text-[#ff9a3c]' : 'text-ash'}`}>
+                  {e.status === 'done' ? 'Complete' : e.status === 'active' ? 'In progress' : 'Not started'}
+                </span>
+              </div>
+              <ul className="mt-2 grid gap-1">
+                {e.steps.map((s) => (
+                  <li key={s.label} className={`flex gap-2 text-[13px] ${s.done ? 'text-bone/50 line-through decoration-bone/30' : 'text-bone/85'}`}>
+                    <span aria-hidden="true">{s.done ? '✓' : '○'}</span>
+                    {s.label}
+                  </li>
+                ))}
+              </ul>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Overlay>
+  )
+}

@@ -90,6 +90,7 @@ Nothing is pushed or deployed. To test on a phone over home Wi-Fi: http://192.16
 **Known issues:** this laptop (3.5 GB RAM) loses the WebGL context in long or high-quality test runs, so most visual checks are at low/medium quality; long e2e runs time out. Chad Motors cars were reshaped after a first boxy pass — check in person.
 
 **Done:** opening adventure — Goldie (gateway) → relight 3 Guardian Lanterns (Chad Bridge, Chad Square, Citadel forecourt; gold markers) → Golden Sigil at the Citadel doors (+50 XP, +50 coins, points to the sealed castle) → existing chain (Coach Gourdon). Saved per step, never repeats. quest-test 25/25.
-**Next task:** quest journal + map screen (track one objective, filters), then the Curse chapter 2 hook in the Haunted Quarter / forest.
+**Done:** Map & journal (M key / HUD map button / pause menu): map drawn from city.ts layout, your position + facing, tracked objective (mirrors the HUD), filters (places / shops / quest), fast travel to places reached on foot, journal of quests + collections with steps. map-test 15/15; e2e 57/57.
+**Next task:** Curse chapter 2 hook — a lead from the sigil into the Haunted Quarter → Enchanted Forest (Elder Oak), as a second journal quest.
 **Map:** walkable area 17,568 m² (Monte Carlo over the walkable union, canal + lake water excluded) = 2.07× the original Chad City (~8,500 m²). New: Enchanted Forest (3,091 m², via the Haunted Quarter) + Moonlight Lake (3,208 m², via Motor Row). wilds-test passes; e2e/city-test re-run pending (machine memory).
 **Testing note:** this machine (~0.6 GB free RAM) loses the WebGL context during long runs; shop-test treats that as an environment warning. Use Q=low.

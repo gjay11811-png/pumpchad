@@ -50,12 +50,15 @@ export function Hud({
   sprint = false,
   onSprint,
   onPhoto,
+  onMap,
   onChallenges,
 }: {
   /** touch: open the challenges sheet (the objective collapses into a tab) */
   onChallenges?: () => void
   /** open photo mode (camera button, top right) */
   onPhoto?: () => void
+  /** open the map + journal (open world) */
+  onMap?: () => void
   save: SaveData
   prompt: Interactable | null
   touch: boolean
@@ -98,6 +101,14 @@ export function Hud({
           </div>
         </button>
         <div className="pointer-events-auto flex gap-2">
+          {onMap && (
+            <IconBtn label="Map and journal" onClick={onMap}>
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z" />
+                <path d="M9 4v14M15 6v14" />
+              </svg>
+            </IconBtn>
+          )}
           {onPhoto && (
             <IconBtn label="Photo mode" onClick={onPhoto}>
               <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

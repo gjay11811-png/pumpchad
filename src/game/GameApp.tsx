@@ -30,10 +30,11 @@ import { AchievementsMenu, NoticeBoardMenu, PauseMenu, ProfileMenu, SettingsMenu
 import { IntroOverlay, PhotoMode } from './ui/PhotoMode'
 import { ChallengePanel } from './ui/Challenges'
 import { ShopPanel } from './ui/Shop'
+import { MapJournal } from './ui/MapJournal'
 import { ITEM, coinsForXp } from './economy'
 
 type Phase = 'boot' | 'title' | 'creator' | 'world' | 'gym' | 'interior' | 'error'
-type Overlay = null | 'pause' | 'settings' | 'achievements' | 'profile' | 'board' | 'welltoss' | 'photo' | 'intro' | 'shop'
+type Overlay = null | 'pause' | 'settings' | 'achievements' | 'profile' | 'board' | 'welltoss' | 'photo' | 'intro' | 'shop' | 'map'
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 const ACH_XP = 25
 /** Discover Chad City: the five places (discovery ids) */
@@ -194,6 +195,8 @@ export function GameApp() {
     const wilds: Record<string, [string, string]> = {
       visit_forest: ['Enchanted Forest', 'Follow the lanterns to the Elder Oak'],
       visit_lake: ['Moonlight Lake', 'Walk the shore path · the pier reaches the middle'],
+      visit_motor: ['Motor Row', 'Chad Pets · Chad Motors'],
+      visit_haunted: ['Haunted Quarter', 'Mind the ghosts · the forest lies north'],
     }
     if (wilds[id]) {
       notify(`Discovered: ${wilds[id][0]}`, `${wilds[id][1]} · +25 XP`, 'discover')
@@ -564,6 +567,8 @@ export function GameApp() {
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && challenges) return setChallenges(false)
+      // M: the map + journal (in the open world, when nothing else is up)
+      if ((e.key === 'm' || e.key === 'M') && phase === 'world' && !overlay && !dialogue && !portal && !challenges && !rushRef.current) return setOverlay('map')
       if (e.key === 'Escape' && (phase === 'world' || phase === 'interior' || (phase === 'gym' && gymMode === 'free')) && !overlay && !dialogue && !portal && !rushRef.current) setOverlay('pause')
     }
     window.addEventListener('keydown', k)
@@ -748,6 +753,7 @@ export function GameApp() {
                   onSprint={toggleSprint}
                   onChallenges={() => setChallenges(true)}
                   onPhoto={() => setOverlay('photo')}
+                  onMap={() => setOverlay('map')}
                 />}
                 {rush && world.current?.rush && (
                   <RushPanel
@@ -849,6 +855,7 @@ export function GameApp() {
                   onAchievements={() => setOverlay('achievements')}
                   onProfile={() => setOverlay('profile')}
                   companion={lastPet() && phase !== 'gym' ? { name: ITEM(lastPet()!)!.name, along: !!save.progress.pet } : null}
+                  onMap={phase === 'world' ? () => setOverlay('map') : undefined}
                   onCompanion={() => wear(lastPet()!)}
                   onEditCharacter={() => {
                     setEditing(true)
@@ -863,6 +870,27 @@ export function GameApp() {
                 <WellToss
                   key="welltoss"
                   onHit={() => unlock('bucket_shot')}
+                  onBack={() => {
+                    setOverlay(null)
+                    world.current?.cooldown()
+                  }}
+                />
+              )}
+              {overlay === 'map' && phase === 'world' && (
+                <MapJournal
+                  key="map"
+                  save={save}
+                  player={(() => {
+                    const w = world.current?.debug()
+                    return w ? { x: w.x, z: w.z, yaw: w.yaw } : null
+                  })()}
+                  onTravel={(l) => {
+                    if (!l.spawn) return
+                    setOverlay(null)
+                    world.current?.teleport(l.spawn.x, l.spawn.z, l.spawn.yaw)
+                    world.current?.cooldown()
+                    notify(`Travelled to ${l.name}`, 'Fast travel · places you’ve reached on foot', 'discover')
+                  }}
                   onBack={() => {
                     setOverlay(null)
                     world.current?.cooldown()

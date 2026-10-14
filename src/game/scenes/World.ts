@@ -89,6 +89,8 @@ const ZONES: { id: string; inside: (x: number, z: number) => boolean }[] = [
   // the wilds: districts of their own (a discovery each, not part of Discover Chad City)
   { id: 'visit_forest', inside: (x, z) => x < -40 && z < -22 },
   { id: 'visit_lake', inside: (x, z) => x > 66 && lakeR(x, z) < 1.5 },
+  { id: 'visit_motor', inside: (x, z) => x > 30 && x < 64 && Math.abs(z - 36.25) < 3 },
+  { id: 'visit_haunted', inside: (x, z) => x < -60 && z > -16 && z < 22 },
 ]
 
 /** the Pumpkin Rush cart (start point of the mini-game) on the plaza */

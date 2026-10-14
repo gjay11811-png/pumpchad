@@ -18,8 +18,11 @@ export function PauseMenu({
   onProfile,
   companion,
   onCompanion,
+  onMap,
 }: {
   save: SaveData
+  /** open the map + journal (world only) */
+  onMap?: () => void
   /** an owned pet: whether it's following you now */
   companion?: { name: string; along: boolean } | null
   onCompanion?: () => void
@@ -42,6 +45,11 @@ export function PauseMenu({
         <Btn size="lg" onClick={onResume} sound="confirm">
           Resume
         </Btn>
+        {onMap && (
+          <Btn variant="ghost" onClick={onMap} data-testid="pause-map">
+            Map &amp; journal
+          </Btn>
+        )}
         <Btn variant="ghost" onClick={onProfile} data-testid="pause-profile">
           Profile &amp; stats
         </Btn>
@@ -441,7 +449,7 @@ export function Header({ title, onBack }: { title: string; onBack: () => void })
   )
 }
 
-export function Overlay({ label, children }: { label: string; children: React.ReactNode }) {
+export function Overlay({ label, children, wide }: { label: string; children: React.ReactNode; wide?: boolean }) {
   return (
     <m.div
       role="dialog"
@@ -458,7 +466,7 @@ export function Overlay({ label, children }: { label: string; children: React.Re
         animate={{ y: 0, scale: 1 }}
         exit={{ y: 20 }}
         transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-        className="panel scrollbar-none max-h-[92svh] w-full max-w-md overflow-y-auto rounded-t-[28px] p-6 safe-b sm:rounded-[28px]"
+        className={`panel scrollbar-none max-h-[92svh] w-full ${wide ? 'max-w-3xl' : 'max-w-md'} overflow-y-auto rounded-t-[28px] p-6 safe-b sm:rounded-[28px]`}
       >
         {children}
       </m.div>
