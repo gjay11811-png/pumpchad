@@ -98,6 +98,11 @@ const ZONES: { id: string; inside: (x: number, z: number) => boolean }[] = [
   { id: 'visit_lake', inside: (x, z) => x > 66 && lakeR(x, z) < 1.5 },
   { id: 'visit_motor', inside: (x, z) => x > 30 && x < 64 && Math.abs(z - 36.25) < 3 },
   { id: 'visit_haunted', inside: (x, z) => x < -60 && z > -16 && z < 22 },
+  { id: 'visit_downtown', inside: (x, z) => x > 36 && x < 112 && z < -8 && z > -76 },
+  { id: 'visit_castleroad', inside: (x, z) => z < -50 && z > -140 && x > -10 && x < 40 },
+  { id: 'visit_castle', inside: (x, z) => Math.hypot(x - 10, z + 164) < 25 },
+  { id: 'visit_southshore', inside: (x, z) => x > 66 && z > 74 },
+  { id: 'visit_millrow', inside: (x, z) => x < -12 && z > 78 },
   { id: 'visit_estates', inside: (x, z) => x < -30 && x > -66 && z > 44 },
 ]
 

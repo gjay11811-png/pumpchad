@@ -5,7 +5,7 @@ import { Frame, channelLetters } from './signs'
 import { isNight } from './daylight'
 import { CARS, sportsCar } from './vehicles'
 import { planterBox } from './architecture'
-import { DISTRICTS } from './city'
+import { DISTRICTS, insideCity } from './city'
 
 /**
  * DOWNTOWN — the tall, colourful city beyond the east district (the third roadmap panel, "Chad City"): glass towers with
@@ -227,4 +227,30 @@ export function downtown(T: Town) {
     T.batch.put(new THREE.ConeGeometry(0.3, 0.9, 8), leaf, x, 1.75, z)
   }
   void R
+
+  /* ── a low stone balustrade along the outer edges of Downtown and the Gate Plaza, so the walkable ground ends at a wall, not thin air ── */
+  for (const key of ['downtown', 'plaza'] as const) {
+    const r = DISTRICTS[key]
+    const edges: [number, number, number, number, number, number][] = [
+      [r.x0, r.z0, r.x1, r.z0, 0, -1],
+      [r.x1, r.z0, r.x1, r.z1, 1, 0],
+      [r.x1, r.z1, r.x0, r.z1, 0, 1],
+      [r.x0, r.z1, r.x0, r.z0, -1, 0],
+    ]
+    for (const [ax, az, bx, bz, nx, nz] of edges) {
+      const len = Math.hypot(bx - ax, bz - az)
+      for (let d = 1; d < len; d += 2) {
+        const x = ax + ((bx - ax) * d) / len
+        const z = az + ((bz - az) * d) / len
+        if (insideCity(x + nx * 1.2, z + nz * 1.2) || insideCity(x + nx * 0.4, z + nz * 0.4, -0.1)) continue
+        const ry = Math.atan2(bx - ax, bz - az)
+        T.batch.put(boxUV(2.02, 0.9, 0.36, 1), P.stone, x + nx * 0.2, 0.45, z + nz * 0.2, ry)
+        T.batch.put(boxUV(2.1, 0.12, 0.5, 1), P.stoneLight, x + nx * 0.2, 0.96, z + nz * 0.2, ry)
+        if (Math.round(d) % 4 === 1) {
+          T.batch.put(boxUV(0.5, 1.3, 0.5, 1), P.stone, x + nx * 0.2, 0.65, z + nz * 0.2, ry)
+          T.batch.put(new THREE.SphereGeometry(0.16, 8, 6), P.gold, x + nx * 0.2, 1.42, z + nz * 0.2)
+        }
+      }
+    }
+  }
 }

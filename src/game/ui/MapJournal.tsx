@@ -1,3 +1,4 @@
+import { ROAD, SUMMIT } from '../scenes/world/mountain'
 import { useMemo, useState } from 'react'
 import { LANDMARKS, canTravel, journal, objectiveTarget, type Landmark, type MapKind } from '../atlas'
 import type { SaveData } from '../save'
@@ -7,7 +8,7 @@ import { Btn, Segmented } from './kit'
 import { Header, Overlay, useEsc } from './Menus'
 
 /** world bounds drawn by the map (x right = east, z down = south, so north is up) */
-const VB = { x: -108, z: -72, w: 240, h: 146 }
+const VB = { x: -112, z: -216, w: 262, h: 384 }
 const KIND_COLOR: Record<MapKind, string> = { place: '#e9e4da', shop: '#ffd25a', quest: '#ff9a3c' }
 
 /**
@@ -75,8 +76,11 @@ export function MapJournal({
               <ellipse cx={LAKE.x} cy={LAKE.z} rx={LAKE.rx} ry={LAKE.rz} fill="#1e4a6e" />
               <rect x={PIER.x0} y={PIER.head.z0} width={PIER.x1 - PIER.x0} height={PIER.z1 - PIER.head.z0} fill="#8a6040" />
               <rect x={PIER.head.x0} y={PIER.head.z0} width={PIER.head.x1 - PIER.head.x0} height={PIER.head.z1 - PIER.head.z0} fill="#8a6040" />
-              {/* the castle */}
+              {/* the citadel, Citadel Mountain: its road, the summit plateau, the moat */}
               <rect x={-9} y={-40} width={18} height={9} fill="#4a4258" />
+              <polyline points={ROAD.map((p) => `${p.x},${p.z}`).join(' ')} fill="none" stroke="#b9a98c" strokeWidth={5.2} strokeLinejoin="round" opacity={0.85} />
+              <circle cx={SUMMIT.x} cy={SUMMIT.z} r={SUMMIT.r} fill="#4a4258" />
+              <circle cx={SUMMIT.x} cy={SUMMIT.z} r={SUMMIT.r + 4} fill="none" stroke="#1e4a6e" strokeWidth={3} opacity={0.7} />
 
               {/* quest markers: unlit lanterns while the adventure runs */}
               {show.quest &&
