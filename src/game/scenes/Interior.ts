@@ -12,6 +12,7 @@ import { Emoter, type EmoteId } from '../emotes'
 import { INDOOR, Jumper, SPEED_UNIT, leanFor, targetSpeed, turnRate, velocityRate } from '../movement'
 import { interiorMats, type Kit } from './interiors/furniture'
 import { HOUSE, shell, type HouseSpec } from './interiors/houses'
+import { createVillager } from '../character/villager'
 
 export type InteriorEvents = {
   onPrompt(p: Interactable | null): void
@@ -122,9 +123,24 @@ export class Interior implements GameScene {
   }
   private disposables: (THREE.Material | THREE.Texture | THREE.BufferGeometry)[]
 
+  private keeper: Character | null = null
   async populate(a: Appearance) {
-    const p = await createCharacter(a)
-    if (this.disposed) return disposeCharacter(p)
+    const k = this.house.keeper
+    const [p, keeper] = await Promise.all([createCharacter(a), k ? createVillager(k.look) : null])
+    if (this.disposed) {
+      disposeCharacter(p)
+      if (keeper) disposeCharacter(keeper)
+      return
+    }
+    if (k && keeper) {
+      keeper.root.position.set(k.at[0], 0, k.at[1])
+      keeper.root.rotation.y = k.yaw
+      keeper.pose = 'idle'
+      this.scene.add(keeper.root)
+      this.keeper = keeper
+      this.boxes.push({ x0: k.at[0] - 0.35, x1: k.at[0] + 0.35, z0: k.at[1] - 0.35, z1: k.at[1] + 0.35 })
+      this.interactables.push({ id: 'keeper', label: `Talk to ${k.line.speaker}`, pos: new THREE.Vector3(k.talkAt[0], 0, k.talkAt[1]), radius: 1.1, kind: 'talk' })
+    }
     this.player = p
     p.onStep = () => audio.play('step')
     this.scene.add(p.root)
@@ -333,12 +349,14 @@ export class Interior implements GameScene {
     for (const f of this.fires) f.update(this.t)
     for (const fl of this.flickers) fl.light.intensity = fl.base * (0.86 + Math.sin(this.t * 9 + fl.ph) * 0.07 + Math.sin(this.t * 23 + fl.ph * 3) * 0.05)
     for (const a of this.anims) a(this.t)
+    this.keeper?.update(dt)
   }
 
   dispose() {
     this.disposed = true
     this.events?.onPrompt(null)
     if (this.player) disposeCharacter(this.player)
+    if (this.keeper) disposeCharacter(this.keeper)
     disposeObject(this.scene)
     this.disposables.forEach((d) => d.dispose())
   }

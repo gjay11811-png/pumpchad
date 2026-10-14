@@ -6,6 +6,8 @@ import { floorboards, tiles, wallpaper } from './art'
 import * as Fu from './furniture'
 import type { Kit } from './furniture'
 import { HAUNTED_INTERIORS } from './haunted'
+import { SHOP_INTERIORS } from './shops'
+import type { VillagerLook } from '../../character/villager'
 
 /**
  * Every enterable building in the village: where its door is in the world, and the interior behind it.
@@ -28,6 +30,8 @@ export type HouseSpec = {
   /** things to inspect: id → prompt + what you read */
   looks?: Record<string, Line & { at: [number, number]; r?: number; level?: 0 | 1 }>
   build(K: Kit, S: Shell): void
+  /** a shopkeeper (a villager) behind the counter; talk from `talkAt` (the customer side) */
+  keeper?: { look: VillagerLook; at: [number, number]; yaw: number; talkAt: [number, number]; line: Line }
 }
 
 /** world position + facing of a building's door prompt and where you reappear when you leave */
@@ -625,12 +629,12 @@ export const HOUSES: HouseSpec[] = [
   },
   {
     id: 'fits',
-    name: 'Fresh Fits',
+    name: 'Chad Fits',
     door: { x: 41.4, z: 26.0, face: Math.PI, half: 3.0, out: 0.85 },
     room: { w: 8.2, d: 7, h: 3.6 },
     look: { wall: ['plaster', '#2a2230', '#3a2a44'], floor: '#8a6a4a', trim: '#9b6bff', ceiling: '#2a2230' },
     looks: {
-      rack: { at: [0, 0.6], label: 'Browse the racks', speaker: 'Fresh Fits', role: 'tees · hoodies · caps', lines: ['Hoodies in pumpkin orange, tees in midnight purple, caps with a tiny gold crown.', 'The changing room has a mirror that makes everyone look 10% more jacked. Clothes arrive with Chad Coins.'] },
+      rack: { at: [0, 0.6], label: 'Browse the racks', speaker: 'Chad Fits', role: 'tees · hoodies · caps', lines: ['Hoodies in pumpkin orange, tees in midnight purple, caps with a tiny gold crown.', 'The changing room has a mirror that makes everyone look 10% more jacked. Clothes arrive with Chad Coins.'] },
     },
     build(K, S) {
       Fu.clothesRack(K, -1.4, 0.6, 0, ['#e8641a', '#5b2a86', '#1a1a1e', '#e8e0cc'])
@@ -653,5 +657,7 @@ export const HOUSES: HouseSpec[] = [
 
 // the Haunted Quarter's seven houses + the crypt
 HOUSES.push(...HAUNTED_INTERIORS)
+// Motor Row: Chad Pets + Chad Motors
+HOUSES.push(...SHOP_INTERIORS)
 
 export const HOUSE = (id: string) => HOUSES.find((h) => h.id === id)

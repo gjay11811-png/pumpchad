@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { climbers, ornateSign, windowBox } from './ornament'
 import { isNight } from './daylight'
 import type { Town } from './buildings'
 import { boxUV, gableGeo } from './kit'
@@ -40,7 +41,11 @@ export type ShopSpec = {
   name?: string
   sub?: string
   /** how the name is shown: raised letters on the fascia, a framed fascia board, or a hanging sign */
-  sign?: 'letters' | 'board' | 'hanging'
+  sign?: 'letters' | 'board' | 'hanging' | 'ornate'
+  /** ornate sign crest (the Chad City shopfront style) */
+  crest?: 'crown' | 'paw' | 'pumpkin'
+  /** ivy + wisteria on the facade, flower boxes under the upper windows */
+  greenery?: boolean
   panel?: PanelStyle
   awning?: THREE.Material
   balcony?: boolean
@@ -117,7 +122,8 @@ export function shop(T: Town, M: ArchMats, s: ShopSpec, letterMat?: THREE.Materi
   F.box(s.w - 0.3, 0.6, 0.18, M.frame, 0, fasciaY, fz + 0.08)
   F.box(s.w - 0.1, 0.08, 0.3, M.trim, 0, fasciaY + 0.34, fz + 0.12)
   if (s.name) {
-    if (s.sign === 'letters' && letterMat) channelLetters(F.sub(0, fasciaY - 0.2, fz + 0.18), s.name, 0.4, 0.06, letterMat)
+    if (s.sign === 'ornate') ornateSign(T, F.sub(0, fasciaY + 0.3, fz + 0.2), s.name, { h: 0.78, crest: s.crest })
+    else if (s.sign === 'letters' && letterMat) channelLetters(F.sub(0, fasciaY - 0.2, fz + 0.18), s.name, 0.4, 0.06, letterMat)
     else if (s.sign === 'hanging') {
       const face = new THREE.MeshStandardMaterial({ map: panelTexture(s.name, s.sub ?? null, 1.6, s.panel ?? PANEL.dark, T.disposables), roughness: 0.7 })
       T.disposables.push(face)
@@ -144,7 +150,8 @@ export function shop(T: Town, M: ArchMats, s: ShopSpec, letterMat?: THREE.Materi
     const y = GROUND_H + (fl - 1) * FLOOR_H + 1.55
     for (let b = 0; b < bays; b++) {
       const wx = -s.w / 2 + (s.w / bays) * (b + 0.5)
-      F.put(new THREE.PlaneGeometry(0.9, 1.5), M.glass, wx, y, fz + 0.005, 0, 0, 0, false)
+      // about half the upper rooms have the lamps lit (warm glass), the rest are dark glass
+      F.put(new THREE.PlaneGeometry(0.9, 1.5), (b + fl + Math.round(s.x)) % 2 === 0 ? T.P.windowLit : M.glass, wx, y, fz + 0.005, 0, 0, 0, false)
       F.box(1.08, 0.1, 0.12, M.frame, wx, y + 0.8, fz + 0.04)
       F.box(1.08, 0.1, 0.12, M.frame, wx, y - 0.8, fz + 0.04)
       for (const dx of [-0.5, 0.5]) F.box(0.08, 1.6, 0.12, M.frame, wx + dx, y, fz + 0.04)
@@ -158,6 +165,13 @@ export function shop(T: Town, M: ArchMats, s: ShopSpec, letterMat?: THREE.Materi
       for (let k = 0; k <= 8; k++) F.box(0.04, 0.85, 0.04, M.sign.metal, -bw / 2 + (bw * k) / 8, y - 0.45, fz + 0.86)
       F.box(bw, 0.05, 0.06, M.sign.metal, 0, y - 0.02, fz + 0.86)
     }
+  }
+  // ── greenery: ivy climbing the piers, wisteria under the cornice, flower boxes under the upper windows ──
+  if (s.greenery) {
+    const seed = Math.round(s.x * 7 + s.z * 3)
+    climbers(T, F.sub(0, 0, fz + 0.02), s.w - 0.4, H, seed, { avoid: [[-1.4, 1.4]] })
+    for (let fl = 1; fl < s.floors; fl++)
+      for (let b = 0; b < bays; b++) windowBox(T, F.sub(-s.w / 2 + (s.w / bays) * (b + 0.5), 0, fz + 0.02), 1.1, GROUND_H + (fl - 1) * FLOOR_H + 1.55 - 0.98)
   }
   // ── roof ──
   if (s.roof === 'parapet') {
@@ -243,7 +257,7 @@ function brickTex(T: Town) {
 }
 
 /** a painted shop interior for display windows (shelves + goods silhouettes), tinted per shop */
-export function displayMaterial(T: Town, tint: string, goods: 'shelves' | 'racks' | 'cabinets') {
+export function displayMaterial(T: Town, tint: string, goods: 'shelves' | 'racks' | 'cabinets' | 'pets') {
   const c = document.createElement('canvas')
   c.width = 256
   c.height = 256
@@ -272,6 +286,38 @@ export function displayMaterial(T: Town, tint: string, goods: 'shelves' | 'racks
     }
     g.fillStyle = '#5a4030'
     g.fillRect(10, 200, 236, 40)
+  } else if (goods === 'pets') {
+    // a cat tree, a glowing aquarium, little cages, a cat curled on a cushion
+    g.fillStyle = '#5a4030'
+    g.fillRect(14, 70, 12, 180)
+    g.fillRect(4, 70, 50, 10)
+    g.fillRect(4, 150, 60, 10)
+    g.fillStyle = '#2a6a8a'
+    g.fillRect(150, 120, 90, 60)
+    g.fillStyle = '#7fd6ff'
+    g.fillRect(154, 124, 82, 52)
+    g.fillStyle = '#ff9a3a'
+    for (const [x, y] of [[170, 140], [200, 155], [220, 135]]) g.fillRect(x, y, 10, 5)
+    g.strokeStyle = '#c8b090'
+    g.lineWidth = 2
+    for (const cx of [80, 120]) {
+      g.strokeRect(cx, 196, 34, 30)
+      for (let k = 1; k < 5; k++) g.fillRect(cx + k * 7, 196, 1, 30)
+    }
+    g.fillStyle = tint
+    g.beginPath()
+    g.ellipse(36, 232, 26, 10, 0, 0, Math.PI * 2)
+    g.fill()
+    g.fillStyle = '#141018'
+    g.beginPath()
+    g.ellipse(38, 220, 16, 11, 0, 0, Math.PI * 2)
+    g.fill()
+    g.beginPath()
+    g.arc(24, 212, 7, 0, Math.PI * 2)
+    g.fill()
+    g.fillStyle = '#ffd25a'
+    g.fillRect(21, 210, 2, 2)
+    g.fillRect(26, 210, 2, 2)
   } else {
     for (let x = 14; x < 240; x += 58) {
       g.fillStyle = '#16141a'

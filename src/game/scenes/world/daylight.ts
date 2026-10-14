@@ -9,7 +9,8 @@ import type { Quality } from '../../save'
 export type SkyPreset = 'night' | 'afternoon' | 'sunset'
 const PRESETS: Record<SkyPreset, { zenith: string; horizon: string; haze: string; sun: string; sunI: number; hemiSky: string; hemiGround: string; hemiI: number; elev: number; fog: string }> = {
   // cinematic dark fantasy: midnight-blue zenith, violet horizon glow, a cool moon key light, a lilac sky fill
-  night: { zenith: '#060a26', horizon: '#2a2556', haze: '#5b3a82', sun: '#a9b8ff', sunI: 1.5, hemiSky: '#5d6cc4', hemiGround: '#3a2a3e', hemiI: 1.25, elev: 0.78, fog: '#1e1a3a' },
+  // (art direction: rich blue-violet evening, warm bounce from lamplit streets — welcoming, never murky)
+  night: { zenith: '#0a1236', horizon: '#33296a', haze: '#6a3f96', sun: '#b4c2ff', sunI: 1.55, hemiSky: '#6a76d4', hemiGround: '#5a3c30', hemiI: 1.45, elev: 0.78, fog: '#221d42' },
   afternoon: { zenith: '#2f74d8', horizon: '#cfe4f7', haze: '#f6e7cf', sun: '#ffe6c2', sunI: 2.9, hemiSky: '#cfe2ff', hemiGround: '#b08a62', hemiI: 1.15, elev: 0.62, fog: '#c9dcee' },
   sunset: { zenith: '#3a4f9a', horizon: '#ffb98a', haze: '#ff8f5a', sun: '#ffb070', sunI: 2.4, hemiSky: '#b9b7e6', hemiGround: '#a06a48', hemiI: 0.95, elev: 0.26, fog: '#e2b49c' },
 }
@@ -137,7 +138,7 @@ export function buildDaylight(scene: THREE.Scene, q: Quality, D: (THREE.Material
   scene.add(sky)
   D.push(skyGeo, skyMat)
   scene.background = new THREE.Color(P.horizon)
-  scene.fog = new THREE.FogExp2(P.fog, preset === 'night' ? (q === 'low' ? 0.0085 : 0.0072) : q === 'low' ? 0.0055 : 0.0042)
+  scene.fog = new THREE.FogExp2(P.fog, preset === 'night' ? (q === 'low' ? 0.0075 : 0.006) : q === 'low' ? 0.0055 : 0.0042)
 
   // ── light: warm sun (shadows), cool sky fill + warm bounce ──
   const hemi = new THREE.HemisphereLight(P.hemiSky, P.hemiGround, P.hemiI)

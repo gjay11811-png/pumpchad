@@ -13,10 +13,10 @@ const check = (ok, msg) => { console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${msg}`); i
 p.on('pageerror', (e) => errs.push(e.message))
 p.on('console', (m) => m.type() === 'error' && errs.push(m.text().slice(0, 200)))
 await p.goto(BASE, { waitUntil: 'networkidle' })
-await p.evaluate(() => {
+await p.evaluate((q) => {
   localStorage.clear()
-  localStorage.setItem('pumpchad.chadverse.save', JSON.stringify({ version: 1, character: null, progress: { discoveries: ['intro_seen'] }, settings: { quality: 'medium', muted: true } }))
-})
+  localStorage.setItem('pumpchad.chadverse.save', JSON.stringify({ version: 1, character: null, progress: { discoveries: ['intro_seen'] }, settings: { quality: q, muted: true } }))
+}, process.env.Q || 'medium')
 await p.reload({ waitUntil: 'networkidle' })
 await p.click('[data-testid=enter-muted]')
 await p.waitForSelector('[role=tablist]')

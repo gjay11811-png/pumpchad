@@ -394,6 +394,15 @@ export function GameApp() {
       const d = doorSpot(h)
       return void go('world', { spawn: { x: d.exit.x, z: d.exit.z, yaw: d.yaw }, label: 'Back outside' })
     }
+    if (id === 'keeper' && h.keeper) {
+      setDialogue({ speaker: h.keeper.line.speaker, role: h.keeper.line.role, lines: h.keeper.line.lines })
+      const key = `look_${h.id}_keeper`
+      if (!saveRef.current.progress.discoveries.includes(key)) {
+        discover(key)
+        setSave((s) => ({ ...s, progress: { ...s.progress, xp: s.progress.xp + 10 } }))
+      }
+      return
+    }
     if (id.startsWith('look:')) {
       const L = h.looks?.[id.slice(5)]
       if (!L) return

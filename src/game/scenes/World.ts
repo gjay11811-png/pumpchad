@@ -42,6 +42,7 @@ import { railingMaterial, waterfront } from './world/waterfront'
 import { chadSquareGate } from './world/squaregate'
 import { HOUSES, doorSpot } from './interiors/houses'
 import { hauntedQuarter } from './world/hauntedQuarter'
+import { MOTOR_ROW_LAMPS, MOTOR_ROW_TREES, motorRow } from './world/motorRow'
 
 /** where the player appears: the start, outside the gym, or outside a house door */
 export type SpawnAt = 'start' | 'gym' | { x: number; z: number; yaw: number }
@@ -295,12 +296,14 @@ export class World implements GameScene {
     const extraSeats: BenchSpot[] = []
     const greenery = westside(T, SM.stone, SM.trim, stripes[1], extraSeats)
     hauntedQuarter(T, SM.stone, SM.trim)
+    motorRow(T, tex.stone)
     greenery.potted = citadelShrubs
     lawns(T, SM.trim, extraSeats, greenery)
     this.seats.push(...extraSeats)
     chadRides(T, SM.trim)
     squareExtras(T, SM.trim)
     // street trees + bushes for the south + east districts
+    greenery.trees.push(...MOTOR_ROW_TREES)
     greenery.trees.push([-12.5, 49.6], [12.5, 49.6], [-14, 71], [24.5, 70], [-26, 30.5], [26, 30.5], [33, 1], [52, 2], [56, 31], [36.5, 31.5], [48.6, 31.2])
     greenery.bushes.push([-13, 66.4], [-12.2, 66.4], [-9.5, 55.2], [9.5, 55.2], [-5.2, 46.6], [5.2, 46.6], [30.6, 2.2], [30.6, 10.5])
     // lamps along the new streets (same family as the old town's)
@@ -310,6 +313,7 @@ export class World implements GameScene {
       [14, 15.6], [22, 15.6], [14, 22.4], [22, 22.4], [29.6, 15.7], [29.6, 22.3], [37.45, 15.7], [37.45, 22.3], [46.2, 15.7], [46.2, 22.3],
       [-33.5, 12.4], [-54.5, 12.4], [-33.5, 33.6], [-46, 5.4], [-47, 42], [-58.4, 34],
       [-7.2, -12.6], [7.2, -12.6],
+      ...MOTOR_ROW_LAMPS,
     ])
     this.city = buildChadCity(this.scene, q, this.disposables, this.night)
     valleyRoad(T, this.city.road)
@@ -318,6 +322,7 @@ export class World implements GameScene {
     const avoid = (x: number, z: number) => {
       if (Math.hypot(x, z) < 12.8) return true
       if (x < -58) return true // the Haunted Quarter dresses its own ground
+      if (x > 28 && z > 29 && z < 58 && (Math.abs(z - 36.25) < 3 || z > 38)) return true // Motor Row: street, forecourts, shops
       for (const r of ROADS) {
         const dx = r.x1 - r.x0, dz = r.z1 - r.z0
         const t = Math.max(0, Math.min(1, ((x - r.x0) * dx + (z - r.z0) * dz) / (dx * dx + dz * dz)))

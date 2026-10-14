@@ -64,3 +64,27 @@ Nothing is pushed or deployed. To test on a phone over home Wi-Fi: http://192.16
 ## Decisions needed from Jay
 1. **Backend for saves, leaderboards and multiplayer:** a yes/no and which provider. Until then, everything is single-player and saved on the device.
 2. **Night look approval** once Phase 2 shots are ready, before any further world-building.
+
+---
+
+## Progress checklist (updated 2026-10-14) — full requirement list: `docs/REQUIREMENTS.md`
+
+| Area | Status | Where | Verified |
+|---|---|---|---|
+| Phase 1 fixes (bridge, sign, bushes, path, castle decor, CHAD sign, windows) | COMPLETE | various world/*.ts | screenshots + tests |
+| Night look + Gothic distant city | COMPLETE (first pass) | daylight.ts, gothicCity.ts | gameplay shots |
+| Enterable houses | COMPLETE for every village building (22) | Interior.ts, interiors/* | interior-test |
+| Villager NPCs | PARTIAL (looks done; routines missing) | character/villager.ts, npcs.ts | shots, perf ~22 ms |
+| Haunted Quarter | PARTIAL (built; restoration/passages/story encounters missing) | hauntedQuarter.ts, interiors/haunted.ts | interior-test |
+| Mobile stuck movement + portrait challenges | COMPLETE (simulated) | input.ts, Joystick.tsx, Challenges.tsx | mobile-input-test 51/51 (emulated iPhone 13, NOT a real phone) |
+| Art direction: shopping street style | PARTIAL | ornament.ts (signs, ivy, wisteria, window boxes), architecture.ts | Motor Row + Arcade Street shots |
+| CHAD PETS / CHAD MOTORS / CHAD FITS | PARTIAL: buildings + interiors + keepers; no buying (needs coins + inventory) | motorRow.ts, interiors/shops.ts, vehicles.ts | interior-test (pets, motors) |
+| Map doubling | PARTIAL: ~8,500 → ~11,200 m² (1.3×); need ~17,000 | city.ts DISTRICTS | Monte-Carlo over walkable union, canal water excluded |
+| Coins, inventory, shops buying, pets, quests, activities, housing, events, map/journal | MISSING | — | — |
+| Online leaderboards / multiplayer / account saves | BLOCKED: needs backend + identity (decision for Jay) | — | — |
+
+**Area method:** sample the union of the core circle (r 34.5) + district rectangles in `city.ts`, minus canal water; buildings/props are not subtracted (they're small vs. the total).
+
+**Known issues:** this laptop (3.5 GB RAM) loses the WebGL context in long or high-quality test runs, so most visual checks are at low/medium quality; long e2e runs time out. Chad Motors cars were reshaped after a first boxy pass — check in person.
+
+**Next task:** shared progression foundation — Chad Coins + inventory/ownership in the save (versioned migration), then make CHAD FITS / CHAD PETS purchases real (browse → buy → own → equip/follow), then the opening adventure.

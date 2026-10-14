@@ -709,3 +709,128 @@ export function shovels(K: Kit, F: Frame) {
     g.put(new THREE.BoxGeometry(0.22, 0.3, 0.02), K.M.iron, 0, 0.15, 0.02)
   }
 }
+
+/* ───────────────────────── CHAD PETS: the companions on display ───────────────────────── */
+
+/** a black cat curled on a cushion; its tail swishes (animated) */
+export function blackCat(K: Kit, x: number, y: number, z: number, ry: number) {
+  const F = Frame.at(K.B, x, y, z, ry)
+  const fur = K.M.fab('#141018', 0.7)
+  F.put(new THREE.CylinderGeometry(0.32, 0.34, 0.08, 20), K.M.fab('#c08aff', 0.95), 0, 0.04, 0) // cushion
+  F.put(new THREE.SphereGeometry(0.17, 14, 10).scale(1.25, 0.8, 1), fur, 0, 0.2, 0)
+  F.put(new THREE.SphereGeometry(0.1, 14, 10), fur, 0.16, 0.32, 0.04)
+  for (const sz of [-1, 1]) F.put(new THREE.ConeGeometry(0.035, 0.08, 6), fur, 0.16, 0.42, 0.04 + sz * 0.05)
+  for (const sz of [-1, 1]) F.put(new THREE.SphereGeometry(0.016, 8, 6), K.M.fab('#ffd25a', 0.3), 0.25, 0.34, 0.04 + sz * 0.035, 0, 0, 0, false)
+  F.put(new THREE.TorusGeometry(0.06, 0.008, 6, 14), K.M.fab('#9b5cff', 0.4), 0.13, 0.25, 0.04, 0, Math.PI / 2, 0) // collar
+  const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.028, 0.32, 6).translate(0, 0.16, 0), fur)
+  const p = F.world(-0.18, 0.18, 0)
+  tail.position.copy(p)
+  K.scene.add(tail)
+  K.M.D.push(tail.geometry)
+  K.anim((t) => {
+    tail.rotation.z = 0.9 + Math.sin(t * 2.2) * 0.35
+    tail.rotation.y = ry + Math.sin(t * 1.3) * 0.3
+  })
+}
+
+/** a friendly little ghost bobbing inside a glass dome */
+export function ghostDome(K: Kit, x: number, y: number, z: number) {
+  K.B.put(new THREE.CylinderGeometry(0.32, 0.36, 0.12, 20), K.M.woodDark, x, y + 0.06, z)
+  const glass = new THREE.MeshStandardMaterial({ color: '#c8e8ff', transparent: true, opacity: 0.18, roughness: 0.05, depthWrite: false })
+  K.M.D.push(glass)
+  K.B.put(new THREE.SphereGeometry(0.3, 20, 14, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 1.4, 1), glass, x, y + 0.12, z, 0, 1, 1, 1, { cast: false })
+  const ghostM = new THREE.MeshStandardMaterial({ color: '#f4f8ff', emissive: '#a8c8ff', emissiveIntensity: 0.6, transparent: true, opacity: 0.88 })
+  K.M.D.push(ghostM)
+  const g = new THREE.Group()
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.11, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.62).scale(1, 1.35, 1), ghostM)
+  const skirt = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.14, 16, 1, true).rotateX(Math.PI), ghostM)
+  skirt.position.y = -0.04
+  g.add(body, skirt)
+  for (const sx of [-1, 1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.016, 8, 6), K.M.soot)
+    eye.position.set(sx * 0.035, 0.06, 0.095)
+    g.add(eye)
+    K.M.D.push(eye.geometry)
+  }
+  K.M.D.push(body.geometry, skirt.geometry)
+  g.position.set(x, y + 0.36, z)
+  K.scene.add(g)
+  K.anim((t) => {
+    g.position.y = y + 0.36 + Math.sin(t * 1.8) * 0.05
+    g.rotation.y = Math.sin(t * 0.7) * 0.6
+  })
+  K.light(x, y + 0.5, z, '#a8c8ff', 0.8, 2)
+}
+
+/** a bat hanging from a perch, wings twitching */
+export function batPerch(K: Kit, x: number, y: number, z: number) {
+  K.B.put(new THREE.CylinderGeometry(0.015, 0.015, 0.5, 6).rotateZ(Math.PI / 2), K.M.woodDark, x, y, z)
+  for (const sx of [-1, 1]) K.B.put(new THREE.CylinderGeometry(0.015, 0.02, y, 6), K.M.woodDark, x + sx * 0.25, y / 2, z)
+  const fur = K.M.fab('#1e1424', 0.8)
+  const g = new THREE.Group()
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8).scale(1, 1.4, 1), fur)
+  body.position.y = -0.1
+  g.add(body)
+  const wings: THREE.Mesh[] = []
+  for (const sx of [-1, 1]) {
+    const w = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.16, 3).rotateZ(sx * 1.2).translate(sx * 0.07, -0.08, 0), fur)
+    g.add(w)
+    wings.push(w)
+    K.M.D.push(w.geometry)
+  }
+  K.M.D.push(body.geometry)
+  g.position.set(x, y, z)
+  K.scene.add(g)
+  K.anim((t) => wings.forEach((w, i) => (w.rotation.y = (i ? -1 : 1) * (0.2 + Math.max(0, Math.sin(t * 9)) * 0.3 * (Math.sin(t * 0.5) > 0.7 ? 1 : 0)))))
+}
+
+/** a mini pumpkin creature hopping in its little pen */
+export function pumpkinCritter(K: Kit, x: number, z: number) {
+  for (let k = 0; k < 10; k++) {
+    const a = (k / 10) * Math.PI * 2
+    K.B.put(new THREE.CylinderGeometry(0.02, 0.02, 0.36, 6), K.M.woodLight, x + Math.cos(a) * 0.55, 0.18, z + Math.sin(a) * 0.55)
+  }
+  K.B.put(new THREE.TorusGeometry(0.55, 0.02, 6, 30).rotateX(Math.PI / 2), K.M.woodLight, x, 0.34, z)
+  K.B.put(new THREE.CircleGeometry(0.55, 24).rotateX(-Math.PI / 2), K.M.fab('#c8b070', 1), x, 0.01, z, 0, 1, 1, 1, { cast: false })
+  const g = new THREE.Group()
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.12, 14, 10).scale(1.2, 0.9, 1.2), K.M.pumpkin)
+  const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.02, 0.06, 6), K.M.leaf)
+  stem.position.y = 0.12
+  g.add(body, stem)
+  for (const sx of [-1, 1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.02, 8, 6), K.M.candle)
+    eye.position.set(sx * 0.045, 0.03, 0.12)
+    g.add(eye)
+    K.M.D.push(eye.geometry)
+  }
+  K.M.D.push(body.geometry, stem.geometry)
+  K.scene.add(g)
+  K.anim((t) => {
+    const hop = Math.abs(Math.sin(t * 3.2))
+    g.position.set(x + Math.cos(t * 0.6) * 0.25, 0.11 + hop * 0.12, z + Math.sin(t * 0.6) * 0.25)
+    g.rotation.y = -t * 0.6 + Math.PI / 2
+    g.scale.set(1 + (1 - hop) * 0.12, 1 - (1 - hop) * 0.1, 1 + (1 - hop) * 0.12)
+  })
+  K.block(x - 0.6, x + 0.6, z - 0.6, z + 0.6)
+}
+
+export function aquarium(K: Kit, x: number, z: number, ry: number) {
+  const F = Frame.at(K.B, x, 0, z, ry)
+  F.put(rbox(1.4, 0.8, 0.5, 0.02), K.M.woodDark, 0, 0.4, 0)
+  const water = new THREE.MeshBasicMaterial({ color: new THREE.Color('#5fc8e8').multiplyScalar(1.3), transparent: true, opacity: 0.75, toneMapped: false })
+  K.M.D.push(water)
+  F.put(new THREE.BoxGeometry(1.3, 0.6, 0.42), water, 0, 1.12, 0, 0, 0, 0, false)
+  F.box(1.36, 0.04, 0.46, K.M.iron, 0, 1.44, 0)
+  for (const [fx, fy, c] of [[-0.3, 1.1, '#ff8a3a'], [0.2, 1.2, '#ffd25a'], [0.35, 1.0, '#c08aff']] as const) F.put(new THREE.SphereGeometry(0.035, 8, 6).scale(1.6, 1, 0.6), K.M.fab(c, 0.4), fx, fy, 0.05)
+  K.light(F.world(0, 1.2, 0.5).x, 1.3, F.world(0, 1.2, 0.5).z, '#5fc8e8', 1.2, 3)
+  footprint(K, x, z, 1.4, 0.5, ry)
+}
+
+export function catTree(K: Kit, x: number, z: number) {
+  const carpet = K.M.fab('#c8b090', 1)
+  K.B.put(new THREE.BoxGeometry(0.8, 0.08, 0.8), carpet, x, 0.04, z)
+  K.B.put(new THREE.CylinderGeometry(0.07, 0.07, 1.7, 10), K.M.fab('#a08a68', 1), x, 0.9, z)
+  for (const [y, dx] of [[0.7, 0.25], [1.25, -0.2], [1.75, 0.1]] as const) K.B.put(new THREE.CylinderGeometry(0.28, 0.28, 0.06, 16), carpet, x + dx, y, z)
+  K.B.put(new THREE.SphereGeometry(0.06, 10, 8), K.M.fab('#e8641a', 0.6), x + 0.25, 0.55, z + 0.2) // a toy on a string
+  K.block(x - 0.45, x + 0.45, z - 0.45, z + 0.45)
+}
