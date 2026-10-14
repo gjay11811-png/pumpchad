@@ -6,6 +6,7 @@ import { Cloth } from './fx'
 import { boxUV, rng } from './kit'
 import type { KingdomStyle, styleMaterials } from './style'
 import { insideCity, terrainHeight, terrainLines } from './city'
+import { SUMMIT, hillRise } from './mountain'
 
 type SM = ReturnType<typeof styleMaterials>
 
@@ -117,13 +118,23 @@ export function kingdom(T: Town, style: KingdomStyle, M: SM, q: Quality) {
   const lawn = new THREE.Color('#ffffff')
   const rock = new THREE.Color('#9a8a7a')
   const valley = new THREE.Color('#c4d6a0')
+  const frost = new THREE.Color('#e8ecf4')
   for (const z of zs)
     for (const x of xs) {
       const y = terrainHeight(x, z)
       const wob = y < -1 && y > -40 ? (Math.sin(x * 0.7 + z * 0.3) + Math.sin(z * 0.9 - x * 0.4)) * 0.5 : 0
       pos.push(x, y + wob, z)
       uv.push(x / 6, z / 6)
-      const c = y > -0.3 ? lawn : y > -30 ? rock.clone().lerp(lawn, 0.25 + 0.15 * Math.sin(x * 0.3)) : valley
+      // the mountain: meadow grass low down, bare stone higher up, a hint of frost on the very top
+      const mt = z < -40 && z > -272 && x > -100 && x < 130 ? Math.min(1, hillRise(x, z).y / SUMMIT.y) : 0
+      const c =
+        mt > 0.02
+          ? lawn.clone().lerp(rock, Math.min(0.9, mt * 1.5 + 0.12 * Math.sin(x * 0.5 + z * 0.3))).lerp(frost, Math.max(0, mt - 0.85) * 3)
+          : y > -0.3
+            ? lawn
+            : y > -30
+              ? rock.clone().lerp(lawn, 0.25 + 0.15 * Math.sin(x * 0.3))
+              : valley
       col.push(c.r, c.g, c.b)
     }
   const row = xs.length

@@ -61,6 +61,8 @@ import { PumpkinBuilder } from './world/pumpkins'
 import { stallV4 } from './world/market'
 import { FOREST, FOREST_WISPS, LAKE_FIREFLIES, enchantedForest, lakeLamps, moonlightLake } from './world/wilds'
 import { lakeR } from './world/city'
+import { mountainGround } from './world/mountain'
+import { castleRoad } from './world/mountainRoad'
 import { LANTERNS, SIGIL, guardianLanterns, type GuardianLanterns } from './world/lanterns'
 import { ESTATE_LAMPS, EstateView, estatesDistrict } from './world/estates'
 import { PLOTS, PLOT_PRICE, cottageDoor, plotGate, type Estate } from '../estates'
@@ -113,6 +115,8 @@ export const SEEDS: [string, number, number][] = [
 export function groundHeight(x: number, z: number) {
   const bh = bridgeHeight(x, z)
   if (bh !== null) return bh
+  const mg = mountainGround(x, z)
+  if (mg !== null) return mg
   if (Math.hypot(x - GARDEN.x, z - GARDEN.z) < 3.25) return 0.36 // the gazebo's stone floor
   if (x > -4.5 && x < 4.5 && z < -24.4 && z > -29.6) return Math.min(4, Math.floor((-24.4 - z) / 1.05) + 1) * 0.22
   if (x > -8.5 && x < -5.5 && z > 13.8 && z < 24.2) return 0.3
@@ -323,6 +327,7 @@ export class World implements GameScene {
     lawns(T, SM.trim, extraSeats, greenery)
     this.seats.push(...extraSeats)
     chadRides(T, SM.trim)
+    castleRoad(T, q)
     squareExtras(T, SM.trim)
     // street trees + bushes for the south + east districts
     greenery.trees.push(...MOTOR_ROW_TREES)

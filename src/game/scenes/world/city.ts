@@ -13,7 +13,9 @@
 /** walkable areas (union). The core is the old walled town; the rectangles are the new districts. */
 export const CORE_R = 34.5
 export type Rect = { x0: number; x1: number; z0: number; z1: number }
-export const DISTRICTS: Record<'south' | 'east' | 'west' | 'overlook' | 'haunted' | 'motor' | 'forest' | 'lake' | 'estates', Rect> = {
+import { GATE_PLAZA, clampToMountain, inMountainWalk, mountainTerrain, shelfDist } from './mountain'
+
+export const DISTRICTS: Record<'south' | 'east' | 'west' | 'overlook' | 'haunted' | 'motor' | 'forest' | 'lake' | 'estates' | 'downtown' | 'plaza', Rect> = {
   south: { x0: -32, x1: 32, z0: 20, z1: 75 },
   east: { x0: 28, x1: 58, z0: -6, z1: 34 },
   west: { x0: -58, x1: -28, z0: -6, z1: 34 },
@@ -29,6 +31,9 @@ export const DISTRICTS: Record<'south' | 'east' | 'west' | 'overlook' | 'haunted
   lake: { x0: 64, x1: 128, z0: 4, z1: 70 },
   // CHADVILLE ESTATES: plots to buy and build on, west of the arrival lawns, below the Chad View terrace
   estates: { x0: -66, x1: -30, z0: 41, z1: 78 },
+  // DOWNTOWN: the tall colourful city beyond the east district, and the Gate Plaza where the Castle Road begins
+  downtown: { x0: 34, x1: 112, z0: -64, z1: -6 },
+  plaza: GATE_PLAZA,
 }
 /** Moonlight Lake's water (an ellipse, not walkable) and the pier over it (walkable) */
 export const LAKE = { x: 98, z: 31, rx: 19, rz: 14, water: -0.32 }
@@ -70,6 +75,7 @@ const inRect = (x: number, z: number, r: Rect, m = 0) => x > r.x0 + m && x < r.x
 export function insideCity(x: number, z: number, m = 0) {
   if (Math.hypot(x, z) < CORE_R - m) return true
   if (m >= 0 && inLake(x, z, m)) return false
+  if (inMountainWalk(x, z, m)) return true
   return RECTS.some((r) => inRect(x, z, r, m))
 }
 
@@ -108,6 +114,12 @@ export function clampToCity(p: { x: number; z: number }, m: number) {
     const cz = Math.min(Math.max(p.z, r.z0 + m), r.z1 - m)
     const d = Math.hypot(p.x - cx, p.z - cz)
     if (d < bd) [bx, bz, bd] = [cx, cz, d]
+  }
+  if (p.z < GATE_PLAZA.z1) {
+    const q = { x: p.x, z: p.z }
+    clampToMountain(q, m)
+    const d = Math.hypot(p.x - q.x, p.z - q.z)
+    if (d < bd) [bx, bz, bd] = [q.x, q.z, d]
   }
   p.x = bx
   p.z = bz
@@ -149,18 +161,24 @@ export function terrainHeight(x: number, z: number) {
   if (lr < 1) return -0.04 - 1.9 * Math.pow(1 - lr * lr, 0.6)
   // the cut sits 0.3 m behind the embankment wall faces, so the walls hide the drop
   if (x > CANAL.x0 - 0.3 && x < CANAL.x1 + 0.3 && z > CANAL.z0 - 0.3 && z < CANAL.z1 + 0.3) return CANAL.floor
-  const d = outsideDistance(x, z)
-  if (d <= 0) return 0
-  if (d < 2.5) return -0.1 * d
-  const t = Math.min(1, (d - 2.5) / 30)
-  const cliff = -0.25 - 31.5 * (t * t * (3 - 2 * t))
-  return d < 33 ? cliff : cliff - Math.min(12, (d - 33) * 0.07)
+  // the shelf the mountain and Downtown stand on is level ground too (it simply isn't all walkable)
+  const d = Math.min(outsideDistance(x, z), shelfDist(x, z))
+  let base = 0
+  if (d > 0) {
+    if (d < 2.5) base = -0.1 * d
+    else {
+      const t = Math.min(1, (d - 2.5) / 30)
+      const cliff = -0.25 - 31.5 * (t * t * (3 - 2 * t))
+      base = d < 33 ? cliff : cliff - Math.min(12, (d - 33) * 0.07)
+    }
+  }
+  return mountainTerrain(x, z, base)
 }
 
 /** grid lines for the terrain mesh: dense over the city, sparse toward the horizon, exact at canal edges */
 export function terrainLines(axis: 'x' | 'z') {
   const s = new Set<number>()
-  const lo = axis === 'x' ? -106 : -72
+  const lo = axis === 'x' ? -106 : -272
   const hi = axis === 'x' ? 132 : 82
   for (let v = lo; v <= hi; v += 2) s.add(v)
   for (const v of [70, 80, 95, 115, 140, 175, 220, 280, 360, 460]) {
