@@ -62,7 +62,7 @@ export function motorRow(T: Town, stoneTex: THREE.Texture) {
     const trim = new THREE.MeshStandardMaterial({ map: stoneTex, color: '#efe4d0', roughness: 0.8 })
     const floor = new THREE.MeshStandardMaterial({ color: '#2a2832', roughness: 0.18, metalness: 0.3 })
     const showGlass = new THREE.MeshStandardMaterial({ color: '#c8d8f0', transparent: true, opacity: night ? 0.08 : 0.2, roughness: 0.05, metalness: 0.2, depthWrite: false, envMapIntensity: night ? 0.3 : 1 })
-    const backWall = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffd8a0').multiplyScalar(night ? 0.95 : 0.8) })
+    const backWall = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffd8a0').multiplyScalar(night ? 0.6 : 0.7) })
     D.push(stone, trim, floor, showGlass, backWall)
     // shell: back + side walls, roof slab, parapet with crenels, corner pinnacles
     F.put(boxUV(W, H, 0.5, 2), stone, 0, H / 2, -Dd / 2 + 0.25)
@@ -81,8 +81,20 @@ export function motorRow(T: Town, stoneTex: THREE.Texture) {
     for (const y of [1.2, 4.6]) F.box(W - 1.2, 0.08, 0.04, O.goldTrim, 0, y, -Dd / 2 + 0.55)
     for (const z of [-3, 0, 3]) F.box(W - 2, 0.05, 0.12, O.glow, 0, H - 0.05, z, false)
     // two cars on the showroom floor (the third is out on the podium)
-    sportsCar(F.sub(-3.6, 0.04, -0.8, 0, 0.55, 0), CARS[1], D)
-    sportsCar(F.sub(3.6, 0.04, -0.8, 0, -0.55, 0), CARS[2], D)
+    // display bays: a low plinth with a gold ring under each car, spaced so every car can be walked around
+    for (const [bx, ry, car] of [[-4.2, 0.55, CARS[1]], [4.2, -0.55, CARS[2]]] as const) {
+      F.put(new THREE.CylinderGeometry(2.6, 2.7, 0.14, 36), trim, bx, 0.07, -0.8)
+      F.put(new THREE.TorusGeometry(2.62, 0.03, 6, 40).rotateX(Math.PI / 2), O.goldTrim, bx, 0.15, -0.8)
+      sportsCar(F.sub(bx, 0.14, -0.8, 0, ry, 0), car, D)
+    }
+    // reception: a curved desk at the back with a lit crest, a lamp, and a plant either side
+    F.put(boxUV(3.6, 1.0, 0.9, 1.2), trim, 0, 0.5, -Dd / 2 + 1.5)
+    F.box(3.8, 0.06, 1.0, O.goldTrim, 0, 1.03, -Dd / 2 + 1.5)
+    F.box(1.4, 0.5, 0.04, O.glow, 0, 2.3, -Dd / 2 + 0.58, false)
+    for (const sx of [-1, 1]) {
+      F.put(new THREE.CylinderGeometry(0.28, 0.22, 0.5, 12), trim, sx * 2.8, 0.25, -Dd / 2 + 1.1)
+      F.put(new THREE.SphereGeometry(0.42, 10, 8).scale(1, 1.3, 1), O.goldTrim, sx * 2.8, 0.95, -Dd / 2 + 1.1)
+    }
     // the glass front: four stone piers, three tall pointed-arch glass bays, iron mullions + transoms, glass doors
     const bayW = (W - 1.2 - 4 * 0.6) / 3
     const fz = Dd / 2
