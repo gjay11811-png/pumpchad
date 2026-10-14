@@ -122,9 +122,9 @@ for (const [w, h, tag, mobile] of [
   const s2 = await cv(() => window.__chadverse.world())
   check(Math.hypot(s2.x, s2.z) >= 4.3, `statue collision holds (distance ${Math.hypot(s2.x, s2.z).toFixed(2)})`)
   // boundary
-  await cv(() => window.__chadverse.teleport(-80, 10)) // far past the west districts' cliff edge
+  await cv(() => window.__chadverse.teleport(-130, 10)) // far past the Haunted Quarter's west cliff edge
   const s3 = await cv(() => window.__chadverse.world())
-  check(s3.x >= -58.05, `world boundary clamps to the city edge (x=${s3.x.toFixed(2)})`)
+  check(s3.x >= -102.05, `world boundary clamps to the city edge (x=${s3.x.toFixed(2)})`)
 
   // 11 NPC interaction
   await cv(() => window.__chadverse.teleport(12.2, 1.6))
@@ -226,9 +226,10 @@ for (const [w, h, tag, mobile] of [
     await p.keyboard.press('Escape')
     await sleep(500)
     const m0 = await cv(() => window.__chadverse.world())
-    await p.keyboard.down('s')
+    // walk forward, away from the gym door (backing up runs into the Pump Gym frontage)
+    await p.keyboard.down('w')
     await sleep(600)
-    await p.keyboard.up('s')
+    await p.keyboard.up('w')
     const m1 = await cv(() => window.__chadverse.world())
     check(Math.hypot(m1.x - m0.x, m1.z - m0.z) > 0.8, 'movement works after closing the menu')
   }

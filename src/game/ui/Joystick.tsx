@@ -1,17 +1,44 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Input } from '../input'
 
 /**
  * Floating virtual joystick for touch screens. The base appears wherever the thumb
  * lands inside the left zone, so it works for any hand size / phone size.
+ *
+ * Release safety: the stick is owned by exactly one pointer (tracked by Input). Whatever ends that touch — lifting
+ * the finger anywhere on screen, the browser cancelling it, pointer capture being lost, the app going to the
+ * background, the phone rotating, a menu opening, or this control unmounting — the stick returns to centre and
+ * movement stops. Logic reads refs (never stale render state), so a fast tap can't leave anything behind.
  */
 export function Joystick({ input, sensitivity }: { input: Input; sensitivity: number }) {
   const [base, setBase] = useState<{ x: number; y: number } | null>(null)
   const [knob, setKnob] = useState({ x: 0, y: 0 })
   const id = useRef<number | null>(null)
+  const baseRef = useRef<{ x: number; y: number } | null>(null)
   const R = 56
 
-  const update = (cx: number, cy: number, bx: number, by: number) => {
+  const reset = () => {
+    id.current = null
+    baseRef.current = null
+    setBase(null)
+    setKnob({ x: 0, y: 0 })
+  }
+  const end = () => {
+    if (id.current !== null) input.releaseStick(id.current)
+    reset()
+  }
+
+  // Input.clear() (menus, blur, background, rotation, scene changes) resets this control too
+  useEffect(() => input.onReset(reset), [input])
+  // unmounted mid-touch (a menu replaced the HUD): let go of the stick rather than leave it pushed
+  useEffect(
+    () => () => {
+      if (id.current !== null) input.releaseStick(id.current)
+    },
+    [input],
+  )
+
+  const update = (pointerId: number, cx: number, cy: number, bx: number, by: number) => {
     let dx = cx - bx
     let dy = cy - by
     const d = Math.hypot(dx, dy)
@@ -24,39 +51,36 @@ export function Joystick({ input, sensitivity }: { input: Input; sensitivity: nu
     const n = Math.min(1, d / R)
     const v = n < 0.12 ? 0 : Math.min(1, ((n - 0.12) / 0.88) * sensitivity)
     const ang = Math.atan2(dy, dx)
-    input.stick = { x: Math.cos(ang) * v, y: Math.sin(ang) * v, active: v > 0 }
-  }
-
-  const end = () => {
-    id.current = null
-    setBase(null)
-    setKnob({ x: 0, y: 0 })
-    input.stick = { x: 0, y: 0, active: false }
+    input.setStick(pointerId, Math.cos(ang) * v, Math.sin(ang) * v, v > 0)
   }
 
   return (
     <div
       data-testid="joystick-zone"
       data-no-look
-      className="absolute bottom-0 left-0 z-10 h-[46%] w-[48%] touch-none"
+      className="absolute bottom-0 left-0 z-10 h-[46%] w-[48%] touch-none select-none"
       onPointerDown={(e) => {
-        if (id.current !== null) return
+        // a second finger on the zone is ignored — unless the first one's touch was lost (then take over)
+        if (id.current !== null && input.stickOwner === id.current) return
         id.current = e.pointerId
         try {
           // keeps tracking the thumb even if it slides off the zone; harmless if unsupported
           ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
         } catch {
-          /* no active pointer (e.g. synthetic events) — tracking still works without capture */
+          /* no active pointer (e.g. synthetic events) — window listeners still catch the release */
         }
-        setBase({ x: e.clientX, y: e.clientY })
-        update(e.clientX, e.clientY, e.clientX, e.clientY)
+        baseRef.current = { x: e.clientX, y: e.clientY }
+        setBase(baseRef.current)
+        update(e.pointerId, e.clientX, e.clientY, e.clientX, e.clientY)
       }}
       onPointerMove={(e) => {
-        if (e.pointerId !== id.current || !base) return
-        update(e.clientX, e.clientY, base.x, base.y)
+        const b = baseRef.current
+        if (e.pointerId !== id.current || !b) return
+        update(e.pointerId, e.clientX, e.clientY, b.x, b.y)
       }}
       onPointerUp={(e) => e.pointerId === id.current && end()}
       onPointerCancel={(e) => e.pointerId === id.current && end()}
+      onLostPointerCapture={(e) => e.pointerId === id.current && end()}
     >
       {base ? (
         <div className="pointer-events-none fixed" style={{ left: base.x - R - 14, top: base.y - R - 14 }}>

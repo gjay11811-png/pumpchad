@@ -1,9 +1,10 @@
 import { AnimatePresence, m } from 'framer-motion'
 import { ACHIEVEMENTS, levelFor, xpForLevel, type SaveData } from '../save'
 import type { Interactable } from '../scenes/World'
-import { Icon, IconBtn } from './kit'
+import { Icon, IconBtn, tap } from './kit'
 import { EmoteWheel } from './EmoteWheel'
 import type { EmoteId } from '../emotes'
+import { ChallengeTab } from './Challenges'
 
 export function objectiveFor(save: SaveData) {
   const d = save.progress.discoveries
@@ -42,7 +43,10 @@ export function Hud({
   sprint = false,
   onSprint,
   onPhoto,
+  onChallenges,
 }: {
+  /** touch: open the challenges sheet (the objective collapses into a tab) */
+  onChallenges?: () => void
   /** open photo mode (camera button, top right) */
   onPhoto?: () => void
   save: SaveData
@@ -70,7 +74,7 @@ export function Hud({
     <div className="pointer-events-none absolute inset-0">
       {/* top bar */}
       <div className="flex items-start justify-between gap-3 safe-t safe-x">
-        <button type="button" onClick={onProfile} aria-label="Open profile" data-testid="hud-profile" className="panel pointer-events-auto flex items-center gap-3 rounded-2xl py-2 pl-2 pr-4 text-left transition-transform active:scale-[0.97]">
+        <button type="button" {...tap(() => onProfile?.())} aria-label="Open profile" data-testid="hud-profile" className="panel pointer-events-auto flex items-center gap-3 rounded-2xl py-2 pl-2 pr-4 text-left transition-transform active:scale-[0.97]">
           <div className="flex h-11 w-11 flex-col items-center justify-center rounded-xl bg-[linear-gradient(160deg,#ff9a3c,#c2540c)] text-ink">
             <span className="font-mono text-[9px] font-semibold leading-none">LVL</span>
             <span className="font-display text-xl leading-none">{lvl}</span>
@@ -103,7 +107,12 @@ export function Hud({
         </div>
       </div>
 
-      {/* objective */}
+      {/* objective: on touch screens a compact tab (tap → the challenges sheet), so the view stays clear */}
+      {touch && onChallenges ? (
+        <div className="safe-x">
+          <ChallengeTab save={save} onOpen={onChallenges} />
+        </div>
+      ) : (
       <div className="mt-2 safe-x">
         <div className="inline-flex max-w-[min(92vw,26rem)] items-start gap-2.5 rounded-xl bg-ink/55 px-3 py-2 backdrop-blur-sm">
           <span className="mt-1 h-2 w-2 shrink-0 rotate-45 bg-pump" aria-hidden="true" />
@@ -119,6 +128,7 @@ export function Hud({
           </div>
         </div>
       </div>
+      )}
 
       {/* interaction prompt */}
       <AnimatePresence>
@@ -155,7 +165,7 @@ export function Hud({
           }`}
         >
           <span aria-hidden className="text-lg leading-none">»</span>
-          Sprint
+          {sprint ? 'Run on' : 'Sprint'}
         </button>
       )}
 
@@ -165,7 +175,7 @@ export function Hud({
           type="button"
           aria-label={prompt ? prompt.label : 'Interact (nothing nearby)'}
           disabled={!prompt}
-          onClick={onAction}
+          {...tap(onAction)}
           className={`pointer-events-auto absolute bottom-[max(28px,env(safe-area-inset-bottom))] right-[max(24px,env(safe-area-inset-right))] flex h-24 w-24 items-center justify-center rounded-full font-display text-xl uppercase tracking-wide transition-all duration-200 active:scale-90 ${
             prompt ? 'btn-primary' : 'border border-bone/15 bg-ink/40 text-bone/30'
           }`}
@@ -206,7 +216,33 @@ export function LevelUpBanner({ level }: { level: number }) {
 }
 
 export type Toast = { id: string; title: string; desc: string; kind?: 'achievement' | 'collect' | 'discover' }
-export function Toasts({ toasts }: { toasts: Toast[] }) {
+export function Toasts({ toasts, compact = false }: { toasts: Toast[]; compact?: boolean }) {
+  if (compact)
+    return (
+      <div className="pointer-events-none absolute inset-x-0 top-[calc(6.4rem+env(safe-area-inset-top))] z-30 flex justify-center px-3 landscape:top-[calc(4.2rem+env(safe-area-inset-top))]" aria-live="polite">
+        <AnimatePresence>
+          {toasts.map((t) => (
+            <m.div
+              key={t.id}
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.2 }}
+              className="flex max-w-[min(86vw,22rem)] items-center gap-2 rounded-full bg-ink/75 px-3 py-1.5 backdrop-blur-sm"
+              data-testid="toast"
+            >
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-moon text-ink" aria-hidden="true">
+                ★
+              </span>
+              <span className="min-w-0 truncate text-[12.5px] leading-none text-bone">
+                <b className="font-semibold">{t.title}</b>
+                <span className="text-bone/60"> · {t.desc}</span>
+              </span>
+            </m.div>
+          ))}
+        </AnimatePresence>
+      </div>
+    )
   return (
     <div className="pointer-events-none absolute inset-x-0 top-[calc(5.5rem+env(safe-area-inset-top))] z-30 flex flex-col items-center gap-2 px-3" aria-live="polite">
       <AnimatePresence>

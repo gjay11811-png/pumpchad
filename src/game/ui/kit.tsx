@@ -1,4 +1,36 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react'
+import type { ButtonHTMLAttributes, PointerEvent as RPointerEvent, MouseEvent as RMouseEvent, TouchEvent as RTouchEvent, ReactNode } from 'react'
+
+/**
+ * Button press that works for ANY finger. Browsers only synthesise `click` for the primary pointer, so with a thumb
+ * on the joystick a tap on GO / pause / the challenges tab with the other thumb would be ignored. Touch presses fire
+ * on release of the same finger that pressed; a following synthetic click is swallowed (no double fire).
+ */
+type TapEl = HTMLElement & { __tapDown?: number; __tapT?: number }
+export function tap(fn: () => void) {
+  return {
+    onPointerDown: (e: RPointerEvent) => {
+      ;(e.currentTarget as TapEl).__tapDown = e.pointerId
+    },
+    onPointerUp: (e: RPointerEvent) => {
+      const el = e.currentTarget as TapEl
+      if (e.pointerType === 'mouse' || el.__tapDown !== e.pointerId) return
+      el.__tapDown = undefined
+      el.__tapT = performance.now()
+      fn()
+    },
+    // the touch already fired: cancel the browser's follow-up click, which would otherwise land on whatever this
+    // tap just opened (e.g. the challenges sheet's tap-outside backdrop) and close it again
+    onTouchEnd: (e: RTouchEvent) => {
+      const el = e.currentTarget as TapEl
+      if (el.__tapT && performance.now() - el.__tapT < 300 && e.cancelable) e.preventDefault()
+    },
+    onClick: (e: RMouseEvent) => {
+      const el = e.currentTarget as TapEl
+      if (el.__tapT && performance.now() - el.__tapT < 700) return
+      fn()
+    },
+  }
+}
 import { audio } from '../audio'
 
 export function Btn({
@@ -33,10 +65,10 @@ export function IconBtn({ label, children, onClick, active, className = '' }: { 
       aria-label={label}
       title={label}
       aria-pressed={active}
-      onClick={() => {
+      {...tap(() => {
         audio.play('click')
         onClick()
-      }}
+      })}
       className={`panel flex h-12 w-12 items-center justify-center rounded-2xl text-bone transition-[transform,border-color] duration-150 hover:border-moon/40 active:scale-95 ${active ? 'border-pump/60 text-pump' : ''} ${className}`}
     >
       {children}

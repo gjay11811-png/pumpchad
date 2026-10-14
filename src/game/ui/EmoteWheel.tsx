@@ -1,4 +1,5 @@
 import { AnimatePresence, m } from 'framer-motion'
+import { tap } from './kit'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { EMOTES, type EmoteId } from '../emotes'
 import { audio } from '../audio'
@@ -95,7 +96,7 @@ export function EmoteWheel({ touch, disabled, onEmote, onJump }: { touch: boolea
             aria-label="Emotes"
             aria-haspopup="menu"
             aria-expanded={open}
-            onClick={() => setOpen((o) => !o)}
+            {...tap(() => setOpen((o) => !o))}
             disabled={disabled}
             className="pointer-events-auto absolute bottom-[calc(max(28px,env(safe-area-inset-bottom))+1rem)] right-[calc(max(24px,env(safe-area-inset-right))+7rem)] flex h-16 w-16 items-center justify-center rounded-full border border-moon/30 bg-ink/55 font-display text-sm uppercase tracking-wide text-moon backdrop-blur-sm active:scale-90"
             data-testid="emote-button"

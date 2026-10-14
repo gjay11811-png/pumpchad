@@ -21,8 +21,12 @@ export class Input {
   private lastX = 0
   private lastY = 0
   enabled = true
-  /** touch Sprint toggle (on-screen button): run whenever moving while it's on */
+  /** touch Sprint toggle (on-screen button): run whenever moving while it's on — it never moves you by itself */
   sprint = false
+  /** the pointer currently driving the virtual joystick (null = nobody): one owner, so a lost release can't leave it held */
+  stickOwner: number | null = null
+  /** UI that keeps its own copy of the touch state (the joystick's base + knob) resets when input is cleared */
+  private resetters = new Set<() => void>()
   /** a desktop player has steered the view with the mouse: from then on the camera stays where they put it */
   mouseLooked = false
   /** the UI layer sits on top of the canvas, so presses are caught on the shared container and filtered */
@@ -35,6 +39,11 @@ export class Input {
     window.addEventListener('keydown', this.onKey)
     window.addEventListener('keyup', this.onKeyUp)
     window.addEventListener('blur', this.clear)
+    // phones: switching apps, locking the screen, rotating — every one of these must drop held movement
+    document.addEventListener('visibilitychange', this.onVisibility)
+    window.addEventListener('pagehide', this.clear)
+    window.addEventListener('orientationchange', this.clear)
+    screen.orientation?.addEventListener?.('change', this.clear)
     this.surface.addEventListener('pointerdown', this.onDown)
     window.addEventListener('pointermove', this.onMove)
     window.addEventListener('pointerup', this.onUp)
@@ -65,8 +74,30 @@ export class Input {
     this.endDrag()
     this.keys.clear()
     this.stick = { x: 0, y: 0, active: false }
+    this.stickOwner = null
     this.actionQueued = false
     this.jumpQueued = false
+    this.resetters.forEach((f) => f())
+  }
+  private onVisibility = () => {
+    if (document.hidden) this.clear()
+  }
+  /** subscribe UI state to input resets (returns the unsubscribe) */
+  onReset(fn: () => void) {
+    this.resetters.add(fn)
+    return () => void this.resetters.delete(fn)
+  }
+
+  /* ── the virtual joystick reports through these, so ownership lives in one place ── */
+  setStick(pointerId: number, x: number, y: number, active: boolean) {
+    this.stickOwner = pointerId
+    this.stick = { x, y, active }
+  }
+  /** release the joystick (only its own pointer can, unless forced) */
+  releaseStick(pointerId?: number) {
+    if (pointerId !== undefined && pointerId !== this.stickOwner) return
+    this.stickOwner = null
+    this.stick = { x: 0, y: 0, active: false }
   }
 
   private onDown = (e: PointerEvent) => {
@@ -120,6 +151,11 @@ export class Input {
   }
   private onUp = (e: PointerEvent) => {
     if (e.pointerId === this.dragId) this.endDrag()
+    // backup for the joystick: a release that never reached it (capture lost, finger lifted off-zone) still lets go
+    if (e.pointerId === this.stickOwner) {
+      this.releaseStick()
+      this.resetters.forEach((f) => f())
+    }
   }
   private endDrag() {
     if (this.dragId === null) return
@@ -190,6 +226,11 @@ export class Input {
     window.removeEventListener('keydown', this.onKey)
     window.removeEventListener('keyup', this.onKeyUp)
     window.removeEventListener('blur', this.clear)
+    document.removeEventListener('visibilitychange', this.onVisibility)
+    window.removeEventListener('pagehide', this.clear)
+    window.removeEventListener('orientationchange', this.clear)
+    screen.orientation?.removeEventListener?.('change', this.clear)
+    this.resetters.clear()
     this.surface.removeEventListener('pointerdown', this.onDown)
     window.removeEventListener('pointermove', this.onMove)
     window.removeEventListener('pointerup', this.onUp)

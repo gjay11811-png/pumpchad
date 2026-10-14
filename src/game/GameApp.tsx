@@ -27,6 +27,7 @@ import { Hud, LevelUpBanner, Toasts, type Toast } from './ui/Hud'
 import { Joystick } from './ui/Joystick'
 import { AchievementsMenu, NoticeBoardMenu, PauseMenu, ProfileMenu, SettingsMenu, WellToss } from './ui/Menus'
 import { IntroOverlay, PhotoMode } from './ui/PhotoMode'
+import { ChallengePanel } from './ui/Challenges'
 
 type Phase = 'boot' | 'title' | 'creator' | 'world' | 'gym' | 'interior' | 'error'
 type Overlay = null | 'pause' | 'settings' | 'achievements' | 'profile' | 'board' | 'welltoss' | 'photo' | 'intro'
@@ -56,6 +57,9 @@ export function GameApp() {
   const [dialogue, setDialogue] = useState<Dialogue | null>(null)
   const [prompt, setPrompt] = useState<Interactable | null>(null)
   const [toasts, setToasts] = useState<Toast[]>([])
+  /** touch: the challenges sheet + the recent announcements it lists (newest first) */
+  const [challenges, setChallenges] = useState(false)
+  const [notes, setNotes] = useState<Toast[]>([])
   const [portal, setPortal] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
   const [gymMode, setGymMode] = useState<GymMode>('free')
@@ -90,10 +94,11 @@ export function GameApp() {
     toastBusy.current = true
     if (t.kind === 'achievement') audio.play('achievement')
     setToasts([t])
+    setNotes((n) => [t, ...n].slice(0, 20))
     setTimeout(() => {
       setToasts([])
       setTimeout(pumpToasts, 350)
-    }, 2600)
+    }, touch ? 1900 : 2600) // phones: a brief one-line notice (the full list lives in the challenges sheet)
   }
 
   /** Single write path: updates React state + localStorage together. */
@@ -445,7 +450,7 @@ export function GameApp() {
   /* ── pause world while any UI is up ── */
   useEffect(() => {
     // photo mode keeps full control (frame + move); everything else pauses the world
-    const blocked = (!!overlay && overlay !== 'photo') || !!dialogue || !!portal || rush === 'ready' || rush === 'done'
+    const blocked = (!!overlay && overlay !== 'photo') || !!dialogue || !!portal || challenges || rush === 'ready' || rush === 'done'
     if (world.current) world.current.paused = blocked
     if (gym.current) gym.current.paused = blocked
     if (interior.current) interior.current.paused = blocked
@@ -453,16 +458,25 @@ export function GameApp() {
       input.current.enabled = !blocked
       if (blocked) input.current.clear()
     }
-  }, [overlay, dialogue, portal, phase, rush])
+  }, [overlay, dialogue, portal, phase, rush, challenges])
+  // any overlay opening — photo mode included, which keeps control — first drops whatever was being held
+  useEffect(() => {
+    if (overlay || challenges) input.current?.clear()
+  }, [overlay, challenges])
+  // the challenges sheet never survives a scene change
+  useEffect(() => {
+    if (portal) setChallenges(false)
+  }, [portal])
 
   /* ── keyboard: Esc opens pause in the world ── */
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && challenges) return setChallenges(false)
       if (e.key === 'Escape' && (phase === 'world' || phase === 'interior' || (phase === 'gym' && gymMode === 'free')) && !overlay && !dialogue && !portal && !rushRef.current) setOverlay('pause')
     }
     window.addEventListener('keydown', k)
     return () => window.removeEventListener('keydown', k)
-  }, [phase, overlay, dialogue, portal, gymMode])
+  }, [phase, overlay, dialogue, portal, gymMode, challenges])
 
   /* ── settings ── */
   const changeSettings = (patch: Partial<Settings>) => {
@@ -588,6 +602,7 @@ export function GameApp() {
       interiorTeleport: (x: number, z: number, yaw?: number, level?: 0 | 1) => interior.current?.teleport(x, z, yaw, level),
       gymPhoto: (o: Parameters<Gym['setPhoto']>[0]) => gym.current?.setPhoto(o),
       anim: () => world.current?.animState() ?? gym.current?.animState() ?? null,
+      input: () => (input.current ? { stick: input.current.stick, owner: input.current.stickOwner, enabled: input.current.enabled, sprint: input.current.sprint, move: input.current.move() } : null),
       seat: () => world.current?.seatState() ?? null,
       rush: () => (world.current?.rush ? { phase: world.current.rush.phase, timeLeft: +world.current.rush.timeLeft.toFixed(2), combo: world.current.rush.combo, ...world.current.rush.stats, targets: world.current.rush.targetsInfo() } : null),
       rushGame: () => world.current?.rush ?? null,
@@ -635,6 +650,7 @@ export function GameApp() {
                   emotesDisabled={!!overlay || !!dialogue}
                   sprint={sprint}
                   onSprint={toggleSprint}
+                  onChallenges={() => setChallenges(true)}
                   onPhoto={() => setOverlay('photo')}
                 />}
                 {rush && world.current?.rush && (
@@ -669,6 +685,7 @@ export function GameApp() {
                   emotesDisabled={!!overlay}
                   sprint={sprint}
                   onSprint={toggleSprint}
+                  onChallenges={() => setChallenges(true)}
                 />
                 <AnimatePresence>{dialogue && <DialoguePanel key={dialogue.speaker + dialogue.lines[0]} d={dialogue} onDone={closeDialogue} reduced={s.reducedEffects} />}</AnimatePresence>
               </>
@@ -689,6 +706,7 @@ export function GameApp() {
                   emotesDisabled={!!overlay}
                   sprint={sprint}
                   onSprint={toggleSprint}
+                  onChallenges={() => setChallenges(true)}
                 />
               </>
             )}
@@ -704,7 +722,8 @@ export function GameApp() {
               />
             )}
 
-            <Toasts toasts={toasts} />
+            <Toasts toasts={toasts} compact={touch} />
+            {(phase === 'world' || phase === 'gym' || phase === 'interior') && <ChallengePanel open={challenges} save={save} notes={notes} onClose={() => setChallenges(false)} />}
             <AnimatePresence>{levelUp !== null && (phase === 'world' || phase === 'gym') && <LevelUpBanner key={levelUp} level={levelUp} />}</AnimatePresence>
 
             <AnimatePresence>
