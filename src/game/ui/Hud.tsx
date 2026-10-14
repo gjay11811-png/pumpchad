@@ -8,6 +8,13 @@ import { ChallengeTab } from './Challenges'
 
 export function objectiveFor(save: SaveData) {
   const d = save.progress.discoveries
+  // the opening adventure comes first (it never repeats once the sigil is claimed)
+  if (!d.includes('q1_sigil')) {
+    if (!d.includes('q1_start')) return 'Talk to Goldie by the city gateway'
+    const lit = ['bridge', 'square', 'citadel'].filter((k) => d.includes(`q1_lantern_${k}`)).length
+    if (lit < 3) return `Relight the Guardian Lanterns ${lit}/3 · bridge · square · citadel`
+    return 'Claim the Golden Sigil at the Citadel doors'
+  }
   if (!d.includes('talk_coach')) return 'Find Coach Gourdon outside Pump Gym'
   if (save.progress.gymRuns === 0) return 'Enter Pump Gym and finish a Chad Press set'
   const seeds = d.filter((x) => x.startsWith('seed_')).length

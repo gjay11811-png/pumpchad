@@ -4,7 +4,8 @@ import { audio } from './audio'
 import { runAchievements, xpFor, type RunState } from './chadpress'
 import { preloadModel } from './character/character'
 import type { Appearance } from './character/types'
-import { DIALOGUE, PUMPKIN_LINES, type Dialogue, type DialogueOption } from './dialogue'
+import { DIALOGUE, PUMPKIN_LINES, QUEST_COLD_LANTERN, QUEST_GOLDIE, QUEST_GOLDIE_REMIND, QUEST_SIGIL, type Dialogue, type DialogueOption } from './dialogue'
+import { LANTERNS } from './scenes/world/lanterns'
 import { Engine } from './engine/Engine'
 import { Input } from './input'
 import { ACHIEVEMENTS, defaultSave, levelFor, loadSave, writeSave, type SaveData, type Settings } from './save'
@@ -280,6 +281,35 @@ export function GameApp() {
     }
     if (rushRef.current === 'run') return // mid-sprint: nothing else steals the E key
     if (overlay === 'photo' || overlay === 'intro') return // framing a shot / watching the intro: E does nothing
+    // the opening adventure: Goldie → three Guardian Lanterns → the Golden Sigil
+    const qd = saveRef.current.progress.discoveries
+    if (id === 'greeter' && !qd.includes('q1_sigil')) {
+      discover('talk_greeter')
+      w.faceNpcToPlayer(id)
+      w.markTalked(id)
+      return void setDialogue(qd.includes('q1_start') ? QUEST_GOLDIE_REMIND : QUEST_GOLDIE)
+    }
+    if (id.startsWith('lantern:')) {
+      if (!qd.includes('q1_start')) return void setDialogue(QUEST_COLD_LANTERN)
+      const L = LANTERNS.find((l) => `lantern:${l.id}` === id)
+      if (!L || qd.includes(`q1_lantern_${L.id}`)) return
+      discover(`q1_lantern_${L.id}`)
+      setSave((s) => ({ ...s, progress: { ...s.progress, xp: s.progress.xp + 10 } }))
+      audio.play('achievement')
+      const n = LANTERNS.filter((l) => saveRef.current.progress.discoveries.includes(`q1_lantern_${l.id}`)).length
+      notify(`Guardian Lantern relit · ${n}/3`, n < 3 ? `${L.name} burns again · +10 XP` : 'The Golden Sigil has risen at the Citadel doors', 'discover')
+      w.questSync(saveRef.current.progress.discoveries)
+      return
+    }
+    if (id === 'sigil') {
+      if (qd.includes('q1_sigil')) return
+      discover('q1_sigil')
+      // first real reward: 50 XP (which also pays 25 coins) + a 25-coin welcome purse
+      setSave((s) => ({ ...s, progress: { ...s.progress, xp: s.progress.xp + 50, coins: s.progress.coins + 25 } }))
+      notify('The Golden Sigil', 'Opening adventure complete · +50 XP · +50 Chad Coins', 'discover')
+      w.questSync(saveRef.current.progress.discoveries)
+      return void setDialogue(QUEST_SIGIL)
+    }
     switch (id) {
       case 'rush':
         input.current?.clear()
@@ -485,6 +515,11 @@ export function GameApp() {
     world.current?.cooldown()
     if (action === 'gym') void go('gym', { label: 'Entering Pump Gym' })
     if (action === 'welltoss') setOverlay('welltoss')
+    if (action === 'q1_accept') {
+      discover('q1_start')
+      world.current?.questSync(saveRef.current.progress.discoveries)
+      notify('The Guardian Lanterns', 'Relight all three · follow the gold markers', 'discover')
+    }
     if (action === 'wardrobe') {
       setEditing(true)
       void go('creator', { label: 'Opening the wardrobe' })

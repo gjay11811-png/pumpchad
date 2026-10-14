@@ -1,5 +1,39 @@
-export type DialogueOption = { label: string; action: 'close' | 'gym' | 'wardrobe' | 'welltoss' }
+export type DialogueOption = { label: string; action: 'close' | 'gym' | 'wardrobe' | 'welltoss' | 'q1_accept' }
 export type Dialogue = { speaker: string; role: string; lines: string[]; options?: DialogueOption[] }
+
+/** the opening adventure: Goldie asks for help with the Guardian Lanterns */
+export const QUEST_GOLDIE: Dialogue = {
+  speaker: 'Goldie',
+  role: 'Chad City · greeter + lamplighter',
+  lines: [
+    'Oh — a new face, and just in time. Welcome to CHAD CITY!',
+    'Since the Curse of the Chadverse fell, the three Guardian Lanterns have gone cold: one on Chad Bridge, one in Chad Square, one before the Citadel.',
+    'Light them again and something old will wake up. Will you do it? Look for the gold markers.',
+  ],
+  options: [
+    { label: 'I’ll relight them', action: 'q1_accept' },
+    { label: 'Not yet', action: 'close' },
+  ],
+}
+export const QUEST_GOLDIE_REMIND: Dialogue = {
+  speaker: 'Goldie',
+  role: 'Chad City · greeter + lamplighter',
+  lines: ['The Guardian Lanterns: on Chad Bridge, in Chad Square, and before the Citadel. Follow the gold markers — I’ll keep the gateway warm.'],
+}
+export const QUEST_COLD_LANTERN: Dialogue = {
+  speaker: 'Guardian Lantern',
+  role: 'cold iron · old magic',
+  lines: ['An old iron lantern on a stone plinth. Its glass is dark and cold to the touch.', 'Goldie, the greeter by the city gateway, might know what happened to it.'],
+}
+export const QUEST_SIGIL: Dialogue = {
+  speaker: 'The Golden Sigil',
+  role: 'the Order of the Golden Pumpkin',
+  lines: [
+    'The sigil settles into your hands, warm as a lantern. All three Guardian Lanterns flare at once across the city.',
+    'Its light leans toward the Citadel. The great doors stay sealed — the curse holds them for now, and they open in a later chapter.',
+    'Until then: the city is yours. Coach Gourdon is waiting outside Pump Gym.',
+  ],
+}
 
 export const DIALOGUE: Record<string, Dialogue> = {
   coach: {

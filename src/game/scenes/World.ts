@@ -61,6 +61,7 @@ import { PumpkinBuilder } from './world/pumpkins'
 import { stallV4 } from './world/market'
 import { FOREST_WISPS, LAKE_FIREFLIES, enchantedForest, lakeLamps, moonlightLake } from './world/wilds'
 import { lakeR } from './world/city'
+import { LANTERNS, SIGIL, guardianLanterns, type GuardianLanterns } from './world/lanterns'
 import { Pet, type PetKind } from '../character/pet'
 
 export type Interactable = { id: string; label: string; pos: THREE.Vector3; radius: number; kind: 'talk' | 'activity' | 'info' | 'collect' | 'secret' }
@@ -159,6 +160,9 @@ export class World implements GameScene {
   /** night: a small pool of point lights handed to the lamps / torches / lanterns nearest the player */
   private lightPool: { light: THREE.PointLight; spot: LightSpot | null; target: number }[] = []
   private lightSpots: LightSpot[] = []
+  /** the opening adventure's Guardian Lanterns + Golden Sigil */
+  private quest: GuardianLanterns | null = null
+  private questLights = new Set<string>()
   private poolTimer = 0
   readonly night = isNight()
   private city: ReturnType<typeof buildChadCity> | null = null
@@ -305,6 +309,7 @@ export class World implements GameScene {
     motorRow(T, tex.stone)
     enchantedForest(T, q, extraSeats)
     moonlightLake(T, wn, q, extraSeats)
+    this.quest = guardianLanterns(T)
     greenery.potted = citadelShrubs
     lawns(T, SM.trim, extraSeats, greenery)
     this.seats.push(...extraSeats)
@@ -717,7 +722,46 @@ export class World implements GameScene {
       if (d.startsWith('hp_')) this.collectHidden(d)
       if (d.startsWith('visit_')) this.visited.add(d)
     }
+    this.questSync(discoveries)
     this.spawn(spawn)
+  }
+
+  /**
+   * The opening adventure, from the save: lit lanterns burn (and join the night light pool), unlit ones show a gold
+   * marker once Goldie has asked for help, and the Golden Sigil rises at the Citadel doors when all three burn.
+   */
+  questSync(d: string[]) {
+    const q = this.quest
+    if (!q) return
+    const started = d.includes('q1_start')
+    const done = d.includes('q1_sigil')
+    let lit = 0
+    for (const L of LANTERNS) {
+      const on = done || d.includes(`q1_lantern_${L.id}`)
+      if (on) lit++
+      q.setLit(L.id, on)
+      q.setMarker(L.id, started && !on)
+      const id = `lantern:${L.id}`
+      if (on) {
+        this.interactables = this.interactables.filter((i) => i.id !== id)
+        if (!this.questLights.has(L.id)) {
+          this.questLights.add(L.id)
+          this.lightSpots.push({ x: L.x, y: 1.4, z: L.z, color: '#ffc864', intensity: 4, dist: 8, priority: 1 })
+        }
+        continue
+      }
+      let it = this.interactables.find((i) => i.id === id)
+      if (!it) {
+        it = { id, label: '', pos: new THREE.Vector3(L.x, 0, L.z), radius: 1.6, kind: 'info' }
+        this.interactables.push(it)
+      }
+      it.label = started ? 'Relight the Guardian Lantern' : 'Look at the cold lantern'
+      it.kind = started ? 'activity' : 'info'
+    }
+    const sigil = lit === LANTERNS.length && !done
+    q.setSigil(sigil)
+    this.interactables = this.interactables.filter((i) => i.id !== 'sigil')
+    if (sigil) this.interactables.push({ id: 'sigil', label: 'Claim the Golden Sigil', pos: new THREE.Vector3(SIGIL.x, 0, SIGIL.z), radius: 1.8, kind: 'activity' })
   }
 
   /** QA */

@@ -217,7 +217,7 @@ for (const [w, h, tag, mobile] of [
   await sleep(600)
   const back = await cv(() => window.__chadverse.world())
   check(back.x > 10 && back.x < 14, 'returned to Chad Square at the gym door')
-  check((await p.textContent('[data-testid=objective]')).includes('Explore'), 'objective advanced')
+  check((await p.textContent('[data-testid=objective]')).includes('Goldie'), 'objective: the opening adventure (Goldie) leads until its sigil is claimed')
 
   if (!mobile) {
     await p.keyboard.press('Escape')
