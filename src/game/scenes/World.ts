@@ -722,7 +722,7 @@ export class World implements GameScene {
   }
 
   async populate(player: Appearance, spawn: SpawnAt = 'start', discoveries: string[] = []) {
-    const [p] = await Promise.all([createCharacter(player), this.crowd.load(this.scene, this.quality, groundHeight)])
+    const [p] = await Promise.all([createCharacter(player), this.crowd.load(this.scene, this.quality, groundHeight, this.night)])
     if (this.disposed) {
       disposeCharacter(p)
       return
@@ -1341,6 +1341,7 @@ export class World implements GameScene {
       cameraInside: inside(cam.x, cam.z, cam.y, 0.05),
       finite: Number.isFinite(this.playerPos.x + this.playerPos.z + cam.x + cam.y + cam.z),
       walkers: this.crowd.live.filter((l) => l.walker).map((l) => [+l.pos.x.toFixed(2), +l.pos.z.toFixed(2)]),
+      walkerIds: this.crowd.live.filter((l) => l.walker).map((l) => l.def.id),
     }
   }
   /** first-visit flyover: the valley → over the gateway → down behind the player. Control returns at the end. */

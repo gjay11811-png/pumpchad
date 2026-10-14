@@ -11,7 +11,8 @@ const errs = []
 let fails = 0
 const check = (ok, msg) => { console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${msg}`); if (!ok) fails++ }
 p.on('pageerror', (e) => errs.push(e.message))
-p.on('console', (m) => m.type() === 'error' && errs.push(m.text().slice(0, 200)))
+let here = 'start'
+p.on('console', (m) => m.type() === 'error' && errs.push(`[${here}] ${m.text().slice(0, 160)}`))
 await p.goto(BASE, { waitUntil: 'networkidle' })
 await p.evaluate((q) => {
   localStorage.clear()
@@ -38,10 +39,13 @@ check(houses.length >= 12, `enterable buildings registered (${houses.length})`)
 for (const h of houses) {
   if (ONLY && !ONLY.includes(h.id)) continue
   console.log(`-- ${h.name}`)
+  here = h.id
   await C('teleport', h.door.x, h.door.z, h.door.yaw + Math.PI)
   await p.waitForTimeout(1200)
   const at = await C('world')
   check(Math.hypot(at.x - h.door.x, at.z - h.door.z) < 0.15, `door approach is clear (pushed ${Math.hypot(at.x - h.door.x, at.z - h.door.z).toFixed(2)} m)`)
+  // the prompt follows the next rendered frame — on a slow machine that can lag a fixed delay
+  await p.waitForFunction((n) => (document.querySelector('[data-testid=prompt]')?.textContent ?? '').includes(n), h.name, { timeout: 6000 }).catch(() => {})
   const pr = await prompt()
   check(pr.includes(h.name), `door prompt "Enter ${h.name}" (got "${pr}")`)
   await p.keyboard.press('e')

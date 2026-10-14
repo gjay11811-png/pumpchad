@@ -24,7 +24,7 @@ const A = (p: Partial<Appearance> & Pick<Appearance, 'species'>): Appearance => 
 
 /** Residents stand at a post (optionally with dialogue). Walkers follow waypoint loops. */
 export type ResidentDef = { id: string; a?: Appearance; v?: VillagerLook; x: number; z: number; face: number; talk?: string; pose?: Pose; minQuality?: 'low' | 'medium' | 'high'; /** where the player stands to talk, if not next to the NPC (e.g. across a counter) */ talkAt?: [number, number] }
-export type WalkerDef = { id: string; a?: Appearance; v?: VillagerLook; path: [number, number][]; speed: number; pause: number; minQuality?: 'low' | 'medium' | 'high' }
+export type WalkerDef = { id: string; /** daily routine: only out by day / only out at night (default: always) */ when?: 'day' | 'night'; a?: Appearance; v?: VillagerLook; path: [number, number][]; speed: number; pause: number; minQuality?: 'low' | 'medium' | 'high' }
 
 /** a villager look with sensible defaults (peasant clothes as painted, natural skin, brown hair) */
 const V = (p: Partial<VillagerLook> & Pick<VillagerLook, 'body'>): VillagerLook => ({ outfit: 'peasant', cloth: '#ffffff', skin: 0, hair: p.body === 'f' ? 'long' : 'simpleparted', hairColor: '#4a3020', ...p })
@@ -85,11 +85,15 @@ export const WALKERS: WalkerDef[] = [
     minQuality: 'medium',
   },
   // CHAD CITY walkers: Arcade Street, the canal promenade, the garden loop, the forecourt
-  { id: 'wander3', v: V({ body: 'm', cloth: '#d8d0f0', hat: 'cap', hatColor: '#5b2a86', skin: 0.4 }), path: [[6, 18.2], [43, 18.2], [43, 20], [6, 20]], speed: 1.3, pause: 3, minQuality: 'medium' },
+  { id: 'wander3', when: 'day', v: V({ body: 'm', cloth: '#d8d0f0', hat: 'cap', hatColor: '#5b2a86', skin: 0.4 }), path: [[6, 18.2], [43, 18.2], [43, 20], [6, 20]], speed: 1.3, pause: 3, minQuality: 'medium' },
   { id: 'wander4', v: V({ body: 'f', cloth: '#c0a8d8', hat: 'witch', hatColor: '#1e1428', hair: 'long', hairColor: '#5a1a2a', prop: 'broom', skin: 0.9 }), path: [[-24, 36.6], [-4.5, 36.6], [4.5, 36.6], [24, 36.6]], speed: 1.2, pause: 4, minQuality: 'medium' },
-  { id: 'wander5', v: V({ body: 'f', cloth: '#e0f0d0', hat: 'bonnet', hatColor: '#d8e8c8', hair: 'buns', hairColor: '#a06a3a', prop: 'basket', skin: -0.2 }), path: [[-54.2, 13.8], [-33.8, 13.8], [-33.8, 32.2], [-54.2, 32.2]], speed: 1.1, pause: 5, minQuality: 'high' },
+  { id: 'wander5', when: 'day', v: V({ body: 'f', cloth: '#e0f0d0', hat: 'bonnet', hatColor: '#d8e8c8', hair: 'buns', hairColor: '#a06a3a', prop: 'basket', skin: -0.2 }), path: [[-54.2, 13.8], [-33.8, 13.8], [-33.8, 32.2], [-54.2, 32.2]], speed: 1.1, pause: 5, minQuality: 'high' },
   // the lamplighter on the arrival forecourt
-  { id: 'wander6', v: V({ body: 'm', cloth: '#e8d8c0', hat: 'cap', hatColor: '#26242a', beard: true, hairColor: '#6a6050', prop: 'lantern', skin: 0.2 }), path: [[-5, 53.5], [-5, 66], [5, 66], [5, 53.5]], speed: 1.25, pause: 3, minQuality: 'high' },
+  { id: 'wander6', when: 'night', v: V({ body: 'm', cloth: '#e8d8c0', hat: 'cap', hatColor: '#26242a', beard: true, hairColor: '#6a6050', prop: 'lantern', skin: 0.2 }), path: [[-5, 53.5], [-5, 66], [5, 66], [5, 53.5]], speed: 1.25, pause: 3, minQuality: 'high' },
+  // NIGHT ROUTINES: the lamplighter makes his rounds (the paths are legs the day walkers already prove clear), and a late
+  // shopper hurries home along Arcade Street while the day crowd is indoors
+  { id: 'lamplighter', when: 'night', v: V({ body: 'm', cloth: '#cdb98a', hat: 'cap', hatColor: '#26242a', beard: true, hairColor: '#6a6050', prop: 'lantern', skin: 0.1 }), path: [[-18, 4], [-10.5, 4.5], [-6.5, 9.5], [-1, 12.5], [-1.2, 15.5], [-1, 12.5], [-6.5, 9.5], [-10.5, 4.5]], speed: 1.0, pause: 4.5, minQuality: 'medium' },
+  { id: 'lateShopper', when: 'night', v: V({ body: 'f', cloth: '#b8a0d8', hat: 'bonnet', hatColor: '#7a5aa8', hair: 'buns', hairColor: '#3a2030', prop: 'basket', skin: -0.4 }), path: [[43, 20], [6, 20], [6, 18.2], [43, 18.2]], speed: 1.9, pause: 1.5, minQuality: 'medium' },
 ]
 
 type Live = { def: ResidentDef | WalkerDef; c: Character; pos: THREE.Vector3; yaw: number; target: number; wait: number; facing: number; walker: boolean; shadow: boolean }
@@ -100,10 +104,10 @@ export class Crowd {
 
   private quality: 'low' | 'medium' | 'high' = 'medium'
 
-  async load(scene: THREE.Scene, quality: 'low' | 'medium' | 'high', heightAt: (x: number, z: number) => number) {
+  async load(scene: THREE.Scene, quality: 'low' | 'medium' | 'high', heightAt: (x: number, z: number) => number, night = false) {
     this.quality = quality
     const allowed = (m?: 'low' | 'medium' | 'high') => !m || (m === 'high' ? quality === 'high' : m === 'medium' ? quality !== 'low' : true)
-    const defs: (ResidentDef | WalkerDef)[] = [...RESIDENTS.filter((r) => allowed(r.minQuality)), ...WALKERS.filter((w) => allowed(w.minQuality))]
+    const defs: (ResidentDef | WalkerDef)[] = [...RESIDENTS.filter((r) => allowed(r.minQuality)), ...WALKERS.filter((w) => allowed(w.minQuality) && (!w.when || w.when === (night ? 'night' : 'day')))]
     const chars = await Promise.all(defs.map((d) => (d.v ? createVillager(d.v) : createCharacter(d.a!))))
     if (this.disposed) return chars.forEach(disposeCharacter)
     defs.forEach((def, i) => {
