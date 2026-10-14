@@ -37,6 +37,8 @@ const VIEWS = {
   'gym-roof': { cam: [[4, 6.5, 2.5], [16, 6.5, -4.5], 60] },
   courtyard: { play: [22, 12, PI, 10, 0] },
   arcade: { play: [33, 19, PI / 2, -10, 0] },
+  'arcade-front': { cam: [[39.5, 2.2, 19], [47.2, 3.8, 19], 68] },
+  'arcade-wide': { cam: [[37.5, 3.4, 19], [48, 3.4, 19], 88] },
   market: { play: [-10.5, 2.5, -PI / 2, 0, 0] },
   social: { play: [-31, 2.5, -PI / 2 - 0.25, 0, 0] },
   garden: { play: [-30.5, 23, -PI / 2, -10, 0] },

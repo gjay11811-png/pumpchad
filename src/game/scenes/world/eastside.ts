@@ -296,12 +296,27 @@ export function eastside(T: Town, stoneTex: THREE.Texture) {
       const y = i % 2 ? 4.8 : 2.0
       const mat = new THREE.MeshBasicMaterial({ map: posterTexture(t, s, a, b, Dp), color: '#e8e2da' })
       Dp.push(mat)
+      if (i % 2 === 0) return // the lower bays are lit display windows (below), not posters
       F.box(1.5, 2.2, 0.14, darkMetal, sx * 6.0, y, fz + 0.12)
       F.put(new THREE.PlaneGeometry(1.32, 1.98), mat, sx * 6.0, y, fz + 0.2, 0, 0, 0, false)
     })
+    // lit cabinet windows either side of the entrance: stone surround, purple frame, gold keystone and sill
+    const cabinets = displayMaterial(T, '#b57aff', 'cabinets')
+    for (const sx of [-1, 1]) {
+      const wx = sx * 6.0
+      F.put(new THREE.PlaneGeometry(1.7, 2.3), cabinets, wx, 2.0, fz + 0.1, 0, 0, 0, false)
+      F.put(new THREE.PlaneGeometry(1.7, 2.3), glass, wx, 2.0, fz + 0.14, 0, 0, 0, false)
+      for (const [bw, bh, bx, by] of [[1.9, 0.14, 0, 3.2], [1.9, 0.14, 0, 0.8], [0.14, 2.5, -0.9, 2.0], [0.14, 2.5, 0.9, 2.0], [0.08, 2.3, 0, 2.0]] as const) F.box(bw, bh, 0.16, purpleTrim, wx + bx, by, fz + 0.16)
+      F.box(2.3, 0.3, 0.3, stone.trim, wx, 3.5, fz + 0.18) // lintel
+      F.box(0.4, 0.4, 0.34, P.gold, wx, 3.52, fz + 0.2) // keystone
+      F.box(2.3, 0.2, 0.36, stone.trim, wx, 0.65, fz + 0.2) // sill
+    }
+    F.box(Dd * 0 + 15.2, 0.22, 0.2, stone.trim, 0, 4.35, fz + 0.1) // string course between the floors
     // recessed entrance: stone portal, closed double doors with porthole windows, an OPENING SOON plaque
-    F.box(5.6, 4.6, 0.5, stone.trim, 0, 2.3, fz + 0.2)
-    F.box(4.4, 3.8, 0.6, darkMetal, 0, 1.9, fz + 0.05)
+    for (const sx of [-1, 1]) F.box(0.7, 4.6, 0.5, stone.trim, sx * 2.45, 2.3, fz + 0.2) // jambs
+    F.box(5.6, 0.9, 0.5, stone.trim, 0, 4.15, fz + 0.2) // lintel
+    F.box(4.4, 3.8, 0.3, darkMetal, 0, 1.9, fz - 0.05)
+    F.box(4.6, 0.12, 0.62, P.gold, 0, 4.66, fz + 0.2) // gold cornice over the lintel
     for (const dx of [-1.05, 1.05]) {
       F.box(2.0, 3.3, 0.08, purpleTrim, dx, 1.67, fz + 0.38)
       F.put(new THREE.CircleGeometry(0.32, 20), glass, dx, 2.3, fz + 0.43, 0, 0, 0, false)
