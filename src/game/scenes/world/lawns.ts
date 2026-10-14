@@ -84,7 +84,8 @@ export function lawns(T: Town, trim: THREE.Material, seats: BenchSpot[], green: 
       T.colliders.push({ kind: 'circle', x, z, r: 1.4, h: 2 })
       T.colliders.push({ kind: 'circle', x: x + 1.6, z: z + 1.4, r: 0.75, h: 1.6 })
     }
-    green.trees.push([x0 - 1.5, z1 + 1.5], [x0 - 1.0, z0 - 1.6], [x1 + 2.6, z1 - 1.5])
+    // (the patch's north-west corner tree made way for the Chadville Estates arch)
+    green.trees.push([x0 - 1.5, z1 + 1.5], [x1 + 2.6, z1 - 1.5])
   }
 
   /* ═════════ SE picnic lawn: trees, flowerbeds round a sundial, benches ═════════ */

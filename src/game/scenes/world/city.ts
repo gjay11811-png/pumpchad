@@ -13,7 +13,7 @@
 /** walkable areas (union). The core is the old walled town; the rectangles are the new districts. */
 export const CORE_R = 34.5
 export type Rect = { x0: number; x1: number; z0: number; z1: number }
-export const DISTRICTS: Record<'south' | 'east' | 'west' | 'overlook' | 'haunted' | 'motor' | 'forest' | 'lake', Rect> = {
+export const DISTRICTS: Record<'south' | 'east' | 'west' | 'overlook' | 'haunted' | 'motor' | 'forest' | 'lake' | 'estates', Rect> = {
   south: { x0: -32, x1: 32, z0: 20, z1: 75 },
   east: { x0: 28, x1: 58, z0: -6, z1: 34 },
   west: { x0: -58, x1: -28, z0: -6, z1: 34 },
@@ -27,6 +27,8 @@ export const DISTRICTS: Record<'south' | 'east' | 'west' | 'overlook' | 'haunted
   forest: { x0: -102, x1: -40, z0: -68, z1: -16 }, // overlaps the Haunted Quarter by 2 m so the seam has no wall
   // MOONLIGHT LAKE: Motor Row's street runs on east to a lake with a shore path, a pier and a pavilion
   lake: { x0: 64, x1: 128, z0: 4, z1: 70 },
+  // CHADVILLE ESTATES: plots to buy and build on, west of the arrival lawns, below the Chad View terrace
+  estates: { x0: -66, x1: -30, z0: 41, z1: 78 },
 }
 /** Moonlight Lake's water (an ellipse, not walkable) and the pier over it (walkable) */
 export const LAKE = { x: 98, z: 31, rx: 19, rz: 14, water: -0.32 }
@@ -159,7 +161,7 @@ export function terrainHeight(x: number, z: number) {
 export function terrainLines(axis: 'x' | 'z') {
   const s = new Set<number>()
   const lo = axis === 'x' ? -106 : -72
-  const hi = axis === 'x' ? 132 : 74
+  const hi = axis === 'x' ? 132 : 82
   for (let v = lo; v <= hi; v += 2) s.add(v)
   for (const v of [70, 80, 95, 115, 140, 175, 220, 280, 360, 460]) {
     if (axis === 'x' && v <= 132 && v >= 70) {

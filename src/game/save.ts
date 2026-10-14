@@ -4,6 +4,7 @@
  * Never eval'd, never injected as HTML.
  */
 import { EYEWEAR, GLOWS, HEADWEAR, OUTFITS, SPECIES, TOPS, type Appearance } from './character/types'
+import { sanitizeEstate, type Estate } from './estates'
 import { CATALOG, ITEM, PREMIUM_GLOWS, PREMIUM_OUTFITS, coinsForXp, itemForColor } from './economy'
 
 export const SAVE_KEY = 'pumpchad.chadverse.save'
@@ -47,6 +48,8 @@ export type Progress = {
   owned: string[]
   /** the companion (a pet item id) following you, or null (left at home) */
   pet: string | null
+  /** Chadville Estates: the plot you own (if any) and what you've built on it */
+  estate: Estate
 }
 
 export type SaveData = {
@@ -73,7 +76,7 @@ export const defaultSettings = (): Settings => ({
 export const defaultSave = (): SaveData => ({
   version: SAVE_VERSION,
   character: null,
-  progress: { xp: 0, achievements: [], gymBest: 0, gymRuns: 0, discoveries: [], strength: 0, reps: {}, stamina: 0, stats: { sets: 0, clean: 0, bestCombo: 0 }, daily: { day: '', sets: {} }, records: {}, coins: 0, owned: [], pet: null },
+  progress: { xp: 0, achievements: [], gymBest: 0, gymRuns: 0, discoveries: [], strength: 0, reps: {}, stamina: 0, stats: { sets: 0, clean: 0, bestCombo: 0 }, daily: { day: '', sets: {} }, records: {}, coins: 0, owned: [], pet: null, estate: { plot: null, pieces: [] } },
   settings: defaultSettings(),
 })
 
@@ -174,6 +177,7 @@ export function sanitizeSave(raw: unknown): SaveData {
       coins: o.version < 2 ? coinsForXp(num(p.xp, 0, 1e7, 0)) : Math.floor(num(p.coins, 0, 1e7, 0)),
       owned: strList(p.owned).filter((id) => CATALOG.some((i) => i.id === id)),
       pet: typeof p.pet === 'string' ? p.pet : null,
+      estate: sanitizeEstate(p.estate),
     },
     settings: {
       quality: oneOf(s.quality, ['low', 'medium', 'high'] as const, d.settings.quality),

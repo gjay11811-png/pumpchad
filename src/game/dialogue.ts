@@ -1,4 +1,4 @@
-export type DialogueOption = { label: string; action: 'close' | 'gym' | 'wardrobe' | 'welltoss' | 'q1_accept' | 'q2_accept' }
+export type DialogueOption = { label: string; action: 'close' | 'gym' | 'wardrobe' | 'welltoss' | 'q1_accept' | 'q2_accept' | 'buy_plot' }
 export type Dialogue = { speaker: string; role: string; lines: string[]; options?: DialogueOption[] }
 
 /** the opening adventure: Goldie asks for help with the Guardian Lanterns */

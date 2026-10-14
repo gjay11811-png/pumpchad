@@ -31,12 +31,14 @@ import { IntroOverlay, PhotoMode } from './ui/PhotoMode'
 import { ChallengePanel } from './ui/Challenges'
 import { ShopPanel } from './ui/Shop'
 import { MapJournal } from './ui/MapJournal'
+import { EstateEditor } from './ui/EstateEditor'
+import { PLOT, PLOT_PRICE, type Piece } from './estates'
 import { FishingPanel, type FishingResult } from './ui/FishingPanel'
 import { fishingXp, type Catch } from './minigames/fishing'
 import { ITEM, coinsForXp } from './economy'
 
 type Phase = 'boot' | 'title' | 'creator' | 'world' | 'gym' | 'interior' | 'error'
-type Overlay = null | 'pause' | 'settings' | 'achievements' | 'profile' | 'board' | 'welltoss' | 'photo' | 'intro' | 'shop' | 'map' | 'fishing'
+type Overlay = null | 'pause' | 'settings' | 'achievements' | 'profile' | 'board' | 'welltoss' | 'photo' | 'intro' | 'shop' | 'map' | 'fishing' | 'estate'
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 const ACH_XP = 25
 /** Discover Chad City: the five places (discovery ids) */
@@ -203,6 +205,7 @@ export function GameApp() {
       visit_lake: ['Moonlight Lake', 'Walk the shore path · the pier reaches the middle'],
       visit_motor: ['Motor Row', 'Chad Pets · Chad Motors'],
       visit_haunted: ['Haunted Quarter', 'Mind the ghosts · the forest lies north'],
+      visit_estates: ['Chadville Estates', 'Plots for sale · build a place of your own'],
     }
     if (wilds[id]) {
       notify(`Discovered: ${wilds[id][0]}`, `${wilds[id][1]} · +25 XP`, 'discover')
@@ -216,6 +219,16 @@ export function GameApp() {
   }
   const handleGymRef = useRef<(id: string) => void>(() => {})
   const introPending = useRef(false)
+  /** the plot whose sale dialogue is open */
+  const pendingPlot = useRef<string | null>(null)
+  /** the plot editor: a new layout costing `spend` coins (negative = refund); refuses if it can't be afforded */
+  const commitEstate = (pieces: Piece[], spend: number) => {
+    const p0 = saveRef.current.progress
+    if (!p0.estate.plot || p0.coins - spend < 0) return false
+    setSave((s) => ({ ...s, progress: { ...s.progress, coins: s.progress.coins - spend, estate: { ...s.progress.estate, pieces } } }))
+    world.current?.setEstate(saveRef.current.progress.estate, saveRef.current.character?.name ?? '')
+    return true
+  }
   const finishIntro = useCallback(() => {
     world.current?.endIntro()
   }, [])
@@ -247,6 +260,7 @@ export function GameApp() {
       // load + compile behind the portal overlay; the previous scene keeps rendering until the swap
       await w.populate(app, opts.spawn ?? 'start', saveRef.current.progress.discoveries)
       w.setPet(petKind())
+      w.setEstate(saveRef.current.progress.estate, saveRef.current.character?.name ?? '')
       await e.precompile(w)
       e.setScene(w)
       if (saveRef.current.progress.discoveries.includes('stash')) w.revealStash()
@@ -318,6 +332,25 @@ export function GameApp() {
       notify('The Golden Sigil', 'Opening adventure complete · +50 XP · +50 Chad Coins', 'discover')
       w.questSync(saveRef.current.progress.discoveries)
       return void setDialogue(QUEST_SIGIL)
+    }
+    // Chadville Estates: buy a plot at its gate, then build on it
+    if (id.startsWith('plot:')) {
+      const plot = PLOT(id.slice(5))
+      const est = saveRef.current.progress.estate
+      if (!plot) return
+      if (est.plot === plot.id) return void setOverlay('estate')
+      if (est.plot) return void setDialogue({ speaker: plot.name, role: 'Chadville Estates · sold', lines: [`This one’s spoken for. You already own ${PLOT(est.plot)?.name} — one plot per Chad.`] })
+      pendingPlot.current = plot.id
+      const coins = saveRef.current.progress.coins
+      return void setDialogue({
+        speaker: plot.name,
+        role: 'Chadville Estates · for sale',
+        lines: [
+          `${plot.name}: 12 × 10 metres of good flat lawn on a quiet lane. Build a cottage, a tower, a garden — whatever you like.`,
+          coins >= PLOT_PRICE ? `It costs ${PLOT_PRICE} Chad Coins (you have ${coins}). Pieces cost a few coins each and are refunded in full if you take them down.` : `It costs ${PLOT_PRICE} Chad Coins — you have ${coins}. Earn more by exploring, training, fishing and quests.`,
+        ],
+        options: coins >= PLOT_PRICE ? [{ label: `Buy it · ${PLOT_PRICE} coins`, action: 'buy_plot' }, { label: 'Not now', action: 'close' }] : [{ label: 'Maybe later', action: 'close' }],
+      })
     }
     // chapter 2: Grim → the Elder Oak → the moonstone (opens once the sigil is claimed)
     if (id === 'gravedig' && qd.includes('q1_sigil') && !qd.includes('q2_stone')) {
@@ -551,6 +584,15 @@ export function GameApp() {
     world.current?.cooldown()
     if (action === 'gym') void go('gym', { label: 'Entering Pump Gym' })
     if (action === 'welltoss') setOverlay('welltoss')
+    if (action === 'buy_plot') {
+      const id = pendingPlot.current
+      const p0 = saveRef.current.progress
+      if (!id || p0.estate.plot || p0.coins < PLOT_PRICE) return
+      setSave((s) => ({ ...s, progress: { ...s.progress, coins: s.progress.coins - PLOT_PRICE, estate: { plot: id, pieces: [] } } }))
+      world.current?.setEstate(saveRef.current.progress.estate, saveRef.current.character?.name ?? '')
+      notify(`${PLOT(id)?.name} is yours`, 'Chadville Estates · tap your gate to build', 'discover')
+      setOverlay('estate')
+    }
     if (action === 'q2_accept') {
       discover('q2_start')
       world.current?.questSync(saveRef.current.progress.discoveries)
@@ -955,6 +997,18 @@ export function GameApp() {
                     world.current?.cooldown()
                     notify(`Travelled to ${l.name}`, 'Fast travel · places you’ve reached on foot', 'discover')
                   }}
+                  onBack={() => {
+                    setOverlay(null)
+                    world.current?.cooldown()
+                  }}
+                />
+              )}
+              {overlay === 'estate' && phase === 'world' && save.progress.estate.plot && (
+                <EstateEditor
+                  key="estate"
+                  estate={save.progress.estate}
+                  coins={save.progress.coins}
+                  onCommit={commitEstate}
                   onBack={() => {
                     setOverlay(null)
                     world.current?.cooldown()

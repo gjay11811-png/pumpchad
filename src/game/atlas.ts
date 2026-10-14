@@ -34,6 +34,7 @@ export const LANDMARKS: Landmark[] = [
   { id: 'haunted', name: 'Haunted Quarter', x: -80, z: 2.5, kind: 'place', visit: 'visit_haunted', spawn: { x: -66, z: 2.5, yaw: -Math.PI / 2 } },
   { id: 'forest', name: 'Enchanted Forest', x: -70, z: -48, kind: 'place', visit: 'visit_forest', spawn: { x: -80, z: -14, yaw: Math.PI } },
   { id: 'lake', name: 'Moonlight Lake', x: 98, z: 31, kind: 'place', visit: 'visit_lake', spawn: { x: 74, z: 36.25, yaw: Math.PI / 2 } },
+  { id: 'estates', name: 'Chadville Estates', x: -47, z: 60, kind: 'place', visit: 'visit_estates', spawn: { x: -34, z: 47, yaw: -Math.PI / 2 } },
   { id: 'fits', name: 'Chad Fits', x: 41.4, z: 26, kind: 'shop' },
   { id: 'pets', name: 'Chad Pets', x: 38, z: 47.5, kind: 'shop' },
   { id: 'motors', name: 'Chad Motors', x: 54, z: 50.5, kind: 'shop', below: true },
@@ -103,6 +104,15 @@ export function journal(save: SaveData): JournalEntry[] {
     { id: 'city', title: 'Discover Chad City', status: status(city), steps: city },
     { id: 'wilds', title: 'Beyond the Old Town', status: status(wilds), steps: wilds },
     { id: 'hidden', title: 'Hidden Pumpkins', status: hp >= 6 ? 'done' : 'active', steps: [{ label: `${hp}/6 found · fair spots, no climbing`, done: hp >= 6 }] },
+    (() => {
+      const e = save.progress.estate
+      const steps = [
+        { label: 'Buy a plot in Chadville Estates', done: !!e.plot },
+        { label: 'Build a cottage on it', done: e.pieces.some((p) => p.k === 'cottage') },
+        { label: 'Make it yours: place 8 pieces', done: e.pieces.length >= 8 },
+      ]
+      return { id: 'estate', title: 'A Place of Your Own', status: steps.every((s) => s.done) ? ('done' as const) : e.plot ? ('active' as const) : ('open' as const), steps }
+    })(),
     {
       id: 'fish',
       title: 'Moonlight Lake Fish Log',

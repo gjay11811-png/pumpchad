@@ -8,6 +8,9 @@ const URL = process.env.URL || 'http://localhost:4318/chadverse/'
 const PI = Math.PI
 // name: play = [x, z, yaw, dragUp, dragTurn] (gameplay camera)  |  cam = [[cx,cy,cz],[lx,ly,lz],fov] (fixed)
 const VIEWS = {
+  'estates-arch': { cam: [[-22, 2.2, 47], [-34, 2.4, 47], 55] },
+  'estates-aerial': { cam: [[-28, 30, 86], [-47, 0, 60], 50] },
+  'estates-lane': { play: [-47, 50, 0, -10, 0] },
   'forest-gate': { cam: [[-80, 2.2, -8], [-80, 2.6, -22], 55] },
   'forest-path': { play: [-79, -27, PI, -10, 0] },
   'forest-clearing': { cam: [[-70, 3.2, -41], [-70, 2.4, -56], 55] },

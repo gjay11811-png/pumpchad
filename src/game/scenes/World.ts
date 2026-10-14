@@ -62,6 +62,8 @@ import { stallV4 } from './world/market'
 import { FOREST, FOREST_WISPS, LAKE_FIREFLIES, enchantedForest, lakeLamps, moonlightLake } from './world/wilds'
 import { lakeR } from './world/city'
 import { LANTERNS, SIGIL, guardianLanterns, type GuardianLanterns } from './world/lanterns'
+import { ESTATE_LAMPS, EstateView, estatesDistrict } from './world/estates'
+import { PLOTS, PLOT_PRICE, plotGate, type Estate } from '../estates'
 import { Pet, type PetKind } from '../character/pet'
 
 export type Interactable = { id: string; label: string; pos: THREE.Vector3; radius: number; kind: 'talk' | 'activity' | 'info' | 'collect' | 'secret' }
@@ -87,10 +89,11 @@ const ZONES: { id: string; inside: (x: number, z: number) => boolean }[] = [
   { id: 'visit_gym', inside: (x, z) => Math.hypot(x - 14.4, z + 4) < 3.5 },
   { id: 'visit_citadel', inside: (x, z) => Math.abs(x) < 6 && z < -12 && z > -26 },
   // the wilds: districts of their own (a discovery each, not part of Discover Chad City)
-  { id: 'visit_forest', inside: (x, z) => x < -40 && z < -22 },
+  { id: 'visit_forest', inside: (x, z) => x < -40 && z < -19 }, // just through the gate (z -18)
   { id: 'visit_lake', inside: (x, z) => x > 66 && lakeR(x, z) < 1.5 },
   { id: 'visit_motor', inside: (x, z) => x > 30 && x < 64 && Math.abs(z - 36.25) < 3 },
   { id: 'visit_haunted', inside: (x, z) => x < -60 && z > -16 && z < 22 },
+  { id: 'visit_estates', inside: (x, z) => x < -30 && x > -66 && z > 44 },
 ]
 
 /** the Pumpkin Rush cart (start point of the mini-game) on the plaza */
@@ -165,6 +168,8 @@ export class World implements GameScene {
   /** the opening adventure's Guardian Lanterns + Golden Sigil */
   private quest: GuardianLanterns | null = null
   private questLights = new Set<string>()
+  /** Chadville Estates: the plots' signs + whatever the owner has built */
+  private estate: EstateView | null = null
   private poolTimer = 0
   readonly night = isNight()
   private city: ReturnType<typeof buildChadCity> | null = null
@@ -312,6 +317,8 @@ export class World implements GameScene {
     enchantedForest(T, q, extraSeats)
     moonlightLake(T, wn, q, extraSeats)
     this.quest = guardianLanterns(T)
+    estatesDistrict(T)
+    this.estate = new EstateView(T, this.colliders)
     greenery.potted = citadelShrubs
     lawns(T, SM.trim, extraSeats, greenery)
     this.seats.push(...extraSeats)
@@ -330,6 +337,7 @@ export class World implements GameScene {
       [-7.2, -12.6], [7.2, -12.6],
       ...MOTOR_ROW_LAMPS,
       ...lakeLamps(),
+      ...ESTATE_LAMPS,
     ])
     this.city = buildChadCity(this.scene, q, this.disposables, this.night)
     valleyRoad(T, this.city.road)
@@ -339,6 +347,7 @@ export class World implements GameScene {
       if (Math.hypot(x, z) < 12.8) return true
       if (x < -58) return true // the Haunted Quarter dresses its own ground
       if (x > 64 || (x < -40 && z < -18)) return true // so do Moonlight Lake + the Enchanted Forest
+      if (x < -30 && x > -66 && z > 43) return true // and Chadville Estates (lanes + plots stay clear)
       if (x > 28 && z > 29 && z < 58 && (Math.abs(z - 36.25) < 3 || z > 38)) return true // Motor Row: street, forecourts, shops
       for (const r of ROADS) {
         const dx = r.x1 - r.x0, dz = r.z1 - r.z0
@@ -778,6 +787,23 @@ export class World implements GameScene {
         this.interactables.push(it)
       }
       it.kind = active ? 'activity' : 'info'
+    }
+  }
+
+  /** Chadville Estates from the save: signs, built pieces (+ their colliders) and each plot's gate prompt */
+  setEstate(e: Estate, ownerName: string) {
+    this.estate?.set(e, ownerName)
+    for (const p of PLOTS) {
+      const id = `plot:${p.id}`
+      const g = plotGate(p)
+      let it = this.interactables.find((i) => i.id === id)
+      if (!it) {
+        it = { id, label: '', pos: new THREE.Vector3(g.x, 0, g.z), radius: 1.7, kind: 'activity' }
+        this.interactables.push(it)
+      }
+      const mine = e.plot === p.id
+      it.label = mine ? 'Build on your plot' : e.plot ? `${p.name} · sold` : `Buy ${p.name} · ${PLOT_PRICE} coins`
+      it.kind = mine || !e.plot ? 'activity' : 'info'
     }
   }
 
@@ -1363,6 +1389,7 @@ export class World implements GameScene {
   dispose() {
     this.disposed = true
     this.pet?.dispose()
+    this.estate?.dispose()
     this.rush?.dispose()
     this.daylight?.dispose()
     if (this.player) disposeCharacter(this.player)
