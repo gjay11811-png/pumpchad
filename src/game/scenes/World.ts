@@ -64,6 +64,8 @@ import { lakeR } from './world/city'
 import { mountainGround } from './world/mountain'
 import { castleRoad } from './world/mountainRoad'
 import { summitCastle } from './world/summitCastle'
+import { DOWNTOWN_LAMPS, downtown } from './world/downtown'
+import { MILL_LAMPS, SOUTHSHORE_LAMPS, southshore } from './world/southshore'
 import { LANTERNS, SIGIL, guardianLanterns, type GuardianLanterns } from './world/lanterns'
 import { ESTATE_LAMPS, EstateView, estatesDistrict } from './world/estates'
 import { PLOTS, PLOT_PRICE, cottageDoor, plotGate, type Estate } from '../estates'
@@ -315,6 +317,7 @@ export class World implements GameScene {
     perimeter(T, SM.stone, SM.trim, rail)
     // districts: gym frontage + yard, Arcade Street + PUMP ARCADE (east); social corner, garden, overlook (west)
     eastside(T, tex.stone)
+    southshore(T, tex.stone)
     const extraSeats: BenchSpot[] = []
     const greenery = westside(T, SM.stone, SM.trim, stripes[1], extraSeats)
     hauntedQuarter(T, SM.stone, SM.trim)
@@ -330,6 +333,7 @@ export class World implements GameScene {
     chadRides(T, SM.trim)
     castleRoad(T, q)
     summitCastle(T)
+    downtown(T)
     squareExtras(T, SM.trim)
     // street trees + bushes for the south + east districts
     greenery.trees.push(...MOTOR_ROW_TREES)
@@ -345,6 +349,9 @@ export class World implements GameScene {
       ...MOTOR_ROW_LAMPS,
       ...lakeLamps(),
       ...ESTATE_LAMPS,
+      ...DOWNTOWN_LAMPS,
+      ...SOUTHSHORE_LAMPS,
+      ...MILL_LAMPS,
     ])
     this.city = buildChadCity(this.scene, q, this.disposables, this.night)
     valleyRoad(T, this.city.road)
@@ -353,7 +360,7 @@ export class World implements GameScene {
     const avoid = (x: number, z: number) => {
       if (Math.hypot(x, z) < 12.8) return true
       if (x < -58) return true // the Haunted Quarter dresses its own ground
-      if (x > 64 || (x < -40 && z < -18)) return true // so do Moonlight Lake + the Enchanted Forest
+      if (x > 64 || (x < -40 && z < -18) || (x < -10 && z > 74)) return true // so do Moonlight Lake + the Enchanted Forest
       if (x < -30 && x > -66 && z > 43) return true // and Chadville Estates (lanes + plots stay clear)
       if (x > 28 && z > 29 && z < 58 && (Math.abs(z - 36.25) < 3 || z > 38)) return true // Motor Row: street, forecourts, shops
       for (const r of ROADS) {

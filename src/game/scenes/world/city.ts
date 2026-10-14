@@ -15,7 +15,7 @@ export const CORE_R = 34.5
 export type Rect = { x0: number; x1: number; z0: number; z1: number }
 import { GATE_PLAZA, clampToMountain, inMountainWalk, mountainTerrain, shelfDist } from './mountain'
 
-export const DISTRICTS: Record<'south' | 'east' | 'west' | 'overlook' | 'haunted' | 'motor' | 'forest' | 'lake' | 'estates' | 'downtown' | 'plaza', Rect> = {
+export const DISTRICTS: Record<'south' | 'east' | 'west' | 'overlook' | 'haunted' | 'motor' | 'forest' | 'lake' | 'estates' | 'downtown' | 'plaza' | 'southshore' | 'millrow', Rect> = {
   south: { x0: -32, x1: 32, z0: 20, z1: 75 },
   east: { x0: 28, x1: 58, z0: -6, z1: 34 },
   west: { x0: -58, x1: -28, z0: -6, z1: 34 },
@@ -32,8 +32,11 @@ export const DISTRICTS: Record<'south' | 'east' | 'west' | 'overlook' | 'haunted
   // CHADVILLE ESTATES: plots to buy and build on, west of the arrival lawns, below the Chad View terrace
   estates: { x0: -66, x1: -30, z0: 41, z1: 78 },
   // DOWNTOWN: the tall colourful city beyond the east district, and the Gate Plaza where the Castle Road begins
-  downtown: { x0: 34, x1: 112, z0: -64, z1: -6 },
+  downtown: { x0: 34, x1: 112, z0: -76, z1: -6 },
   plaza: GATE_PLAZA,
+  // the LOWER DISTRICTS: Southshore (south of Moonlight Lake) and Mill Row (south of Chadville Estates)
+  southshore: { x0: 66, x1: 134, z0: 64, z1: 142 },
+  millrow: { x0: -72, x1: -12, z0: 74, z1: 146 },
 }
 /** Moonlight Lake's water (an ellipse, not walkable) and the pier over it (walkable) */
 export const LAKE = { x: 98, z: 31, rx: 19, rz: 14, water: -0.32 }
@@ -179,10 +182,10 @@ export function terrainHeight(x: number, z: number) {
 export function terrainLines(axis: 'x' | 'z') {
   const s = new Set<number>()
   const lo = axis === 'x' ? -106 : -272
-  const hi = axis === 'x' ? 132 : 82
+  const hi = axis === 'x' ? 142 : 160
   for (let v = lo; v <= hi; v += 2) s.add(v)
   for (const v of [70, 80, 95, 115, 140, 175, 220, 280, 360, 460]) {
-    if (axis === 'x' && v <= 132 && v >= 70) {
+    if (axis === 'x' && v <= 142 && v >= 70) {
       s.add(v)
       continue // west of the old town the land is dense now (the Haunted Quarter); the east side stays coarse
     }
