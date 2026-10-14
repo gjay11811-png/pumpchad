@@ -19,19 +19,19 @@ const AVE_Z = -55 // the avenue (east–west), 10 m of road
 const BLV_X = 60 // the boulevard (north–south)
 const CROSS_Z = -30
 
-type Tower = { x: number; z: number; w: number; d: number; h: number; pal: number; name?: string; faces: 'n' | 's' | 'ns' }
+type Tower = { x: number; z: number; w: number; d: number; h: number; pal: number; name?: string; faces: 'n' | 's' | 'ns'; also?: 'e' | 'w' }
 const TOWERS: Tower[] = [
   // north of the avenue
-  { x: 45, z: -69, w: 14, d: 11, h: 34, pal: 0, faces: 's', name: 'GAINS TOWER' },
-  { x: 75, z: -69, w: 16, d: 11, h: 46, pal: 1, faces: 's', name: 'HYPE HOUSE' },
+  { x: 45, z: -69, w: 14, d: 11, h: 34, pal: 0, faces: 's', also: 'e', name: 'GAINS TOWER' },
+  { x: 75, z: -69, w: 16, d: 11, h: 46, pal: 1, faces: 's', also: 'w', name: 'HYPE HOUSE' },
   { x: 95, z: -69, w: 17, d: 11, h: 58, pal: 2, faces: 's', name: 'CHAD CITY' },
   // row 1 (between the avenue and the cross street)
-  { x: 45, z: -42, w: 14, d: 13, h: 28, pal: 3, faces: 'ns', name: 'PUMP PLAZA' },
-  { x: 76, z: -42, w: 15, d: 13, h: 38, pal: 0, faces: 'ns', name: 'MOON BANK' },
+  { x: 45, z: -42, w: 14, d: 13, h: 28, pal: 3, faces: 'ns', also: 'e', name: 'PUMP PLAZA' },
+  { x: 76, z: -42, w: 15, d: 13, h: 38, pal: 0, faces: 'ns', also: 'w', name: 'MOON BANK' },
   { x: 101, z: -42, w: 14, d: 13, h: 31, pal: 1, faces: 'ns', name: 'NIGHT MARKET' },
   // row 2 (between the cross street and the east district)
-  { x: 45, z: -18, w: 14, d: 12, h: 24, pal: 2, faces: 'n', name: 'CHAD CAFE' },
-  { x: 76, z: -18, w: 15, d: 12, h: 30, pal: 3, faces: 'n', name: 'CHAD MALL' },
+  { x: 45, z: -18, w: 14, d: 12, h: 24, pal: 2, faces: 'n', also: 'e', name: 'CHAD CAFE' },
+  { x: 76, z: -18, w: 15, d: 12, h: 30, pal: 3, faces: 'n', also: 'w', name: 'CHAD MALL' },
   { x: 101, z: -18, w: 14, d: 12, h: 22, pal: 0, faces: 'n', name: 'LEG DAY LOFTS' },
 ]
 const PALETTES = [
@@ -140,15 +140,19 @@ export function downtown(T: Town) {
     }
     T.colliders.push({ kind: 'box', minX: t.x - t.w / 2 - 0.6, maxX: t.x + t.w / 2 + 0.6, minZ: t.z - t.d / 2 - 0.6, maxZ: t.z + t.d / 2 + 0.6, h: 20 })
     // shopfronts across the street face: glowing glass bays with neon fascia strips, and the tower's name sign
-    const sides: ('n' | 's')[] = t.faces === 'ns' ? ['s', 'n'] : [t.faces]
+    const sides: ('n' | 's' | 'e' | 'w')[] = [...(t.faces === 'ns' ? (['s', 'n'] as const) : [t.faces]), ...(t.also ? [t.also] : [])]
     sides.forEach((side, si) => {
-      const fz = side === 's' ? t.z + t.d / 2 + 0.62 : t.z - t.d / 2 - 0.62
-      const ry = side === 's' ? 0 : Math.PI
-      const bays = Math.max(2, Math.floor(t.w / 4.2))
-      const bw = (t.w - 1) / bays
-      const F = Frame.at(T.batch, t.x, 0, fz, ry)
+      const ns = side === 'n' || side === 's'
+      const span = ns ? t.w : t.d
+      const off = ns ? t.d / 2 : t.w / 2
+      const fx = side === 'e' ? t.x + off + 0.62 : side === 'w' ? t.x - off - 0.62 : t.x
+      const fz = side === 's' ? t.z + off + 0.62 : side === 'n' ? t.z - off - 0.62 : t.z
+      const ry = side === 's' ? 0 : side === 'n' ? Math.PI : side === 'e' ? Math.PI / 2 : -Math.PI / 2
+      const bays = Math.max(2, Math.floor(span / 4.2))
+      const bw = (span - 1) / bays
+      const F = Frame.at(T.batch, fx, 0, fz, ry)
       for (let b = 0; b < bays; b++) {
-        const bx = -t.w / 2 + 0.5 + bw * (b + 0.5)
+        const bx = -span / 2 + 0.5 + bw * (b + 0.5)
         const shopTone = ['#ffd27a', '#ff9ad5', '#9ae8ff', '#b8ff9a'][(i + b + si) % 4]
         F.put(new THREE.PlaneGeometry(bw - 0.5, 2.7), neon(shopTone), bx, 1.75, 0.04, 0, 0, 0, false)
         F.box(bw - 0.3, 0.12, 0.14, P.iron, bx, 3.18, 0.08)
@@ -158,7 +162,7 @@ export function downtown(T: Town) {
         F.box(bw - 0.2, 0.22, 0.12, neon(PALETTES[t.pal][0]), bx, 3.7, 0.1, false)
         F.box(0.14, 1.9, 0.06, P.gold, bx, 1.2, 0.14) // door bar (these doors are closed — the shops open in a later chapter)
       }
-      if (t.name && si === 0) signs.push({ x: t.x, y: podH + shaftH * 0.62, z: fz + (side === 's' ? 0.2 : -0.2), ry, name: t.name, pal: t.pal })
+      if (t.name && si === 0) signs.push({ x: fx, y: podH + shaftH * 0.62, z: fz + (side === 's' ? 0.2 : side === 'n' ? -0.2 : 0), ry, name: t.name, pal: t.pal })
     })
   })
   for (const s of signs) {

@@ -26,6 +26,14 @@ function pointAt(s: number): Sample {
   return { x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t, y: a.y + (b.y - a.y) * t, tx: (b.x - a.x) / L, tz: (b.z - a.z) / L, s: c }
 }
 
+const SLOPE = SUMMIT.y / ROAD_LEN
+/** a box lying along the road: yaw `ang`, pitched up along its length to follow the climb */
+function laid(T: Town, geo: THREE.BufferGeometry, mat: THREE.Material, x: number, y: number, z: number, ang: number, cast = true) {
+  const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.atan(SLOPE), ang, 0, 'YXZ'))
+  T.batch.add(geo, mat, new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), q, new THREE.Vector3(1, 1, 1)), { cast })
+  geo.dispose()
+}
+
 export const CASTLE_ROAD_LANTERNS: { x: number; y: number; z: number }[] = []
 
 export function castleRoad(T: Town, q: 'low' | 'medium' | 'high') {
@@ -147,19 +155,15 @@ export function castleRoad(T: Town, q: 'low' | 'medium' | 'high') {
         const drop = p.y - terrainHeight(ox, oz) // + falls away, − rises
         // the low parapet along the edge (kerb on the uphill side, a real wall on the drop side)
         const ph = drop > 0.8 ? 0.62 : 0.3
-        T.batch.put(boxUV(0.44, ph, step + 0.1, 1.4), P.stoneLight, ex, p.y + ph / 2, ez, ang)
+        laid(T, boxUV(0.44, ph, step + 0.1, 1.4), P.stoneLight, ex, p.y + ph / 2, ez, ang)
         if (drop > 0.8) {
           // retaining wall below the parapet, down to where the slope takes over
           const h = Math.min(3, Math.max(1.2, drop * 0.5 + 0.6))
-          T.batch.put(boxUV(0.7, h, step + 0.1, 2), P.stone, ex + nx * side * 0.1, p.y - h / 2, ez + nz * side * 0.1, ang)
+          laid(T, boxUV(0.7, h, step + 0.1, 2), P.stone, ex + nx * side * 0.1, p.y - h / 2, ez + nz * side * 0.1, ang)
           if (isHairpin(p.x, p.z) && Math.round(s / step) % 2 === 0) {
             T.batch.put(boxUV(0.9, h + 0.2, 0.9, 2), P.stone, ex + nx * side * 0.75, p.y - h / 2 - 0.05, ez + nz * side * 0.75, ang) // buttress
             T.batch.put(new THREE.ConeGeometry(0.5, 0.55, 4).rotateY(Math.PI / 4), P.stoneLight, ex + nx * side * 0.75, p.y + 0.3, ez + nz * side * 0.75)
           }
-        } else if (drop < -0.8) {
-          // cut wall: the hillside held back on the uphill side
-          const h = Math.min(2, Math.max(0.7, -drop * 0.4 + 0.4))
-          T.batch.put(boxUV(0.5, h, step + 0.1, 2), P.stone, ex + nx * side * 0.05, p.y + h / 2, ez + nz * side * 0.05, ang)
         }
       }
     }

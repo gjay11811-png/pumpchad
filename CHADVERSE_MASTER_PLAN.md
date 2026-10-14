@@ -102,15 +102,20 @@ Nothing is pushed or deployed. To test on a phone over home Wi-Fi: http://192.16
 **Testing note:** this machine (~0.6 GB free RAM) loses the WebGL context during long runs; shop-test treats that as an environment warning. Use Q=low.
 
 
-## Reference-pack task (priority over events/activities) — started 2026-10-14
-**Frozen baseline:** walkable area **18,642 m²** (Monte Carlo, `insideCity` minus canal; forest 3,091 · lake district 3,208 · rest 12,344). **Target ≥ 37,284 m².** Report the final figure the same way.
-**Layout plan (roads fixed before modelling, so finished buildings never move):**
-| Zone | Footprint | Connects at |
+## Reference-pack task (priority over events/activities) — 2026-10-14 · BUILT, awaiting Jay's review
+**Walkable area (1 m grid, `insideCity` minus canal):** baseline **18,968 m²** (earlier Monte Carlo figure 18,642) → **38,987 m² = 2.06×**. Overhead before/after: `Downloads/pumpchad-review/overhead-before-after.png`.
+| Item | Status | Notes |
 |---|---|---|
-| Downtown (colourful tall-skyline city, ref 02 panel 3) | x 34..110, z −62..−8 (flat) | east district north edge (x 28..58, z −6) and Arcade Street; avenue at z −30 |
-| Lower Town (shopping + residential streets, courtyards, harbour) | x −62..72, z 70..150 (flat) | valley gate (0, 74.2) opened; Estates south edge; avenue x 0 |
-| Citadel Mountain (switchback road, terraces, bridges, summit castle) | x −40..90, z −150..−36, road y 0→≈48 | Mountain Gate on the core's north-east rim (22, −26) |
-Mountain terrain = blended height field (road carved as a shelf, retaining walls); walkable = road capsules + terraces + summit plateau; the existing Citadel gameplay and `?castle=` flag stay on the plateau.
-**Order:** 1 gym + arcade exteriors → 2 Chad Motors + cars → 3 Chad Rides bikes → 4 Downtown + Lower Town → 5 mountain + summit castle → 6 overhead comparison + gameplay views.
-**Verification gap (honest):** the full e2e regression dies on WebGL context loss at check 16 on this 3.5 GB PC (an older build does too); last clean run 57/57. Feature tests are targeted instead. All touch checks are emulated iPhone, not a real phone.
+| Layout planned first (roads fixed before modelling) | ✅ | Gate Plaza → Castle Road (8 hairpins, 475 m, y 0→56) → moat bridge → castle; Downtown avenue/boulevard/cross street; Southshore Shore Road + Quay Lane; Mill Row Mill Road + lane |
+| Pump Gym exterior | ✅ | stone portico (piers, entablature, gold cornice), stepped gold-capped gable, layered quoins + string course, raised gold PUMP GYM sign, lit doors, landscaped forecourt. Interior + door interaction unchanged |
+| Pump Arcade exterior | ✅ | entrance doors now visible (recess no longer a solid block), stone surround + gold cornice, lit cabinet windows, string course. Working games untouched |
+| Chad Motors + cars | ✅ | cars rebuilt (plan-view body, shoulder deck, glasshouse + pillars + mirrors, arches, brake discs, calmer lights, exhausts, wing); showroom display bays + reception; **no separate workshop building yet** (gap) |
+| Chad Rides motorbikes | ✅ | street bike + Sur-Ron-style electric dirt bike (forks, swingarm, shocks, discs, spoked wheels, engine/tank/exhaust vs battery/motor/knobbly tyres) on kickstands. Riding still "coming soon" |
+| Mountain + summit castle | ✅ | road-driven massif; Castle Road with walls, parapets, lanterns, buttresses; moat bridge; Chad Castle (curtain wall, 8 towers, gatehouse, keep, hall, chapel, sky bridge). Bailey walkable; keep doors closed with a plaque |
+| Downtown (ref 02 panel 3) | ✅ | 9 glass towers with lit window grids, shopfronts, avenue/boulevard, monument, helipad + turning helicopter, parked cars. Shop doors are dressed but closed |
+| Southshore + Mill Row | ✅ | Gothic shop rows (shop() kit), terraces, market square fountain, pond + quay, orchard, Mill Court well. Doors dressed but closed |
+| Map / travel / discovery | ✅ | map shows the mountain road + castle; 5 new landmarks with discovery zones; map-test passes |
+| Tests (targeted) | ✅ | mountain-test (all legs walkable at road height, moat bridge, keep stops at steps), districts-test (7 streets + 5 travel spawns), routines-test, map-test, interior-test (functional checks pass), home-test |
+**Honest gaps:** (1) the full e2e regression dies on WebGL context loss at check 16 on this 3.5 GB PC — an older build does too; last clean 57/57; (2) interior-test and several view runs show a WebGL context-loss "page error" and a NaN-bounding-sphere warning in The Hollow House (code untouched by this task; not confirmed pre-existing); (3) gym-test enters the gym but timed out clicking the workout start button (not investigated); (4) all touch checks are emulated iPhone, not a real phone; (5) night views are dark in screenshots — judged at Q=medium in headless Chromium, not a real GPU; (6) no real motorbike reference photo or external 3D assets were used — all models are procedural; (7) Castle District interiors, enterable Downtown/Southshore/Mill Row shops, and a Chad Motors workshop are not built.
 **Blocked (backend, Jay's decision):** online leaderboards, multiplayer/visiting, accounts, trading, shared events.
+**Next after review:** NPC routines are in; then world events (Midnight Pumpkin Hunt, Ghost Invasion, Festival, Thunderstorm) → activities → Castle District chapter 3.
