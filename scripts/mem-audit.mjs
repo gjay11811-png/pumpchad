@@ -1,0 +1,15 @@
+// Approximate memory of the live world scene (unique textures + geometry buffers) — to find what is heavy.
+import { chromium } from 'playwright'
+const b = await chromium.launch({ executablePath: process.env.LOCALAPPDATA + '/ms-playwright/chromium-1228/chrome-win64/chrome.exe' })
+const p = await b.newPage({ viewport: { width: 900, height: 600 } })
+await p.addInitScript((q) => localStorage.setItem('pumpchad.chadverse.save', JSON.stringify({ version: 2, character: null, progress: {}, settings: { quality: q, muted: true } })), process.env.Q || 'low')
+await p.goto(process.env.URL || 'http://localhost:4318/chadverse/')
+await p.click('[data-testid=enter-muted]')
+await p.waitForSelector('[role=tablist]')
+await p.getByRole('tab', { name: 'Name' }).click()
+await p.fill('#chad-name', 'Auditor')
+await p.getByRole('button', { name: /Enter Chad Square/ }).click()
+await p.waitForFunction(() => window.__chadverse?.phase === 'world' && window.__chadverse.world(), null, { timeout: 90000 })
+await p.waitForTimeout(1500)
+console.log(JSON.stringify(await p.evaluate(() => window.__chadverse.memAudit()), null, 1))
+await b.close()

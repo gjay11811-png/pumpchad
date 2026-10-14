@@ -142,6 +142,12 @@ export function clampToCity(p: { x: number; z: number }, m: number) {
   p.z = bz
 }
 
+const smooth01 = (t: number) => {
+  const u = Math.min(1, Math.max(0, t))
+  return u * u * (3 - 2 * u)
+}
+const rectDistance = (x: number, z: number, r: Rect) => Math.hypot(Math.max(r.x0 - x, 0, x - r.x1), Math.max(r.z0 - z, 0, z - r.z1))
+
 /** distance from (x, z) to the village plateau (0 on it) — drives the cliff profile down to the valley floor */
 export function plateauDistance(x: number, z: number) {
   let d = Math.max(0, Math.hypot(x, z) - CORE_R)
@@ -185,6 +191,13 @@ export function terrainHeight(x: number, z: number) {
       const t = Math.min(1, (d - 2.5) / 30)
       base = -0.25 + (VALLEY_Y + 0.25) * (t * t * (3 - 2 * t))
     }
+  }
+  // rolling valley floor: gentle hills away from the plateau, the city and the roads (flat where people walk)
+  if (d > 36) {
+    const far = smooth01((d - 36) / 90)
+    const cityD = Math.min(rectDistance(x, z, DISTRICTS.downtown), rectDistance(x, z, DISTRICTS.plaza))
+    const calm = smooth01((cityD - 30) / 70)
+    base += far * calm * (Math.sin(x * 0.021 + 1.3) * Math.cos(z * 0.017) * 6.5 + Math.sin(x * 0.053 - z * 0.041) * 2.2 + 3.5)
   }
   return castleTerrain(x, z, descentTerrain(x, z, base))
 }

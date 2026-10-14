@@ -1,3 +1,4 @@
+import * as THREE from 'three'
 import { castleRoadWorld } from './scenes/world/mountain'
 import { objectiveTarget } from './atlas'
 import { DESCENT } from './scenes/world/descent'
@@ -813,6 +814,67 @@ export function GameApp() {
       gymTeleport: (x: number, z: number, yaw?: number) => gym.current?.teleport(x, z, yaw),
       gymInfo: () => gym.current?.info() ?? null,
       interior: () => interior.current?.info() ?? null,
+      /** QA: approximate GPU-side memory of the live scene (unique textures + geometry buffers), biggest offenders first */
+      memAudit: () => {
+        const root = interior.current?.scene ?? world.current?.scene
+        const tex = new Map<THREE.Texture, number>()
+        const geo = new Set<THREE.BufferGeometry>()
+        const mats = new Set<THREE.Material>()
+        const owners: string[] = []
+        root?.traverse((o) => {
+          const m = o as THREE.Mesh
+          if (!m.isMesh && !(o as THREE.Points).isPoints) return
+          const g = (m as THREE.Mesh).geometry
+          if (g) geo.add(g)
+          for (const mt of Array.isArray(m.material) ? m.material : [m.material]) {
+            if (!mt) continue
+            mats.add(mt)
+            for (const v of Object.values(mt as unknown as Record<string, unknown>)) {
+              const t = v as THREE.Texture
+              if (t && (t as THREE.Texture).isTexture) {
+                const img = t.image as { width?: number; height?: number } | undefined
+                // textures sharing one image source upload once: key the audit by source
+                tex.set((t.source as unknown as THREE.Texture) ?? t, (img?.width ?? 0) * (img?.height ?? 0) * 4 * (t.generateMipmaps ? 1.33 : 1))
+                if ((img?.width ?? 0) >= 1024 && (img?.height ?? 0) >= 1024) owners.push(`${(m.geometry as THREE.BufferGeometry).type}:${mt.type}:${(mt as THREE.MeshStandardMaterial).color?.getHexString?.() ?? ''}:${(m.geometry.attributes.position?.count ?? 0)}v`)
+              }
+            }
+          }
+        })
+        let gb = 0
+        let verts = 0
+        for (const g of geo) {
+          for (const a of Object.values(g.attributes)) gb += (a as THREE.BufferAttribute).array.byteLength
+          if (g.index) gb += g.index.array.byteLength
+          verts += g.attributes.position?.count ?? 0
+        }
+        const hist: Record<string, number> = {}
+        for (const [t] of tex) {
+          const im = (t as unknown as { data?: { width?: number; height?: number } }).data as { width?: number; height?: number }
+          const k = `${im?.width}x${im?.height}`
+          hist[k] = (hist[k] ?? 0) + 1
+        }
+        const top = [...tex.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([, b]) => `${(b / 1048576).toFixed(1)}MB`)
+        const mem = (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory
+        return { textures: tex.size, textureMB: +([...tex.values()].reduce((a, b) => a + b, 0) / 1048576).toFixed(1), geometries: geo.size, vertices: verts, geometryMB: +(gb / 1048576).toFixed(1), materials: mats.size, topTextures: top, sizeHistogram: hist, owners1024: owners.slice(0, 40), jsHeapMB: mem ? +(mem.usedJSHeapSize / 1048576).toFixed(0) : null }
+      },
+      /** QA: meshes in the live scene (interior if inside, else the world) whose geometry has non-finite positions */
+      nanScan: () => {
+        const root = interior.current?.scene ?? world.current?.scene
+        const out: { type: string; params: string; at: number[]; count: number }[] = []
+        root?.traverse((o) => {
+          const m = o as THREE.Mesh
+          const pos = m.isMesh ? (m.geometry?.attributes?.position as THREE.BufferAttribute | undefined) : undefined
+          if (!pos) return
+          let bad = 0
+          for (let i = 0; i < pos.count; i++) if (!Number.isFinite(pos.getX(i) + pos.getY(i) + pos.getZ(i))) bad++
+          if (bad) {
+            const w = new THREE.Vector3()
+            m.getWorldPosition(w)
+            out.push({ type: m.geometry.type, params: JSON.stringify((m.geometry as THREE.BufferGeometry & { parameters?: unknown }).parameters ?? {}).slice(0, 160), at: [+w.x.toFixed(2), +w.y.toFixed(2), +w.z.toFixed(2)], count: bad })
+          }
+        })
+        return out
+      },
       road: () => castleRoadWorld().map((p) => [+p.x.toFixed(2), +p.z.toFixed(2), +p.y.toFixed(2)]),
       descent: () => DESCENT.pts.map((p) => [+p.x.toFixed(2), +p.z.toFixed(2), +p.y.toFixed(2)]),
       pet: () => {

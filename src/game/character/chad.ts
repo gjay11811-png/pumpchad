@@ -24,9 +24,40 @@ export type ChadAssets = { body: THREE.Group; clips: Map<string, THREE.Animation
 const files = new Map<string, Promise<{ scene: THREE.Group; animations: THREE.AnimationClip[] }>>()
 /** shared GLB cache (villagers reuse the body + animation files already loaded for the Chads) */
 export const modelFile = (name: string) => file(name)
+/** NPC outfit/hair textures are painted at 1024²; on low/medium quality they upload smaller (a third of the world's GPU texture memory was NPC maps) */
+let npcTextureCap = 1024
+export function setNpcTextureCap(n: number) {
+  npcTextureCap = n
+}
+function shrinkTextures(scene: THREE.Group, cap: number) {
+  const seen = new WeakSet<THREE.Texture>()
+  scene.traverse((o) => {
+    const m = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined
+    for (const mt of Array.isArray(m) ? m : m ? [m] : [])
+      for (const v of Object.values(mt as unknown as Record<string, unknown>)) {
+        const t = v as THREE.Texture
+        if (!t || !t.isTexture || seen.has(t)) continue
+        seen.add(t)
+        const img = t.image as (CanvasImageSource & { width: number; height: number }) | undefined
+        if (!img || !img.width || img.width <= cap) continue
+        const k = cap / Math.max(img.width, img.height)
+        const c = document.createElement('canvas')
+        c.width = Math.max(1, Math.round(img.width * k))
+        c.height = Math.max(1, Math.round(img.height * k))
+        c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height)
+        ;(img as { close?: () => void }).close?.()
+        t.image = c
+        t.flipY = false // (GLTF textures are unflipped; a canvas keeps the same convention)
+        t.needsUpdate = true
+      }
+  })
+}
 function file(name: string) {
   if (!files.has(name)) {
-    const pr = loader.loadAsync(`${base()}chadverse/models/${name}`).then((g) => ({ scene: g.scene, animations: g.animations }))
+    const pr = loader.loadAsync(`${base()}chadverse/models/${name}`).then((g) => {
+      if ((name.startsWith('villager_') || name.startsWith('vhair_')) && npcTextureCap < 1024) shrinkTextures(g.scene, npcTextureCap)
+      return { scene: g.scene, animations: g.animations }
+    })
     pr.catch(() => files.delete(name))
     files.set(name, pr)
   }

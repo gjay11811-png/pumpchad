@@ -4,7 +4,7 @@ import { chromium } from 'playwright'
 const species = process.argv[2] || 'Pumpkin'
 const URL = process.env.URL || 'http://localhost:4318/chadverse/'
 const b = await chromium.launch({ executablePath: process.env.LOCALAPPDATA + '/ms-playwright/chromium-1228/chrome-win64/chrome.exe' })
-const p = await b.newPage({ viewport: { width: 1280, height: 800 } })
+const p = await b.newPage({ viewport: { width: +(process.env.VW || 1280), height: +(process.env.VH || 800) } })
 const errs = []
 p.on('pageerror', (e) => errs.push(`[pageerror] ${e.message}`))
 p.on('console', (m) => m.type() === 'error' && errs.push(m.text().slice(0, 400)))

@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { setNpcTextureCap } from '../character/chad'
 import { Emoter, type EmoteId } from '../emotes'
 import { Jumper, OUTDOOR, SPEED_UNIT, leanFor, targetSpeed, turnRate, velocityRate } from '../movement'
 import { buildCharacter } from '../character/build'
@@ -240,6 +241,7 @@ export class World implements GameScene {
   /* ───────────────────────── town assembly ───────────────────────── */
 
   private buildTown(q: Quality) {
+    setNpcTextureCap(q === 'low' ? 512 : q === 'medium' ? 768 : 1024)
     const cob = TX.cobble()
     const plz = TX.plaza(q === 'high' ? 2048 : 1024) // the plaza's map + bump are the biggest textures: halve them below High
     const tex: Record<string, THREE.Texture> = {

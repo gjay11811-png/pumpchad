@@ -221,7 +221,7 @@ export function castleRoad(T: Town, q: 'low' | 'medium' | 'high') {
     const rock = new THREE.IcosahedronGeometry(1, 0)
     const trees: THREE.Matrix4[] = []
     const rocks: THREE.Matrix4[] = []
-    for (let i = 0; i < n * 12 && (trees.length < n || rocks.length < n / 2); i++) {
+    for (let i = 0; i < n * 12 && (trees.length < n || rocks.length < n); i++) {
       const x = -60 + R() * 130
       const z = -80 - R() * 170
       const r = Math.hypot(x - SUMMIT.x, z - SUMMIT.z)
@@ -236,8 +236,8 @@ export function castleRoad(T: Town, q: 'low' | 'medium' | 'high') {
         const sc = 0.8 + R() * 1.0
         m.compose(new THREE.Vector3(x, y - 0.2, z), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), R() * 6), new THREE.Vector3(sc, sc * (0.9 + R() * 0.5), sc))
         trees.push(m)
-      } else if (rocks.length < n / 2) {
-        const sc = 0.7 + R() * 1.6
+      } else if (rocks.length < n) {
+        const sc = 0.8 + R() * 2.8
         m.compose(new THREE.Vector3(x, y + sc * 0.25, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(R() * 3, R() * 3, R() * 3)), new THREE.Vector3(sc * 1.3, sc * 0.8, sc))
         rocks.push(m)
       }

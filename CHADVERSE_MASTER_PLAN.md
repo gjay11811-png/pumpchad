@@ -119,3 +119,22 @@ Nothing is pushed or deployed. To test on a phone over home Wi-Fi: http://192.16
 **Honest gaps:** (1) the full e2e regression dies on WebGL context loss at check 16 on this 3.5 GB PC — an older build does too; last clean 57/57; (2) interior-test and several view runs show a WebGL context-loss "page error" and a NaN-bounding-sphere warning in The Hollow House (code untouched by this task; not confirmed pre-existing); (3) gym-test enters the gym but timed out clicking the workout start button (not investigated); (4) all touch checks are emulated iPhone, not a real phone; (5) night views are dark in screenshots — judged at Q=medium in headless Chromium, not a real GPU; (6) no real motorbike reference photo or external 3D assets were used — all models are procedural; (7) Castle District interiors, enterable Downtown/Southshore/Mill Row shops, and a Chad Motors workshop are not built.
 **Blocked (backend, Jay's decision):** online leaderboards, multiplayer/visiting, accounts, trading, shared events.
 **Next after review:** NPC routines are in; then world events (Midnight Pumpkin Hunt, Ghost Invasion, Festival, Thunderstorm) → activities → Castle District chapter 3.
+
+
+## World Upgrade Pack (hillside world) — 2026-10-14 · BUILT locally, awaiting Jay's review
+**Geography record (world coordinates, +z = south, y up).** Before: everything on one plane (y 0) from x −106..142, z −72..146 plus a Downtown/Castle I had placed north of the Citadel (z −76..−270). After:
+| Place | Anchor | Elevation | Walk from the village gate (jog 5.2 m/s) |
+|---|---|---|---|
+| Village plateau (square, gym, arcade, Motor Row, lake, Haunted Quarter, forest, estates, Southshore, Mill Row) | (0, 0) | **0** | — |
+| Village gateway / Valley Gate | (0, 74) | 0 | 0 |
+| Panoramic overlook terrace | (14, 88) | −0.2 | ~3 s |
+| Six hairpins down the notch between Mill Row and Southshore | z 104–154 | 0 → −17 | ~60 s |
+| Moonspan Viaduct (stone arches over the ravine) | (46–56, 274–340) | ≈ −35 | ~105 s |
+| City Gateway (arch, gold lettering) | (−3, 415) | **−52** | ~140 s |
+| Chad City (Downtown + Gate Plaza) | x −128..−8, z 394..464 | −52 (valley floor) | ~150 s |
+| Castle Road (12 hairpins, ~700 m) → Chad Castle summit | summit (−110, 272) | −52 → **+38** | +~140 s |
+Valley road: 727 m, drop 52 m, ~7.2 % grade; walking 5.5 min, jogging 140 s, sprinting 96 s. Chad City sits 52 m below and ~340 m from the village; the castle summit stands 38 m ABOVE the village plateau and 90 m above the city.
+**Visible from the village:** from the gate/overlook you look south over the valley: the road winding down, the lit city in the basin, the castle mountain on its west flank, the old Gothic skyline far beyond, and layered mountain walls round the whole valley.
+**Built:** roadnet/descent/descentRoad (valley road, footways, kerbs, retaining walls + parapets, lanterns, 5 direction boards, overlook terrace with benches + telescope + plaque, viaduct, City Gateway), valley frame (`frame.ts` — Downtown, Gate Plaza, Castle Road, castle built locally and placed at (−120, −52, 470)), irregular layered ridge ranges (no cones, no white caps), rock-strata terrain colouring, valley woods + night hamlet lights, side/rear architecture + chimneys on every shop(), tiered/varied tree species, Chad Motors workshop, village signage renamed CHAD VILLAGE (Chad City now means the valley city), smaller interaction hints with only the tracked objective large.
+**Map area (honest):** original (before the forest/lake doubling) ≈ 8,500 m² (earlier Monte-Carlo measurement in this build's history); first reference-pack baseline 18,968 m²; see the final figure in the report. Connected, walkable ground only; mountain backdrops and empty borders are not counted.
+**Still open:** enterable Downtown/Southshore/Mill Row shops, workshop interior, Castle District interiors, performance on real devices, real-phone verification.

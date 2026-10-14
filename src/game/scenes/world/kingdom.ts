@@ -5,8 +5,10 @@ import type { Town } from './buildings'
 import { Cloth } from './fx'
 import { boxUV, rng } from './kit'
 import type { KingdomStyle, styleMaterials } from './style'
-import { insideCity, terrainHeight, terrainLines } from './city'
+import { insideCity, plateauDistance, terrainHeight, terrainLines } from './city'
 import { CASTLE_AT, SUMMIT } from './mountain'
+import { isNight } from './daylight'
+import { softDot } from './textures'
 
 type SM = ReturnType<typeof styleMaterials>
 
@@ -125,19 +127,20 @@ export function kingdom(T: Town, style: KingdomStyle, M: SM, q: Quality) {
       const wob = y < -1 && y > -40 ? (Math.sin(x * 0.7 + z * 0.3) + Math.sin(z * 0.9 - x * 0.4)) * 0.5 : 0
       pos.push(x, y + wob, z)
       uv.push(x / 6, z / 6)
-      // the valley floor: meadow; the castle mountain: meadow low down, bare stone higher up, a hint of frost at the top;
-      // the plateau's rock face: stone
+      // colouring: meadow on the valley floor and the gentle slopes; bare layered rock wherever the ground is steep (strata bands that
+      // follow the height, broken up by noise); a trace of frost near the castle summit; the village plateau's cliff face is stone
       const rel = y - CASTLE_AT.y
-      const onMountain = z > 200 && x < 40 && rel > 1.5
-      const mt = onMountain ? Math.min(1, rel / SUMMIT.y) : 0
-      const c =
-        mt > 0.02
-          ? lawn.clone().lerp(rock, Math.min(0.9, mt * 1.5 + 0.12 * Math.sin(x * 0.5 + z * 0.3))).lerp(frost, Math.max(0, mt - 0.85) * 3)
-          : y > -0.3
-            ? lawn
-            : y > CASTLE_AT.y + 1.2
-              ? rock.clone().lerp(lawn, 0.25 + 0.15 * Math.sin(x * 0.3))
-              : valley
+      const hill = rel > 1.2 && plateauDistance(x, z) > 34
+      let c: THREE.Color
+      if (hill) {
+        const sl = Math.max(Math.abs(terrainHeight(x + 2, z) - y), Math.abs(terrainHeight(x, z + 2) - y)) / 2
+        const steep = Math.min(1, Math.max(0, (sl - 0.35) / 0.7))
+        const strata = 0.5 + 0.5 * Math.sin(rel * 0.55 + Math.sin(x * 0.11 + z * 0.07) * 2.2 + Math.sin(z * 0.23) * 0.8)
+        c = lawn.clone().lerp(rock.clone().multiplyScalar(0.8 + 0.35 * strata), Math.min(0.95, steep * 1.15 + 0.1 * strata))
+        if (rel > SUMMIT.y * 0.82 && z < 330) c.lerp(frost, Math.min(0.55, (rel / SUMMIT.y - 0.82) * 3))
+      } else if (y > -0.3) c = lawn
+      else if (y > CASTLE_AT.y + 1.2) c = rock.clone().lerp(lawn, 0.25 + 0.15 * Math.sin(x * 0.3))
+      else c = valley
       col.push(c.r, c.g, c.b)
     }
   const row = xs.length
@@ -160,30 +163,80 @@ export function kingdom(T: Town, style: KingdomStyle, M: SM, q: Quality) {
   T.scene.add(terrain)
   T.disposables.push(tg, terrainMat)
 
-  /* ── pines on the slopes and in the valley; never on the city or the valley road ── */
-  const pineN = q === 'low' ? 80 : q === 'medium' ? 150 : 220
-  const cone = new THREE.ConeGeometry(1.6, 5.5, 7)
-  cone.translate(0, 4.4, 0)
-  const trunk = new THREE.CylinderGeometry(0.18, 0.26, 1.8, 5)
-  trunk.translate(0, 0.9, 0)
-  const items: THREE.Matrix4[] = []
-  for (let i = 0; i < pineN * 4 && items.length < pineN; i++) {
-    const x = (R() - 0.5) * 300
-    const z = -60 + R() * 250
-    if (insideCity(x, z, -6)) continue
-    if (Math.abs(x) < 16 && z > 66) continue // the road down + the city view
-    const y = terrainHeight(x, z)
-    if (y > -1.5) continue
-    const s = 0.8 + R() * 1.1
-    items.push(new THREE.Matrix4().compose(new THREE.Vector3(x, y - 0.2, z), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), R() * 6), new THREE.Vector3(s, s * (0.9 + R() * 0.5), s)))
+  /* ── woods on the valley slopes and floor: tiered conifers in groves (clustered, not sprinkled), never on the city, the roads or the
+        village plateau; mixed sizes + dark/olive greens, two instanced draw calls for the lot ── */
+  const woodN = q === 'low' ? 260 : q === 'medium' ? 520 : 800
+  const cone = new THREE.ConeGeometry(1.5, 3.2, 7)
+  const tiers = [0, 1.5, 2.9].map((y, i) => cone.clone().scale(1 - i * 0.28, 1 - i * 0.12, 1 - i * 0.28).translate(0, 2.2 + y, 0))
+  const crown = new THREE.BufferGeometry()
+  {
+    let pos: number[] = []
+    for (const t of tiers) pos = pos.concat(Array.from((t.toNonIndexed().attributes.position as THREE.BufferAttribute).array))
+    crown.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+    crown.computeVertexNormals()
+    tiers.forEach((t) => t.dispose())
+    cone.dispose()
   }
-  for (const [geo, mat] of [[cone, P.foliageDark], [trunk, P.bark]] as const) {
+  const trunk = new THREE.CylinderGeometry(0.16, 0.26, 2.2, 5)
+  trunk.translate(0, 1.1, 0)
+  const items: THREE.Matrix4[] = []
+  const tints: THREE.Color[] = []
+  const groves = Array.from({ length: 34 }, () => ({ x: (R() - 0.5) * 760, z: -150 + R() * 760, r: 22 + R() * 38 }))
+  for (let i = 0; i < woodN * 14 && items.length < woodN; i++) {
+    const gv = groves[Math.floor(R() * groves.length)]
+    const a = R() * Math.PI * 2
+    const d = Math.sqrt(R()) * gv.r
+    const x = gv.x + Math.cos(a) * d
+    const z = gv.z + Math.sin(a) * d
+    if (insideCity(x, z, -16)) continue // keep clear of every street, plaza and road (with a margin)
+    const y = terrainHeight(x, z)
+    if (y > -1.5) continue // not on the plateau
+    if (y > CASTLE_AT.y + 30) continue // the castle mountain dresses its own slopes
+    const s = 0.75 + R() * 1.2
+    items.push(new THREE.Matrix4().compose(new THREE.Vector3(x, y - 0.2, z), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), R() * 6), new THREE.Vector3(s, s * (0.9 + R() * 0.6), s)))
+    tints.push(new THREE.Color().setHSL(0.36 + R() * 0.06, 0.32 + R() * 0.15, 0.17 + R() * 0.1))
+  }
+  const woodMat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.95, flatShading: true })
+  T.disposables.push(woodMat)
+  for (const [geo, mat, colored] of [[crown, woodMat, true], [trunk, P.bark, false]] as const) {
     const im = new THREE.InstancedMesh(geo, mat, items.length)
-    items.forEach((m, i) => im.setMatrixAt(i, m))
+    items.forEach((m, i) => {
+      im.setMatrixAt(i, m)
+      if (colored) im.setColorAt(i, tints[i])
+    })
     im.castShadow = false
     im.computeBoundingSphere()
     T.scene.add(im)
     T.disposables.push(geo)
+  }
+
+  /* ── night: hamlets and farmsteads scattered over the valley floor — warm window lights in small clusters, so the dark ground has
+        depth and life (one Points draw call) ── */
+  if (isNight()) {
+    const dot = softDot()
+    T.disposables.push(dot)
+    const pos: number[] = []
+    const hamlets = Array.from({ length: 16 }, () => ({ x: (R() - 0.5) * 640, z: -120 + R() * 640 }))
+    for (const h of hamlets) {
+      if (insideCity(h.x, h.z, -40)) continue
+      const hy = terrainHeight(h.x, h.z)
+      if (hy > -30 || hy < CASTLE_AT.y - 1) continue
+      const n = 5 + Math.floor(R() * 9)
+      for (let i = 0; i < n; i++) {
+        const x = h.x + (R() - 0.5) * 34
+        const z = h.z + (R() - 0.5) * 22
+        pos.push(x, terrainHeight(x, z) + 1.6, z)
+      }
+    }
+    if (pos.length) {
+      const g = new THREE.BufferGeometry()
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+      const m = new THREE.PointsMaterial({ size: 3.4, map: dot, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, color: new THREE.Color('#ffb868').multiplyScalar(1.6), sizeAttenuation: true })
+      T.disposables.push(g, m)
+      const pts = new THREE.Points(g, m)
+      pts.frustumCulled = false
+      T.scene.add(pts)
+    }
   }
   return { terrain }
 }

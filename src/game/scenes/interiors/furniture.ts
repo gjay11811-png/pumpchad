@@ -585,7 +585,7 @@ export function sheeted(K: Kit, x: number, z: number, ry: number, w: number, h: 
     const vx = p.getX(i)
     const vy = p.getY(i)
     const vz = p.getZ(i)
-    const top = (vy + h / 2) / h
+    const top = Math.min(1, Math.max(0, (vy + h / 2) / h)) // clamped: a hair over 1 made (1 − top)^2.5 a NaN on the top vertices
     // the cloth flares out and pools near the floor, sags between the corners on top, hangs in vertical folds
     const flare = 1 + Math.pow(1 - top, 2.5) * 0.2
     // deep vertical folds (stronger toward the hem), a few crumples on top
