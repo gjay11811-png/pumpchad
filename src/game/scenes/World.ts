@@ -778,6 +778,12 @@ export class World implements GameScene {
    * The opening adventure, from the save: lit lanterns burn (and join the night light pool), unlit ones show a gold
    * marker once Goldie has asked for help, and the Golden Sigil rises at the Citadel doors when all three burn.
    */
+  /** the active objective's location (or null): its marker stays big and gold; every other hint is small and only near you */
+  private track: { x: number; z: number } | null = null
+  setTrack(t: { x: number; z: number } | null) {
+    this.track = t
+  }
+
   questSync(d: string[]) {
     const q = this.quest
     if (!q) return
@@ -1311,6 +1317,12 @@ export class World implements GameScene {
     for (const [, m] of this.markers) {
       m.position.y += Math.sin(t * 2.4 + mi++) * 0.004
       m.rotation.y += dt * 1.6
+      // hints are small and appear as you near them; only the tracked objective is large and always visible
+      const isTrack = !!this.track && Math.hypot(m.position.x - this.track.x, m.position.z - this.track.z) < 3.2
+      const dist = Math.hypot(m.position.x - this.playerPos.x, m.position.z - this.playerPos.z)
+      const k = isTrack ? 1.5 : 0.62 * (1 - Math.min(1, Math.max(0, (dist - 9) / 7)))
+      m.scale.setScalar(Math.max(0.0001, k))
+      m.visible = k > 0.02
     }
     for (const [, s] of this.seeds) {
       s.rotation.y += dt * 2

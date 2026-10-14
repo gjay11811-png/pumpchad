@@ -151,16 +151,23 @@ export function vegetation(T: Town, q: Quality, avoid: (x: number, z: number) =>
   // autumn trees: trunk + branches + clustered canopies of real leaf cards
   const autumn: [number, number][] = [[-15, 28], [15, 29], [-30, 8], [-6, -27], [7, -27.5], [-29, -15], [-20, 29], [-31, -4]]
   const dead: [number, number][] = [[26, -14], [15, -24], [27, -25], [-27, -24]]
-  for (const [x, z] of autumn) {
-    F.tree(x, z, 0.95 + r() * 0.3, autumnCols, barkCol)
+  const gold = [C('#d9a42a'), C('#c8781c'), C('#e0b432'), C('#b8561c')]
+  const pine = C('#2f5a3a')
+  autumn.forEach(([x, z], i) => {
+    // a mix of species so no two neighbours share a silhouette: broad autumn trees, gold poplars, dark conifers
+    if (i % 4 === 1) F.poplar(x, z, 0.95 + r() * 0.25, gold, barkCol)
+    else if (i % 4 === 3) F.conifer(x, z, 0.9 + r() * 0.25, pine, barkCol)
+    else F.tree(x, z, 0.95 + r() * 0.3, autumnCols, barkCol)
     T.colliders.push({ kind: 'circle', x, z, r: 0.45, h: 5 })
-  }
+  })
   // the new districts: summer-green street + garden trees, a few turning gold
   const summerCols = [C('#4f8a3a'), C('#5f9a40'), C('#3f7a34'), C('#7aa848'), C('#d9a42a')]
-  for (const [x, z] of extra.trees) {
-    F.tree(x, z, 0.9 + r() * 0.35, summerCols, barkCol)
+  extra.trees.forEach(([x, z], i) => {
+    if (i % 5 === 2) F.conifer(x, z, 0.85 + r() * 0.3, pine, barkCol)
+    else if (i % 5 === 4) F.poplar(x, z, 0.9 + r() * 0.25, [C('#7aa848'), C('#d9a42a'), C('#5f9a40')], barkCol)
+    else F.tree(x, z, 0.9 + r() * 0.35, i % 5 === 1 ? autumnCols : summerCols, barkCol)
     T.colliders.push({ kind: 'circle', x, z, r: 0.45, h: 5 })
-  }
+  })
   for (const [x, z] of dead) {
     T.batch.put(new THREE.CylinderGeometry(0.15, 0.38, 4.6, 7), P.bark, x, 2.3, z)
     for (let k = 0; k < 4; k++) {

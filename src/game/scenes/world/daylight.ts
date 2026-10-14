@@ -10,7 +10,7 @@ export type SkyPreset = 'night' | 'afternoon' | 'sunset'
 const PRESETS: Record<SkyPreset, { zenith: string; horizon: string; haze: string; sun: string; sunI: number; hemiSky: string; hemiGround: string; hemiI: number; elev: number; fog: string }> = {
   // cinematic dark fantasy: midnight-blue zenith, violet horizon glow, a cool moon key light, a lilac sky fill
   // (art direction: rich blue-violet evening, warm bounce from lamplit streets — welcoming, never murky)
-  night: { zenith: '#0a1236', horizon: '#33296a', haze: '#6a3f96', sun: '#b4c2ff', sunI: 1.55, hemiSky: '#6a76d4', hemiGround: '#5a3c30', hemiI: 1.45, elev: 0.78, fog: '#221d42' },
+  night: { zenith: '#0a1236', horizon: '#33296a', haze: '#6a3f96', sun: '#b4c2ff', sunI: 1.55, hemiSky: '#6a76d4', hemiGround: '#7a4c34', hemiI: 1.4, elev: 0.78, fog: '#262044' },
   afternoon: { zenith: '#2f74d8', horizon: '#cfe4f7', haze: '#f6e7cf', sun: '#ffe6c2', sunI: 2.9, hemiSky: '#cfe2ff', hemiGround: '#b08a62', hemiI: 1.15, elev: 0.62, fog: '#c9dcee' },
   sunset: { zenith: '#3a4f9a', horizon: '#ffb98a', haze: '#ff8f5a', sun: '#ffb070', sunI: 2.4, hemiSky: '#b9b7e6', hemiGround: '#a06a48', hemiI: 0.95, elev: 0.26, fog: '#e2b49c' },
 }

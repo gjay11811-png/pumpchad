@@ -219,7 +219,7 @@ export function shop(T: Town, M: ArchMats, s: ShopSpec, letterMat?: THREE.Materi
  * frames, sills and lintels, corner pilasters, downpipes, a rear door with a step, and one or two chimney stacks on the roof.
  * (Alternate rooms are lit; the pattern is stable per building, so nothing flickers between frames.)
  */
-function detailWalls(T: Town, F: Frame, s: ShopSpec, M: ArchMats, H: number, _bays: number) {
+export function detailWalls(T: Town, F: Frame, s: ShopSpec, M: ArchMats, H: number, _bays: number) {
   const seed = Math.round(s.x * 3 + s.z * 5)
   const wall = (S: Frame, width: number, isBack: boolean) => {
     const n = Math.max(1, Math.round((width - 1.2) / 2.8))

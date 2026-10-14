@@ -73,10 +73,20 @@ export function southshore(T: Town, stoneTex: THREE.Texture) {
     for (let i = 0; i < u.count; i++) u.setXY(i, (u.getX(i) * (x1 - x0)) / 3, (u.getY(i) * (z1 - z0)) / 3)
     T.batch.put(g, mat, (x0 + x1) / 2, y, (z0 + z1) / 2, 0, 1, 1, 1, { cast: false })
   }
+  const pine = std({ color: '#2a5236', roughness: 0.95 })
   const tree = (x: number, z: number, s = 1, autumn = false) => {
-    T.batch.put(new THREE.CylinderGeometry(0.16 * s, 0.22 * s, 2.4 * s, 6), P.bark, x, 1.2 * s, z)
-    T.batch.put(new THREE.SphereGeometry(1.5 * s, 10, 8).scale(1, 0.9, 1), autumn ? leaf2 : leaf, x, 3.3 * s, z)
-    T.batch.put(new THREE.SphereGeometry(1.0 * s, 9, 7), autumn ? leaf2 : leaf, x + 0.7 * s, 2.7 * s, z + 0.3 * s)
+    // three silhouettes by position: broad layered crowns, tiered conifers, tall poplars — never the same ball twice
+    const kind = Math.abs(Math.round(x * 3 + z * 7)) % 3
+    const trunkH = kind === 2 ? 3.4 : 2.6
+    T.batch.put(new THREE.CylinderGeometry(0.14 * s, 0.22 * s, trunkH * s, 6), P.bark, x, (trunkH * s) / 2, z)
+    if (kind === 1) {
+      for (let k = 0; k < 4; k++) T.batch.put(new THREE.ConeGeometry((1.7 - k * 0.32) * s, 1.5 * s, 8), pine, x, (1.8 + k * 1.05) * s, z)
+    } else if (kind === 2) {
+      for (let k = 0; k < 5; k++) T.batch.put(new THREE.SphereGeometry((0.95 - Math.abs(k - 2) * 0.12) * s, 8, 6).scale(1, 0.8, 1), autumn ? leaf2 : leaf, x + (k % 2 ? 0.12 : -0.12) * s, (2.6 + k * 0.85) * s, z)
+    } else {
+      for (const [r, y, dx, dz] of [[2.0, 3.0, 0, 0], [1.5, 3.9, 0.2, 0.1], [0.95, 4.6, 0, 0], [1.1, 3.3, 1.2, 0.4], [1.0, 3.5, -1.1, -0.5]] as const)
+        T.batch.put(new THREE.SphereGeometry(r * s, 9, 6).scale(1, 0.55, 1), autumn ? leaf2 : leaf, x + dx * s, y * s, z + dz * s)
+    }
     T.colliders.push({ kind: 'circle', x, z, r: 0.35 * s, h: 4 })
   }
   const bench = (x: number, z: number, ry: number) => {

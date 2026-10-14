@@ -198,8 +198,8 @@ export class FoliageBuilder {
     this.colorize(trunk, barkColor)
     this.bark.push(trunk)
     const tops: THREE.Vector3[] = [new THREE.Vector3(x + 0.1 * s, trunkH + 0.9 * s, z)]
-    for (let b = 0; b < 3; b++) {
-      const a = b * 2.1 + this.r()
+    for (let b = 0; b < 4; b++) {
+      const a = b * 1.7 + this.r()
       const len = (1.1 + this.r() * 0.5) * s
       const from = new THREE.Vector3(x, trunkH * (0.55 + b * 0.12), z)
       const to = from.clone().add(new THREE.Vector3(Math.cos(a) * len, len * 0.75, Math.sin(a) * len))
@@ -213,10 +213,55 @@ export class FoliageBuilder {
     }
     tops.forEach((p, i) => {
       const col = palette[(i + Math.floor(this.r() * palette.length)) % palette.length]
-      const r = (i === 0 ? 1.25 : 0.95 + this.r() * 0.25) * s
-      this.blob(p.x, p.y, p.z, r, r * 0.8, r, col.clone().multiplyScalar(0.45), col.clone().multiplyScalar(1.1))
-      this.leaves(p.x, p.y, p.z, r, r * 0.8, r, 24, 0.62 * s, col.clone().multiplyScalar(1.05), 0.26, -0.6)
+      const r = (i === 0 ? 1.1 : 0.8 + this.r() * 0.22) * s
+      // a flattened lump plus two smaller satellites to the side: an irregular, layered crown instead of one ball
+      this.blob(p.x, p.y, p.z, r, r * 0.62, r, col.clone().multiplyScalar(0.45), col.clone().multiplyScalar(1.1))
+      this.leaves(p.x, p.y, p.z, r, r * 0.62, r, 22, 0.6 * s, col.clone().multiplyScalar(1.05), 0.26, -0.6)
+      for (let k = 0; k < 2; k++) {
+        const a = this.r() * Math.PI * 2
+        const sr = r * (0.45 + this.r() * 0.2)
+        const sx = p.x + Math.cos(a) * r * 0.85
+        const sz = p.z + Math.sin(a) * r * 0.85
+        const sy = p.y - r * 0.18 + this.r() * r * 0.3
+        const c2 = palette[(i + k + 1) % palette.length]
+        this.blob(sx, sy, sz, sr, sr * 0.65, sr, c2.clone().multiplyScalar(0.45), c2.clone().multiplyScalar(1.08))
+        this.leaves(sx, sy, sz, sr, sr * 0.65, sr, 9, 0.5 * s, c2.clone().multiplyScalar(1.05), 0.26, -0.6)
+      }
     })
+  }
+
+  /** conifer: a slim trunk and five flaring tiers of needles, darkest at the base */
+  conifer(x: number, z: number, s: number, green: THREE.Color, barkColor: THREE.Color) {
+    const trunk = new THREE.CylinderGeometry(0.1 * s, 0.22 * s, 3 * s, 7).toNonIndexed()
+    trunk.translate(x, 1.5 * s, z)
+    this.colorize(trunk, barkColor)
+    this.bark.push(trunk)
+    for (let k = 0; k < 5; k++) {
+      const u = k / 4
+      const r = (1.75 - u * 1.2) * s
+      const y = (1.7 + k * 1.15) * s
+      const col = green.clone().multiplyScalar(0.8 + u * 0.35)
+      this.blob(x, y, z, r, r * 0.5, r, col.clone().multiplyScalar(0.4), col.clone().multiplyScalar(1.05))
+      this.leaves(x, y, z, r, r * 0.5, r, 12 + (4 - k) * 2, 0.55 * s, col, 0.28, -0.5)
+    }
+    this.blob(x, (1.7 + 5 * 1.15) * s, z, 0.34 * s, 0.7 * s, 0.34 * s, green.clone().multiplyScalar(0.4), green.clone().multiplyScalar(1.1))
+  }
+
+  /** poplar: a tall narrow column of overlapping lumps on a long trunk */
+  poplar(x: number, z: number, s: number, palette: THREE.Color[], barkColor: THREE.Color) {
+    const trunk = new THREE.CylinderGeometry(0.1 * s, 0.2 * s, 3.4 * s, 7).toNonIndexed()
+    trunk.translate(x, 1.7 * s, z)
+    this.colorize(trunk, barkColor)
+    this.bark.push(trunk)
+    for (let k = 0; k < 7; k++) {
+      const col = palette[(k + Math.floor(this.r() * palette.length)) % palette.length]
+      const r = (0.95 - Math.abs(k - 3.2) * 0.1) * s * (0.85 + this.r() * 0.3)
+      const px = x + (this.r() - 0.5) * 0.3 * s
+      const pz = z + (this.r() - 0.5) * 0.3 * s
+      const py = (2.1 + k * 0.85) * s
+      this.blob(px, py, pz, r * 0.85, r * 0.7, r * 0.85, col.clone().multiplyScalar(0.45), col.clone().multiplyScalar(1.1))
+      this.leaves(px, py, pz, r * 0.85, r * 0.7, r * 0.85, 11, 0.5 * s, col.clone().multiplyScalar(1.05), 0.26, -0.5)
+    }
   }
 
   private colorize(g: THREE.BufferGeometry, c: THREE.Color) {

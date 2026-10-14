@@ -1,4 +1,5 @@
 import { castleRoadWorld } from './scenes/world/mountain'
+import { objectiveTarget } from './atlas'
 import { DESCENT } from './scenes/world/descent'
 import { AnimatePresence, LazyMotion, MotionConfig, domAnimation } from 'framer-motion'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -124,6 +125,7 @@ export function GameApp() {
     saveRef.current = next
     setSaveState(next)
     writeSave(next)
+    world.current?.setTrack(objectiveTarget(next))
   }, [])
 
   /* ── boot ── */
@@ -268,6 +270,7 @@ export function GameApp() {
       e.setScene(w)
       if (saveRef.current.progress.discoveries.includes('stash')) w.revealStash()
       world.current = w
+      w.setTrack(objectiveTarget(saveRef.current))
       const forceIntro = new URLSearchParams(location.search).get('intro') === '1'
       if ((opts.spawn ?? 'start') === 'start' && !saveRef.current.progress.discoveries.includes('intro_seen') && (forceIntro || !navigator.webdriver)) introPending.current = true
       audio.setAmbience('square')
