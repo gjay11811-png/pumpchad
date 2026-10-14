@@ -63,6 +63,7 @@ import { FOREST, FOREST_WISPS, LAKE_FIREFLIES, enchantedForest, lakeLamps, moonl
 import { lakeR } from './world/city'
 import { mountainGround } from './world/mountain'
 import { castleRoad } from './world/mountainRoad'
+import { summitCastle } from './world/summitCastle'
 import { LANTERNS, SIGIL, guardianLanterns, type GuardianLanterns } from './world/lanterns'
 import { ESTATE_LAMPS, EstateView, estatesDistrict } from './world/estates'
 import { PLOTS, PLOT_PRICE, cottageDoor, plotGate, type Estate } from '../estates'
@@ -328,6 +329,7 @@ export class World implements GameScene {
     this.seats.push(...extraSeats)
     chadRides(T, SM.trim)
     castleRoad(T, q)
+    summitCastle(T)
     squareExtras(T, SM.trim)
     // street trees + bushes for the south + east districts
     greenery.trees.push(...MOTOR_ROW_TREES)

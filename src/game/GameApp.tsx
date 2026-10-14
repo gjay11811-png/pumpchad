@@ -1,3 +1,4 @@
+import { ROAD } from './scenes/world/mountain'
 import { AnimatePresence, LazyMotion, MotionConfig, domAnimation } from 'framer-motion'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { audio } from './audio'
@@ -808,6 +809,7 @@ export function GameApp() {
       gymTeleport: (x: number, z: number, yaw?: number) => gym.current?.teleport(x, z, yaw),
       gymInfo: () => gym.current?.info() ?? null,
       interior: () => interior.current?.info() ?? null,
+      road: () => ROAD.map((p) => [+p.x.toFixed(2), +p.z.toFixed(2), +p.y.toFixed(2)]),
       pet: () => {
         const pt = (world.current ?? interior.current)?.pet
         return pt ? { kind: pt.kind, x: +pt.root.position.x.toFixed(2), y: +pt.root.position.y.toFixed(2), z: +pt.root.position.z.toFixed(2) } : null
