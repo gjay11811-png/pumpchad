@@ -17,6 +17,12 @@ export function objectiveFor(save: SaveData) {
   }
   if (!d.includes('talk_coach')) return 'Find Coach Gourdon outside Pump Gym'
   if (save.progress.gymRuns === 0) return 'Enter Pump Gym and finish a Chad Press set'
+  // chapter 2 of the curse
+  if (!d.includes('q2_stone')) {
+    if (!d.includes('q2_start')) return 'Ask Grim the gravedigger about the sigil · Haunted Quarter'
+    if (!d.includes('q2_oak')) return 'Find the Elder Oak in the Enchanted Forest'
+    return 'Read the moonstone in the forest glade'
+  }
   const seeds = d.filter((x) => x.startsWith('seed_')).length
   if (seeds < 5) return `Explore Chad City · Golden seeds ${seeds}/5`
   const got = save.progress.achievements.length

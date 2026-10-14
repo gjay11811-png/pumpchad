@@ -59,7 +59,7 @@ import { CHAMPIONS, NOTICE, squareExtras, standFor } from './world/square'
 import { ARCADE, CANAL, OVERLOOK, RIDES, insideCity } from './world/city'
 import { PumpkinBuilder } from './world/pumpkins'
 import { stallV4 } from './world/market'
-import { FOREST_WISPS, LAKE_FIREFLIES, enchantedForest, lakeLamps, moonlightLake } from './world/wilds'
+import { FOREST, FOREST_WISPS, LAKE_FIREFLIES, enchantedForest, lakeLamps, moonlightLake } from './world/wilds'
 import { lakeR } from './world/city'
 import { LANTERNS, SIGIL, guardianLanterns, type GuardianLanterns } from './world/lanterns'
 import { Pet, type PetKind } from '../character/pet'
@@ -764,6 +764,19 @@ export class World implements GameScene {
     q.setSigil(sigil)
     this.interactables = this.interactables.filter((i) => i.id !== 'sigil')
     if (sigil) this.interactables.push({ id: 'sigil', label: 'Claim the Golden Sigil', pos: new THREE.Vector3(SIGIL.x, 0, SIGIL.z), radius: 1.8, kind: 'activity' })
+    // chapter 2: the Elder Oak's hollow + the moonstone always have something to say; during the quest they're the steps
+    const q2 = d.includes('q2_start') && !d.includes('q2_stone')
+    for (const [id, x, z, label, active] of [
+      ['oak', FOREST.oak.x, FOREST.oak.z + 2.7, 'Listen at the Elder Oak', q2 && !d.includes('q2_oak')],
+      ['moonstone', FOREST.glade.x, FOREST.glade.z + 1.7, 'Read the moonstone', q2 && d.includes('q2_oak')],
+    ] as const) {
+      let it = this.interactables.find((i) => i.id === id)
+      if (!it) {
+        it = { id, label, pos: new THREE.Vector3(x, 0, z), radius: 1.5, kind: 'info' }
+        this.interactables.push(it)
+      }
+      it.kind = active ? 'activity' : 'info'
+    }
   }
 
   /** QA */

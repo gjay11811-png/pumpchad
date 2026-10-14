@@ -5,6 +5,7 @@
  */
 import type { SaveData } from './save'
 import { LANTERNS, SIGIL } from './scenes/world/lanterns'
+import { FOREST } from './scenes/world/wilds'
 
 export type MapKind = 'place' | 'shop' | 'quest'
 export type Landmark = {
@@ -51,6 +52,11 @@ export function objectiveTarget(save: SaveData): { x: number; z: number; label: 
   }
   if (!d.includes('talk_coach')) return { x: 13.4, z: 0.6, label: 'Coach Gourdon' }
   if (save.progress.gymRuns === 0) return { x: 14.4, z: -4, label: 'Pump Gym' }
+  if (!d.includes('q2_stone')) {
+    if (!d.includes('q2_start')) return { x: -89.4, z: 21.6, label: 'Grim the gravedigger' }
+    if (!d.includes('q2_oak')) return { x: FOREST.oak.x, z: FOREST.oak.z, label: 'The Elder Oak' }
+    return { x: FOREST.glade.x, z: FOREST.glade.z, label: 'The moonstone' }
+  }
   return null
 }
 
@@ -69,6 +75,11 @@ export function journal(save: SaveData): JournalEntry[] {
     { label: 'Find Coach Gourdon outside Pump Gym', done: has('talk_coach') },
     { label: 'Finish a Chad Press set', done: save.progress.gymRuns > 0 },
   ]
+  const q2 = [
+    { label: 'Ask Grim the gravedigger about the sigil', done: has('q2_start') },
+    { label: 'Find the Elder Oak in the Enchanted Forest', done: has('q2_oak') },
+    { label: 'Read the moonstone in the forest glade', done: has('q2_stone') },
+  ]
   const city = [
     ['visit_square', 'Chad Square'],
     ['visit_gym', 'Pump Gym'],
@@ -86,6 +97,7 @@ export function journal(save: SaveData): JournalEntry[] {
   const seeds = d.filter((x) => x.startsWith('seed_')).length
   return [
     { id: 'q1', title: 'The Guardian Lanterns', status: status(q1, true), steps: q1 },
+    { id: 'q2', title: 'Whispers in the Wood', status: status(q2, has('q1_sigil')), steps: q2 },
     { id: 'coach', title: 'Leg Day Is Every Day', status: status(coach, has('q1_sigil') || has('talk_coach')), steps: coach },
     { id: 'city', title: 'Discover Chad City', status: status(city), steps: city },
     { id: 'wilds', title: 'Beyond the Old Town', status: status(wilds), steps: wilds },

@@ -1,4 +1,4 @@
-export type DialogueOption = { label: string; action: 'close' | 'gym' | 'wardrobe' | 'welltoss' | 'q1_accept' }
+export type DialogueOption = { label: string; action: 'close' | 'gym' | 'wardrobe' | 'welltoss' | 'q1_accept' | 'q2_accept' }
 export type Dialogue = { speaker: string; role: string; lines: string[]; options?: DialogueOption[] }
 
 /** the opening adventure: Goldie asks for help with the Guardian Lanterns */
@@ -32,6 +32,54 @@ export const QUEST_SIGIL: Dialogue = {
     'The sigil settles into your hands, warm as a lantern. All three Guardian Lanterns flare at once across the city.',
     'Its light leans toward the Citadel. The great doors stay sealed — the curse holds them for now, and they open in a later chapter.',
     'Until then: the city is yours. Coach Gourdon is waiting outside Pump Gym.',
+  ],
+}
+
+/* ── chapter 2: Whispers in the Wood (Grim → the Elder Oak → the moonstone) ── */
+export const QUEST2_GRIM: Dialogue = {
+  speaker: 'Grim',
+  role: 'Gravedigger · Haunted Quarter',
+  lines: [
+    'Hold on — is that the Golden Sigil? I felt the lanterns flare from all the way down here. Every ghost in the quarter sat up in its grave.',
+    'Old Mortimer kept the Order’s secrets, and before he died he talked about the Elder Oak, up past our north gate in the Enchanted Forest. Said it remembers the night the curse fell.',
+    'Go and ask it. Trees talk, if you hold something golden and listen properly.',
+  ],
+  options: [
+    { label: 'I’ll find the Elder Oak', action: 'q2_accept' },
+    { label: 'Not tonight', action: 'close' },
+  ],
+}
+export const QUEST2_GRIM_REMIND: Dialogue = {
+  speaker: 'Grim',
+  role: 'Gravedigger · Haunted Quarter',
+  lines: ['Through the north gate, follow the lanterns to the clearing. The Elder Oak’s the one with a light inside it. Can’t miss it.'],
+}
+export const QUEST2_OAK_IDLE: Dialogue = {
+  speaker: 'The Elder Oak',
+  role: 'Enchanted Forest · very old',
+  lines: ['A huge old oak with a warm light deep in its hollow. The leaves rustle, though there’s no wind. It seems to be waiting for something.'],
+}
+export const QUEST2_OAK: Dialogue = {
+  speaker: 'The Elder Oak',
+  role: 'Enchanted Forest · very old',
+  lines: [
+    'The sigil glows, and the light in the hollow answers. A slow voice creaks out of the bark.',
+    '“The curse came down from the Citadel on the night the Order broke. The last Keeper hid what was left of their oath in the moonstone, west of my clearing.”',
+    '“Read it, little lamplighter. Then you’ll know who you’re dealing with.”',
+  ],
+}
+export const QUEST2_STONE_IDLE: Dialogue = {
+  speaker: 'Moonstone',
+  role: 'Enchanted Forest · the glade',
+  lines: ['A pale standing stone carved with runes that glow a cold blue. You can’t make sense of them on your own.'],
+}
+export const QUEST2_STONE: Dialogue = {
+  speaker: 'Moonstone',
+  role: 'the oath of the Order of the Golden Pumpkin',
+  lines: [
+    'With the sigil in hand, the runes rearrange into words:',
+    '“WE, THE ORDER OF THE GOLDEN PUMPKIN, KEEP THE LIGHT OF THE CHADVERSE. WHILE ONE LANTERN BURNS, THE CURSE CANNOT TAKE THE CITY.”',
+    'Below it, scratched in a hurried hand: “Find the others. The Order is not gone — only hiding.” The Curse of the Chadverse continues in the next chapter.',
   ],
 }
 

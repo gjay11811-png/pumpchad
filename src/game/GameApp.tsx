@@ -4,7 +4,7 @@ import { audio } from './audio'
 import { runAchievements, xpFor, type RunState } from './chadpress'
 import { preloadModel } from './character/character'
 import type { Appearance } from './character/types'
-import { DIALOGUE, PUMPKIN_LINES, QUEST_COLD_LANTERN, QUEST_GOLDIE, QUEST_GOLDIE_REMIND, QUEST_SIGIL, type Dialogue, type DialogueOption } from './dialogue'
+import { DIALOGUE, PUMPKIN_LINES, QUEST2_GRIM, QUEST2_GRIM_REMIND, QUEST2_OAK, QUEST2_OAK_IDLE, QUEST2_STONE, QUEST2_STONE_IDLE, QUEST_COLD_LANTERN, QUEST_GOLDIE, QUEST_GOLDIE_REMIND, QUEST_SIGIL, type Dialogue, type DialogueOption } from './dialogue'
 import { LANTERNS } from './scenes/world/lanterns'
 import { Engine } from './engine/Engine'
 import { Input } from './input'
@@ -313,6 +313,29 @@ export function GameApp() {
       w.questSync(saveRef.current.progress.discoveries)
       return void setDialogue(QUEST_SIGIL)
     }
+    // chapter 2: Grim → the Elder Oak → the moonstone (opens once the sigil is claimed)
+    if (id === 'gravedig' && qd.includes('q1_sigil') && !qd.includes('q2_stone')) {
+      discover('talk_gravedig')
+      w.faceNpcToPlayer(id)
+      w.markTalked(id)
+      return void setDialogue(qd.includes('q2_start') ? QUEST2_GRIM_REMIND : QUEST2_GRIM)
+    }
+    if (id === 'oak') {
+      if (!qd.includes('q2_start') || qd.includes('q2_oak')) return void setDialogue(QUEST2_OAK_IDLE)
+      discover('q2_oak')
+      setSave((s) => ({ ...s, progress: { ...s.progress, xp: s.progress.xp + 20 } }))
+      notify('The Elder Oak remembers', 'The moonstone lies west of the clearing · +20 XP', 'discover')
+      w.questSync(saveRef.current.progress.discoveries)
+      return void setDialogue(QUEST2_OAK)
+    }
+    if (id === 'moonstone') {
+      if (!qd.includes('q2_oak') || qd.includes('q2_stone')) return void setDialogue(QUEST2_STONE_IDLE)
+      discover('q2_stone')
+      setSave((s) => ({ ...s, progress: { ...s.progress, xp: s.progress.xp + 60, coins: s.progress.coins + 30 } }))
+      notify('Whispers in the Wood', 'Chapter 2 complete · +60 XP · +60 Chad Coins', 'discover')
+      w.questSync(saveRef.current.progress.discoveries)
+      return void setDialogue(QUEST2_STONE)
+    }
     switch (id) {
       case 'rush':
         input.current?.clear()
@@ -518,6 +541,11 @@ export function GameApp() {
     world.current?.cooldown()
     if (action === 'gym') void go('gym', { label: 'Entering Pump Gym' })
     if (action === 'welltoss') setOverlay('welltoss')
+    if (action === 'q2_accept') {
+      discover('q2_start')
+      world.current?.questSync(saveRef.current.progress.discoveries)
+      notify('Whispers in the Wood', 'Find the Elder Oak · through the Haunted Quarter’s north gate', 'discover')
+    }
     if (action === 'q1_accept') {
       discover('q1_start')
       world.current?.questSync(saveRef.current.progress.discoveries)
