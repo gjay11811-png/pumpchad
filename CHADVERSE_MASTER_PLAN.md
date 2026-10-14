@@ -100,3 +100,17 @@ Nothing is pushed or deployed. To test on a phone over home Wi-Fi: http://192.16
 **Next task:** NPC daily routines (bounded walks between spots, never blocking doors), then world events.
 **Map:** walkable area 17,568 m² (Monte Carlo over the walkable union, canal + lake water excluded) = 2.07× the original Chad City (~8,500 m²). New: Enchanted Forest (3,091 m², via the Haunted Quarter) + Moonlight Lake (3,208 m², via Motor Row). wilds-test passes; e2e/city-test re-run pending (machine memory).
 **Testing note:** this machine (~0.6 GB free RAM) loses the WebGL context during long runs; shop-test treats that as an environment warning. Use Q=low.
+
+
+## Reference-pack task (priority over events/activities) — started 2026-10-14
+**Frozen baseline:** walkable area **18,642 m²** (Monte Carlo, `insideCity` minus canal; forest 3,091 · lake district 3,208 · rest 12,344). **Target ≥ 37,284 m².** Report the final figure the same way.
+**Layout plan (roads fixed before modelling, so finished buildings never move):**
+| Zone | Footprint | Connects at |
+|---|---|---|
+| Downtown (colourful tall-skyline city, ref 02 panel 3) | x 34..110, z −62..−8 (flat) | east district north edge (x 28..58, z −6) and Arcade Street; avenue at z −30 |
+| Lower Town (shopping + residential streets, courtyards, harbour) | x −62..72, z 70..150 (flat) | valley gate (0, 74.2) opened; Estates south edge; avenue x 0 |
+| Citadel Mountain (switchback road, terraces, bridges, summit castle) | x −40..90, z −150..−36, road y 0→≈48 | Mountain Gate on the core's north-east rim (22, −26) |
+Mountain terrain = blended height field (road carved as a shelf, retaining walls); walkable = road capsules + terraces + summit plateau; the existing Citadel gameplay and `?castle=` flag stay on the plateau.
+**Order:** 1 gym + arcade exteriors → 2 Chad Motors + cars → 3 Chad Rides bikes → 4 Downtown + Lower Town → 5 mountain + summit castle → 6 overhead comparison + gameplay views.
+**Verification gap (honest):** the full e2e regression dies on WebGL context loss at check 16 on this 3.5 GB PC (an older build does too); last clean run 57/57. Feature tests are targeted instead. All touch checks are emulated iPhone, not a real phone.
+**Blocked (backend, Jay's decision):** online leaderboards, multiplayer/visiting, accounts, trading, shared events.
