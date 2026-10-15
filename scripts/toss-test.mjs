@@ -20,7 +20,7 @@ await p.waitForFunction(() => window.__chadverse?.phase === 'world' && window.__
 const C = (fn, ...a) => p.evaluate(([f, a]) => window.__chadverse[f](...a), [fn, a])
 const R = await C('range')
 check(!!R, `a range exists: stand ${JSON.stringify(R && { x: R.stand.x, z: R.stand.z, yaw: +R.stand.yaw.toFixed(2) })}`)
-check(Math.hypot(R.stand.x - 100, R.stand.z - 56) < 3, 'the range is where the map marker says (100, 56)')
+check(Math.hypot(R.stand.x - 110, R.stand.z - 64) < 3, 'the range is where the map marker says (110, 64)')
 const promptHas = (t) => p.waitForFunction((n) => (document.querySelector('[data-testid=prompt]')?.textContent ?? '').includes(n), t, { timeout: 5000 }).then(() => true).catch(() => false)
 // start 5 m short of the stand, face it, and walk in with W
 const back = { x: R.stand.x - Math.sin(R.stand.yaw) * 6, z: R.stand.z - Math.cos(R.stand.yaw) * 6 }

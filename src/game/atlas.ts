@@ -56,7 +56,7 @@ export const LANDMARKS: Landmark[] = [
   // activities you can complete in the first release (each starts at the marker; no fast travel needed)
   { id: 'act_rush', name: 'Pumpkin Rush', x: 10.2, z: 11.7, kind: 'activity', spawn: { x: 8.5, z: 14, yaw: Math.PI } },
   { id: 'act_events', name: 'Events Board', x: 6.5, z: 9.5, kind: 'activity', spawn: { x: 7.5, z: 13, yaw: Math.PI } },
-  { id: 'act_toss', name: 'Pumpkin Toss', x: 100, z: 56, kind: 'activity', visit: 'visit_lake', spawn: { x: 92, z: 56, yaw: Math.PI / 2 } },
+  { id: 'act_toss', name: 'Pumpkin Toss & Pistol Range', x: 110, z: 64, kind: 'activity', visit: 'visit_lake', spawn: { x: 103, z: 64, yaw: Math.PI / 2 } },
   { id: 'act_ghost', name: 'Ghost Hunt', x: -61.4, z: 3.4, kind: 'activity', visit: 'visit_haunted', spawn: { x: -62, z: 2.5, yaw: -Math.PI / 2 } },
   { id: 'act_fishing', name: 'Pier Fishing', x: 98, z: 33.2, kind: 'activity', visit: 'visit_lake', spawn: { x: 98, z: 44, yaw: Math.PI } },
 ]
