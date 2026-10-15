@@ -41,7 +41,7 @@ Nothing is pushed or deployed. To test on a phone over home Wi-Fi: http://192.16
 | 15 | Chadville Estates housing + building | ✅ plots, builder, cottage interior | Plots, a snap/rotate/preview builder, and upgrades saved locally. Competitions and voting are 🌐. |
 | 16 | Playable minigames | ✅ Rush, coin toss, fishing / 📋 rest | Pumpkin Rush and coin toss are live. Racing, target, ghost hunt, escape, parkour, maze, dungeon, fishing, farming, treasure hunts and gym challenges come later, each fully playable or not shipped. |
 | 17 | Daily/weekly competitions + leaderboards | 📋 local → 🌐 | Personal-best boards can be local. Shared boards need a server with anti-cheat. |
-| 18 | Dynamic world events | 📋 Phase 4 | Midnight Pumpkin Hunt, Ghost Invasion, Festival, Thunderstorm. |
+| 18 | Dynamic world events | ✅ Built (local, solo) | Events Board in Chad Square: Midnight Pumpkin Hunt, Ghost Invasion (3 lives), Harvest Festival (5 lanterns), Thunderstorm (crystals + telegraphed lightning). Records, daily-fatigue XP, 4 achievements. Shared/online events and voting stay BLOCKED (need a backend). Not yet time-of-day/ambient-triggered: started from the board only. |
 | 19 | Pets/companions | ✅ | |
 | 20 | Creature collection + journal | ✅ fish log / 📋 pets journal | |
 | 21 | Building restoration | 📋 Phase 5 | |
@@ -138,3 +138,14 @@ Valley road: 727 m, drop 52 m, ~7.2 % grade; walking 5.5 min, jogging 140 s, spr
 **Built:** roadnet/descent/descentRoad (valley road, footways, kerbs, retaining walls + parapets, lanterns, 5 direction boards, overlook terrace with benches + telescope + plaque, viaduct, City Gateway), valley frame (`frame.ts` — Downtown, Gate Plaza, Castle Road, castle built locally and placed at (−120, −52, 470)), irregular layered ridge ranges (no cones, no white caps), rock-strata terrain colouring, valley woods + night hamlet lights, side/rear architecture + chimneys on every shop(), tiered/varied tree species, Chad Motors workshop, village signage renamed CHAD VILLAGE (Chad City now means the valley city), smaller interaction hints with only the tracked objective large.
 **Map area (honest):** original (before the forest/lake doubling) ≈ 8,500 m² (earlier Monte-Carlo measurement in this build's history); first reference-pack baseline 18,968 m²; see the final figure in the report. Connected, walkable ground only; mountain backdrops and empty borders are not counted.
 **Still open:** enterable Downtown/Southshore/Mill Row shops, workshop interior, Castle District interiors, performance on real devices, real-phone verification.
+
+
+## Overnight world pass — 2026-10-15 · BUILT locally (no push/deploy), awaiting Jay's review
+
+- **Valley**: lake with irregular shore + 4-span arched stone Moonspan Bridge, waterfront promenade (6 frontages, cafe terrace, pavilion, boathouse, moored boats), Lakeside Landing with a fishing pier (real fishing round).
+- **Roadside places**: village overlook, autumn woodland trail + shrine, Hamlet (Lantern Inn with interior + keeper, hidden walled garden), Old Watchtower (viewpoint, climbable lookout), discoveries (shrine, garden, stream, treasure).
+- **Mooncrest Manor**: gates, winding drive, fountain court, wings, conservatory, walled garden + greenhouse, carriage house, shoreline belvedere; interior hall + grand stair, living, dining, kitchen, library, trophy room, conservatory, upstairs bedrooms/bath, secret look.
+- **City**: City Hall block, skyline hierarchy (Grand Gourd etc.), fewer repeated needle towers (old gothic backdrop retired), lumpy-crown trees.
+- **Events** (item 18): see the table.
+- **Checks passed**: events-test (11/11), valley-test, nan-check clean, tsc clean. Simulated-input tests (teleport to markers) — not real-device play.
+- **Honest gaps**: gym bench-start WebGL context loss (cause unknown, reproduces on older build); generic interior-test stair timing fails for the manor (valley-test covers the stair and passes); e2e check 16 context loss; waterfall NOT built; hamlet cottages closed; Downtown/Southshore/Mill Row shop interiors pending; manor terrace not enterable from inside; walkable area **not re-measured** since the valley places (last measured 38,987 m² vs 5× target ≈ 42,500 m²; the valley additions plausibly close the gap but this is unverified).
