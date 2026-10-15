@@ -36,6 +36,7 @@ import { buildChadCity } from './world/gothicCity'
 import { kingdomStyle, styleMaterials } from './world/style'
 import * as TX from './world/textures'
 import { RushGame } from '../minigames/pumpkinRush'
+import { EventDirector } from '../minigames/events'
 import { flowerTexture } from './world/foliage'
 import { fountainV4 } from './world/fountain'
 import { fingerpost } from './world/wayfinding'
@@ -166,7 +167,7 @@ export class World implements GameScene {
   camera = new THREE.PerspectiveCamera(55, 1, 0.1, 950)
   bloom = 0.22
   player: Character | null = null
-  private playerPos = new THREE.Vector3(SPAWN.x, 0, SPAWN.z)
+  playerPos = new THREE.Vector3(SPAWN.x, 0, SPAWN.z)
   private playerVel = new THREE.Vector3()
   private playerYaw = Math.PI
   private camYaw = 0
@@ -228,6 +229,7 @@ export class World implements GameScene {
   private gourdMarks = new Map<string, THREE.Object3D>()
   /** Pumpkin Rush mini-game (lives in the square; the UI drives start / stop) */
   rush!: RushGame
+  eventDir!: EventDirector
   cameraSensitivity = 1
   private t = 0
   private disposed = false
@@ -663,6 +665,7 @@ export class World implements GameScene {
     add('pumpkin', 'Poke the suspicious pumpkin', -9.6, 10.4, 2.1, 'info')
     this.seats.forEach((b, i) => add(`bench_${i}`, b.label, b.x + Math.sin(b.ry) * 0.75, b.z + Math.cos(b.ry) * 0.75, 1.1, 'activity'))
     add('rush', 'Play Pumpkin Rush', RUSH_CART.x, RUSH_CART.z + 1.3, 1.5, 'activity')
+    add('events', 'Read the Events Board', 6.5, 9.5, 1.6, 'activity')
     add('wardrobe', 'Browse the wardrobe stall', -24, 5.0, 1.3, 'info')
     add('lookout', 'Look out over the canal', -5.4, 32.4, 1.5, 'info')
     for (const g of GOURDS) add(g.id, `Talk to the ${g.name}`, g.x, g.z, 1.35, 'talk')
@@ -675,7 +678,33 @@ export class World implements GameScene {
       return true
     }
     this.rush = new RushGame(this.scene, open, { r: 29 })
+    this.eventDir = new EventDirector(this.scene, open, groundHeight, { r: 29 })
     for (const r of RESIDENTS) if (r.talk) add(r.id, r.talk, r.talkAt?.[0] ?? r.x, r.talkAt?.[1] ?? r.z, r.talkAt ? 1.6 : 2.2, 'talk')
+
+    // the Events Board: two posts and a lit notice, where the village events are started
+    {
+      const wood = new THREE.MeshStandardMaterial({ color: 0x4a3626, roughness: 0.9 })
+      const paper = new THREE.MeshStandardMaterial({ color: 0xe8d9b0, emissive: 0x6a4a18, emissiveIntensity: 0.5, roughness: 0.8 })
+      const eb = new THREE.Group()
+      const g1 = new THREE.BoxGeometry(0.14, 2.1, 0.14)
+      const g2 = new THREE.BoxGeometry(1.7, 1.0, 0.1)
+      const g3 = new THREE.BoxGeometry(1.5, 0.8, 0.04)
+      this.disposables.push(g1, g2, g3, wood, paper)
+      for (const dx of [-0.8, 0.8]) {
+        const post = new THREE.Mesh(g1, wood)
+        post.position.set(dx, 1.05, 0)
+        eb.add(post)
+      }
+      const plank = new THREE.Mesh(g2, wood)
+      plank.position.y = 1.6
+      const note = new THREE.Mesh(g3, paper)
+      note.position.set(0, 1.6, 0.07)
+      eb.add(plank, note)
+      eb.position.set(6.5, groundHeight(6.5, 9.5), 9.5)
+      eb.rotation.y = -0.5
+      this.scene.add(eb)
+      this.colliders.push({ kind: 'circle', x: 6.5, z: 9.5, r: 0.9, h: 2 })
+    }
 
     // the suspicious pumpkin
     this.oddPumpkin = new THREE.Group()
@@ -1341,6 +1370,7 @@ export class World implements GameScene {
     // fountain splash gets louder as you walk up to it
     audio.setWater(1 - Math.min(1, Math.max(0, (Math.hypot(this.playerPos.x, this.playerPos.z) - 5) / 13)))
     if (!this.paused) this.rush?.update(dt, this.playerPos, groundHeight)
+    if (!this.paused) this.eventDir?.update(dt, this.playerPos)
     let mi = 0
     for (const [, m] of this.markers) {
       m.position.y += Math.sin(t * 2.4 + mi++) * 0.004
@@ -1474,6 +1504,7 @@ export class World implements GameScene {
     this.pet?.dispose()
     this.estate?.dispose()
     this.rush?.dispose()
+    this.eventDir?.dispose()
     this.daylight?.dispose()
     if (this.player) disposeCharacter(this.player)
     this.crowd.dispose()

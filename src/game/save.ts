@@ -132,7 +132,7 @@ function countMap(v: unknown, keys: string[], max = 1e7): Record<string, number>
 }
 /** station → rep count, only known stations */
 const repMap = (v: unknown) => countMap(v, STATION_KEYS)
-export const RECORD_KEYS = ['pumpkin_rush', 'fishing']
+export const RECORD_KEYS = ['pumpkin_rush', 'fishing', 'event_hunt', 'event_invasion', 'event_festival', 'event_storm']
 
 export function sanitizeSave(raw: unknown): SaveData {
   const d = defaultSave()
@@ -245,4 +245,8 @@ export const ACHIEVEMENTS: Record<string, { name: string; desc: string }> = {
   full_circuit: { name: 'Full Circuit', desc: 'Finish a set on every gym station.' },
   century: { name: 'Century', desc: 'Do 100 reps at the gym stations.' },
   rush_hour: { name: 'Rush Hour', desc: 'Score 5,000+ in Pumpkin Rush.' },
+  hunt_won: { name: 'Night Owl', desc: 'Win the Midnight Pumpkin Hunt.' },
+  ghost_buster: { name: 'Ghostbuster', desc: 'Win the Ghost Invasion.' },
+  festival_lit: { name: 'Lantern Keeper', desc: 'Light every lantern at the Harvest Festival.' },
+  storm_rider: { name: 'Storm Rider', desc: 'Win the Thunderstorm event.' },
 }

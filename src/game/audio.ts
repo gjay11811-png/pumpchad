@@ -3,7 +3,7 @@
  * so there are no audio files and nothing copyrighted. The context is only created
  * after a user gesture (required by iOS/Chrome autoplay rules).
  */
-export type Sfx = 'click' | 'select' | 'confirm' | 'step' | 'interact' | 'rep' | 'perfect' | 'miss' | 'achievement' | 'portal' | 'boing' | 'clank' | 'thud'
+export type Sfx = 'click' | 'select' | 'confirm' | 'step' | 'interact' | 'rep' | 'perfect' | 'miss' | 'achievement' | 'portal' | 'boing' | 'clank' | 'thud' | 'thunder' | 'wail' | 'banish' | 'fanfare'
 export type Ambience = 'menu' | 'square' | 'gym' | null
 
 class AudioEngine {
@@ -149,6 +149,22 @@ class AudioEngine {
         this.tone(1870 * r, 0.16, 'triangle', 0.05, 0.01)
         this.burst(0.08, 3200, 0.14, 2.5)
         this.burst(0.18, 420, 0.12, 0.8, 'lowpass', 0.02)
+        break
+      case 'thunder': // a crack, then a long low roll
+        this.burst(0.12, 3200, 0.22, 1.4)
+        this.burst(1.6, 150, 0.4, 0.5, 'lowpass', 0.05)
+        this.tone(48, 1.5, 'sine', 0.18, 0.05, 30)
+        break
+      case 'wail': // a ghost slipping into the fountain's light
+        this.tone(330, 0.7, 'sine', 0.1, 0, 140)
+        this.tone(262, 0.7, 'triangle', 0.05, 0.05, 110)
+        break
+      case 'banish': // a bright pop
+        this.tone(980 * r, 0.12, 'triangle', 0.14, 0, 1500)
+        this.burst(0.1, 5200, 0.1, 2)
+        break
+      case 'fanfare':
+        ;[392, 523, 659, 784, 1047].forEach((f, i) => this.tone(f, 0.35, 'triangle', 0.13, i * 0.1))
         break
       case 'thud': // glove into a heavy bag
         this.tone(95 * r, 0.16, 'sine', 0.32, 0, 55)
