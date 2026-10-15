@@ -153,6 +153,7 @@ export function hauntedQuarter(T: Town, stone: THREE.Material, trim: THREE.Mater
   const darkGlass = std({ color: '#0e1016', roughness: 0.2, metalness: 0.5 })
   const ironM = std({ color: '#1e1e22', metalness: 0.75, roughness: 0.45 })
   const doorGlow = glowM('#7affb0', 2.0)
+  const trimPale = std({ map: P.plaster.map, color: '#8d8a84', roughness: 0.95 })
   for (const h of HAUNTED_HOUSES) {
     const F = Frame.at(T.batch, h.x, 0, h.z, h.yaw)
     const fh = 2.8
@@ -229,6 +230,64 @@ export function hauntedQuarter(T: Town, stone: THREE.Material, trim: THREE.Mater
       F.box(h.w * 0.7, 0.1, 1.6, wood, 0, 0.05, dz + 0.8)
       for (const sx of [-1, 1]) F.box(0.12, 2.5, 0.12, wood, sx * h.w * 0.32, 1.75, dz + 1.5)
       F.put(new THREE.BoxGeometry(h.w * 0.74, 0.1, 1.9).rotateX(0.25), roofM, 0, 3.05, dz + 0.9)
+    }
+    // ── the Victorian pass (the reference: a tall painted house with trim, arched windows, a bay, turned porch posts, a cupola) ──
+    {
+      const pale = trimPale
+      // corner boards + a frieze band under the eaves, in weathered pale paint
+      for (const sx of [-1, 1])
+        for (const sz of [-1, 1]) {
+          const cb = new THREE.BoxGeometry(0.1, top - 0.5, 0.1)
+          cb.translate(0, (top - 0.5) / 2, 0)
+          const cq = cb.attributes.position as THREE.BufferAttribute
+          for (let i = 0; i < cq.count; i++) cq.setX(i, cq.getX(i) + cq.getY(i) * lean)
+          F.put(cb, pale, sx * (h.w / 2 + 0.07), 0.5, sz * (h.d / 2 + 0.07))
+        }
+      F.put(new THREE.BoxGeometry(h.w + 0.36, 0.22, h.d + 0.36), pale, (top - 0.4) * lean, top - 0.11, 0)
+      // arched heads over the front windows: a half-disc of glass and a pale arch moulding on each (every window on every floor)
+      let sd = h.id.length * 11
+      const rr = () => ((sd = (sd * 9301 + 49297) % 233280) / 233280)
+      const nb = Math.max(1, Math.round(h.w / 2.2))
+      for (let f = 0; f < h.floors; f++) {
+        const wy = 0.5 + f * fh + 1.55
+        for (let b = 0; b < nb; b++) {
+          const wx = -h.w / 2 + (h.w / nb) * (b + 0.5) + (wy - 0.5) * lean
+          if (f === 0 && Math.abs(wx - (wy - 0.5) * lean) < 0.9) continue
+          const fz = h.d / 2 + 0.012
+          const lit = glow && rr() < 0.4
+          F.put(new THREE.CircleGeometry(0.4, 14, 0, Math.PI), lit ? glow! : darkGlass, wx, wy + 0.65, fz, 0, 0, 0, false)
+          F.put(new THREE.TorusGeometry(0.43, 0.035, 5, 14, Math.PI), pale, wx, wy + 0.65, fz + 0.03)
+          F.box(1.04, 0.07, 0.1, pale, wx, wy - 0.72, fz + 0.06) // a pale sill
+        }
+      }
+      // a bay window beside the door on houses that have the room: three glazed faces under a little pitched roof
+      if (h.w >= 5.4 && h.id !== 'gravedigger') {
+        const bx = -h.w / 2 + 1.55 + (1.2) * lean
+        const bz = h.d / 2
+        F.put(new THREE.BoxGeometry(1.7, 1.9, 0.5), wood, bx, 1.45, bz + 0.25)
+        F.put(new THREE.PlaneGeometry(1.3, 1.1), glow ?? darkGlass, bx, 1.6, bz + 0.52, 0, 0, 0, false)
+        for (const sx of [-1, 1]) F.put(new THREE.PlaneGeometry(0.4, 1.1), darkGlass, bx + sx * 0.78, 1.6, bz + 0.34, 0, sx * -0.9, 0, false)
+        F.put(gableGeo(1.9, 0.7, 0.55, 1).rotateY(Math.PI / 2), roofM, bx, 2.4, bz + 0.3)
+        F.box(1.9, 0.08, 0.7, pale, bx, 0.5, bz + 0.3)
+      }
+      // a veranda for the big houses: turned posts (a swelling baluster profile), a spindle rail with a gap at the steps, and a lean-to roof
+      if (h.w >= 6 && !h.porch && h.floors >= 2) {
+        const vz = dz + 1.5
+        F.box(h.w * 0.9, 0.12, 1.7, wood, 0, 0.5, dz + 0.85)
+        const post = new THREE.LatheGeometry([0.07, 0.05, 0.05, 0.09, 0.05, 0.05, 0.08].map((r, i) => new THREE.Vector2(r, i * 0.38)), 8)
+        for (const sx of [-1, -0.5, 0.5, 1]) F.put(post.clone(), pale, sx * h.w * 0.42, 0.55, vz)
+        for (const side of [-1, 1])
+          for (let k = 0; k < 7; k++) F.box(0.04, 0.8, 0.04, pale, side * (h.w * 0.42 - (k / 6) * h.w * 0.34), 0.95, vz)
+        for (const side of [-1, 1]) F.box(h.w * 0.36, 0.06, 0.08, pale, side * h.w * 0.25, 1.38, vz)
+        F.put(new THREE.BoxGeometry(h.w * 0.94, 0.1, 2.0).rotateX(0.14), roofM, 0, 3.0, dz + 0.9)
+      }
+      // a cupola on the tallest roofs: four posts, louvres and a needle cap
+      if (h.floors === 3) {
+        const cy = top + (h.roof === 'steep' ? h.w * 0.75 : h.w * 0.32)
+        F.put(boxUV(0.9, 0.8, 0.9, 1), wood, (top - 0.5) * lean, cy + 0.2, 0)
+        for (const sx of [-1, 1]) F.put(new THREE.PlaneGeometry(0.5, 0.5), glow ?? darkGlass, (top - 0.5) * lean + sx * 0.46, cy + 0.2, 0, 0, sx * Math.PI / 2, 0, false)
+        F.put(new THREE.ConeGeometry(0.75, 1.5, 4).rotateY(Math.PI / 4), roofM, (top - 0.5) * lean, cy + 1.35, 0)
+      }
     }
     // the roof
     const rx = (top - 0.5) * lean
