@@ -20,6 +20,7 @@ import { EXPANSION_OPEN, SAFE_ARRIVAL, isLocked } from '../launch'
 import { PANEL, boardTexture } from './world/signs'
 import { citySkyline } from './world/skyline'
 import { GYM_SHRUBS } from './world/gymExterior'
+import { WORKSHOP_SHRUBS } from './world/workshop'
 import { buildDaylight, isNight, skyPresetFromUrl } from './world/daylight'
 import { B4S_BENCH, PLAZA_BENCHES, SEAT_FWD } from './world/props'
 
@@ -367,7 +368,7 @@ export class World implements GameScene {
     this.quest = guardianLanterns(T)
     estatesDistrict(T)
     this.estate = new EstateView(T, this.colliders)
-    greenery.potted = [...citadelShrubs, ...GATE_SHRUBS, ...GYM_SHRUBS]
+    greenery.potted = [...citadelShrubs, ...GATE_SHRUBS, ...GYM_SHRUBS, ...WORKSHOP_SHRUBS]
     lawns(T, SM.trim, extraSeats, greenery)
     this.seats.push(...extraSeats)
     chadRides(T, SM.trim)

@@ -71,8 +71,6 @@ export function workshop(T: Town, stoneTex: THREE.Texture) {
     // the rolled-up shutter above: ribbed slats
     for (let k = 0; k < 7; k++) F.box(3.05, 0.1, 0.1, k % 2 ? steel : block, bx, 3.3 + k * 0.08, fz + 0.1)
     F.box(3.2, 0.12, 0.16, yellow, bx, 0.14, fz + 0.18) // threshold stripe
-    // what is inside: a pit-lit floor, a vehicle shape on stands, shelving down the side
-    F.box(2.6, 0.5, 1.6, red, bx, 0.25, fz + 0.2) // a tool cart parked in the doorway
     T.lights.push({ x: F.world(bx, 2.4, fz + 1.8).x, y: 2.4, z: F.world(bx, 2.4, fz + 1.8).z, color: '#ffd09a', intensity: 3.2, dist: 8, priority: 2 })
     void i
   }
@@ -126,7 +124,7 @@ export function workshop(T: Town, stoneTex: THREE.Texture) {
       F.box(Math.abs(cx - x) - 0.3, 0.1, 0.12, steel, (x + cx) / 2 - side * 0.0, 1.38, 0.5 + dz * 0.6)
       F.put(new THREE.CylinderGeometry(0.1, 0.11, 0.1, 10), rubber, cx - side * 0.6 + (side > 0 ? 0 : 0), 1.46, 0.5 + dz * 0.6)
     }
-    sportsCar(F.sub(cx, 1.5, 0.5, 0, Math.PI / 2, 0), CARS[2], D)
+    sportsCar(F.sub(cx, 1.5, 0.5, 0, 0, 0), CARS[2], D) // nose toward the street, between the two columns
     // a trolley jack, axle stands and an oil drip tray under the raised car
     F.box(1.2, 0.12, 0.5, red, cx + 0.2, 0.2, 2.0)
     F.box(0.6, 0.35, 0.3, steel, cx - 0.5, 0.18, -1.0)

@@ -1,11 +1,12 @@
 import * as THREE from 'three'
 import type { Town } from './buildings'
 import { boxUV } from './kit'
-import { Frame, PANEL, hangingSign, panelTexture, postedBoard, type SignMats } from './signs'
-import { archMats, detailWalls, displayMaterial, shop } from './architecture'
+import { Frame, PANEL, hangingSign, panelTexture, type SignMats } from './signs'
+import { archMats, displayMaterial, shop } from './architecture'
 import { climbers, flowerTub, ornamentMats, ornateSign } from './ornament'
 import { CARS, sportsCar } from './vehicles'
 import { isNight } from './daylight'
+import { workshop } from './workshop'
 
 /**
  * MOTOR ROW — the canal promenade carries on east past Arcade Street's back lane into a short shopping street:
@@ -162,58 +163,8 @@ export function motorRow(T: Town, stoneTex: THREE.Texture) {
     T.colliders.push({ kind: 'circle', x: px + 3.3, z: pz - 0.4, r: 0.3, h: 1.1 })
   }
 
-  /* ── CHAD MOTORS SERVICE: the separate workshop east of the showroom — brick shed, two lit roller-door bays (one with a car on a hoist),
-        a gilded sign, tyre stacks and drums in the yard. Dressed, not enterable (closed doors say so). ── */
-  {
-    const brick = archMats(T, 'brick', stoneTex, glass)
-    const W = { x: 77, z: 49, w: 12, d: 9 }
-    const H = 5.4
-    const F = Frame.at(T.batch, W.x, 0, W.z, Math.PI) // front (+z local) faces north, onto Motor Row
-    const fz = W.d / 2
-    const dark = new THREE.MeshStandardMaterial({ color: '#26252b', metalness: 0.7, roughness: 0.4 })
-    D.push(dark)
-    F.put(boxUV(W.w, H, W.d, 2), brick.wall, 0, H / 2, 0)
-    F.put(boxUV(W.w + 0.14, 0.5, W.d + 0.14, 1.2), brick.plinth, 0, 0.25, 0)
-    F.put(boxUV(W.w + 0.4, 0.34, W.d + 0.4, 1.2), brick.trim, 0, H + 0.1, 0)
-    F.put(boxUV(W.w + 0.3, 0.7, 0.3, 1), brick.wall, 0, H + 0.6, fz - 0.1) // front parapet
-    F.put(boxUV(W.w + 0.5, 0.1, 0.4, 1), brick.trim, 0, H + 1.0, fz - 0.1)
-    // two roller-door bays: stone surround, the lit workshop beyond, a half-raised shutter above
-    const bay = displayMaterial(T, '#ffb870', 'racks')
-    for (const sx of [-1, 1]) {
-      const bx = sx * 3.0
-      for (const jx of [-1, 1]) F.box(0.45, 3.9, 0.3, brick.trim, bx + jx * 1.75, 1.95, fz + 0.1)
-      F.box(4.0, 0.5, 0.34, brick.trim, bx, 4.0, fz + 0.12)
-      F.put(new THREE.PlaneGeometry(3.1, 3.3), bay, bx, 1.75, fz + 0.03, 0, 0, 0, false)
-      F.put(boxUV(3.2, 1.0, 0.16, 1), dark, bx, 3.45, fz + 0.1)
-      for (let k = 0; k < 4; k++) F.box(3.2, 0.03, 0.18, brick.frame, bx, 3.0 + k * 0.22, fz + 0.12)
-      F.box(3.4, 0.12, 0.4, brick.plinth, bx, 0.06, fz + 0.2)
-      T.lights.push({ x: F.world(bx, 2.4, fz + 1.6).x, y: 2.4, z: F.world(bx, 2.4, fz + 1.6).z, color: '#ffd09a', intensity: 3.4, dist: 8, priority: 2 })
-    }
-    sportsCar(F.sub(-3.0, 0.9, fz + 3.0, 0, Math.PI / 2, 0), CARS[1], D) // up on the hoist in front of the left bay
-    for (const sz of [-1, 1]) for (const sx of [-1, 1]) F.box(0.14, 0.9, 0.14, dark, -3.0 + sz * 1.0, 0.45, fz + 3.0 + sx * 1.6)
-    T.colliders.push({ kind: 'box', minX: W.x + 0.7, maxX: W.x + 5.3, minZ: W.z - fz - 4.2, maxZ: W.z - fz - 1.8, h: 1.6 }) // the car on the hoist (world x = W.x − local x)
-    ornateSign(T, F.sub(0, H - 0.15, fz + 0.1), 'MOTORS SERVICE', { h: 0.9, crest: 'crown' })
-    climbers(T, F.sub(0, 0, fz + 0.25), W.w + 0.6, H, 57, { ivy: 2, wisteria: 1, avoid: [[-4.8, -1.2], [1.2, 4.8]] })
-    // roof lights + a vent stack, a gutter run
-    for (const sx of [-3, 3]) F.put(boxUV(2.4, 0.4, 1.6, 1), brick.glass, sx, H + 0.4, -0.5)
-    F.put(new THREE.CylinderGeometry(0.22, 0.26, 2.0, 10), dark, 4.6, H + 1.2, -2.5)
-    detailWalls(T, F, { x: W.x, z: W.z, w: W.w, d: W.d, floors: 1, ry: Math.PI, roof: 'parapet' }, brick, H, 0)
-    // the yard: tyre stacks, oil drums, a workbench, cones — and a notice that the workshop opens later
-    const rubber = new THREE.MeshStandardMaterial({ color: '#141416', roughness: 0.9 })
-    const drum = new THREE.MeshStandardMaterial({ color: '#7a2a1e', metalness: 0.5, roughness: 0.6 })
-    D.push(rubber, drum)
-    const Y = Frame.at(T.batch, W.x, 0, W.z - fz - 2.4, 0)
-    for (let k = 0; k < 4; k++) Y.put(new THREE.TorusGeometry(0.42, 0.17, 8, 14).rotateX(Math.PI / 2), rubber, -4.6, 0.17 + k * 0.34, 0)
-    for (let k = 0; k < 3; k++) Y.put(new THREE.TorusGeometry(0.42, 0.17, 8, 14).rotateX(Math.PI / 2), rubber, -3.6, 0.17 + k * 0.34, 0.5)
-    for (const dx of [4.4, 5.1]) Y.put(new THREE.CylinderGeometry(0.34, 0.34, 0.9, 12), drum, dx, 0.45, 0)
-    Y.box(1.8, 0.1, 0.7, P.woodLight, 2.6, 0.9, 0.3)
-    for (const sx of [-0.8, 0.8]) Y.box(0.08, 0.9, 0.6, dark, 2.6 + sx, 0.45, 0.3)
-    const note = new THREE.MeshStandardMaterial({ map: panelTexture('WORKSHOP', 'doors closed · opens in a later chapter', 2.2, PANEL.dark, D), roughness: 0.7 })
-    D.push(note)
-    postedBoard(Y.sub(0.4, 0, 1.4, 0, 0.3, 0), 1.5, 0.7, 1.2, note, { frame: P.iron, metal: P.iron, gold: P.gold, stone: P.stoneLight }, true)
-    T.colliders.push({ kind: 'circle', x: Y.world(0.4, 0, 1.4).x, z: Y.world(0.4, 0, 1.4).z, r: 0.6, h: 1.8 })
-    T.colliders.push({ kind: 'box', minX: W.x - W.w / 2 - 0.4, maxX: W.x + W.w / 2 + 0.4, minZ: W.z - W.d / 2 - 0.4, maxZ: W.z + W.d / 2 + 0.4, h: H })
-  }
+  /* ── CHAD MOTORS SERVICE: the workshop — a proper garage with bays, reception, a covered lift bay and a working yard (see workshop.ts) ── */
+  workshop(T, stoneTex)
 
   /* ── dressing: flower tubs, troughs, benches, lamps, the street sign, trees on the north side ── */
   for (const [x, z] of [[33.2, Z + 3.2], [42.8, Z + 3.2], [30.4, Z - 2.9], [62.4, Z - 2.9]] as const) flowerTub(T, x, z)
@@ -229,4 +180,4 @@ export function motorRow(T: Town, stoneTex: THREE.Texture) {
 
 /** lamp posts, trees and bushes for Motor Row (World adds them through its usual lamp + greenery passes) */
 export const MOTOR_ROW_LAMPS: [number, number][] = [[34.5, MOTOR_ROW.z - 2.6], [44, MOTOR_ROW.z - 2.6], [54.5, MOTOR_ROW.z - 2.6], [62.6, MOTOR_ROW.z + 2.6], [44.4, MOTOR_ROW.z + 2.6], [31.6, MOTOR_ROW.z + 2.6]]
-export const MOTOR_ROW_TREES: [number, number][] = [[39.5, 31.8], [60, 31.6], [64, 44], [64, 54], [33, 54]]
+export const MOTOR_ROW_TREES: [number, number][] = [[39.5, 31.8], [60, 31.6], [60.5, 56.5], [69.5, 32.4], [33, 54]] // (the two at x 64 stood where the workshop's service bay and driveway now are)
