@@ -232,3 +232,26 @@ FIRST RELEASE: Chad Village and its available surrounding activities. FUTURE EXP
 **Memory note (2026-10-15):** after the cleanup (npm cache, stale browser profiles, the orphaned test browser, an idle MCP helper) tsc and builds run again with ~2 GB commit free; `GOMAXPROCS=1 npx tsc --noEmit --singleThreaded` is the safe form.
 
 **Asset links (2026-10-15):** the exact mansion, car, pistol and sword links were not in the message or the pack; blocked until supplied. See ASSETS.md.
+
+
+## COMPLETE VISUAL PACK CONTINUATION — status (updated 2026-10-15)
+
+Status words: IMPLEMENTED = built and used by the game; VERIFIED (emulated) = checked by scripted tests in a simulated browser; VISUAL = screenshots reviewed by me, **awaiting Jay's review**; PARTIAL; NOT STARTED; BLOCKED. Nothing here has been run on a real phone or a real mouse yet.
+
+| # | Requirement | Status | Evidence / what is missing |
+|---|---|---|---|
+| 1 | Reference images readable | VERIFIED | 63 / 63 open (`IMAGE-INVENTORY.csv`) |
+| 2 | Housing district enlarged, ~50 plots + 3 show homes | IMPLEMENTED, VERIFIED (emulated), VISUAL (first look) | **Chadville Heights**: 48 new sellable plots `H01–H48` + original `A–D` (52 total), 4 rows either side of two lanes + a spine, plot gates can face N/S/E/W, three show homes (cottage, contemporary, premium; exterior walk-round, not enterable), map/atlas/fingerpost/editor updated. Old plots A–D unchanged (saves unaffected). `heights-walk-test` walks arch→spine→both far lane ends and checks gate prompts. Missing: show-home interiors, a real-phone check, neighbourhood dressing (street trees/hedges), the editor on an N/S plot only reviewed in code |
+| 3 | Playable parkour (intro + harder rooftop, checkpoints, fall recovery, timer, saved best, rewards, replay, exit, hidden room) | IMPLEMENTED, VERIFIED (emulated) | **Chad Parkour Yard** north of Heights (entrance gap in the north row). `parkour-test` finishes both courses with keyboard input only, falls recover to the checkpoint, best times saved, medals/coins/xp paid, the hidden room needs a vault and holds the Golden Pumpkin (once only). HUD chip (R checkpoint · T restart · X exit, buttons on touch). Missing: phone-touch run, visual polish of the yard (flat-coloured crates) |
+| 4 | Vault / mantle with real animation, validated | IMPLEMENTED, VERIFIED (emulated), VISUAL | `parkourSystem.ts`: eligibility (flagged obstacles only), height window, depth, landing and headroom checks; the body arcs over the hands with a pitch+roll lean (procedural motion on top of the jump clip — not a motion-captured vault clip). Tall walls and the Valley Gate are never climbed (tests). Stills: `pk2-vault-*`, `pk2-mantle-*` |
+| 5 | Move + sprint + jump together | VERIFIED (emulated) | desktop `move-combo-test`; phone `mobile-multitouch-test` (stick + camera + sprint + jump, independent fingers, cancels, rotation). The diagonal speed dip seen once was wall-sliding, not jump logic. Real phone: **not tested** |
+| 6 | Mouse look without holding a button | IMPLEMENTED, VERIFIED (emulated) | pointer lock on one click, Esc/menus release (`pointerlock-test`); touch camera separate. Real Esc behaviour in a real browser: **not tested** (headless sends a synthetic Esc) |
+| 7 | Gym appearance (interior + exterior) | PARTIAL | exterior done earlier; interior not yet changed |
+| 8 | Garage / Chad Motors full pass | PARTIAL | workshop exterior/bays/lift done earlier; forecourt and showroom not revisited |
+| 9 | Lantern family L01–L03 | IMPLEMENTED (demo), VISUAL | three demos beside the spawn, day + night stills `lantern-afternoon-*`, `lantern-night-*`; instanced, 3 draw calls/kind, night light spots feed the existing 3–4-light pool. Full rollout is one switch (`?lanterns=all`, `LANTERN_ROLLOUT`) — **held until you approve the look** |
+| 10 | Standalone arcade, end shops relocated | NOT STARTED (earlier partial pass only) | |
+| 11 | Haunted Quarter architecture; forest terrain, trails, quest | NOT STARTED | forest density waits for the vegetation look approval |
+| 12 | Asset sources; sword + pistol activities | PARTIAL | exact Sketchfab facts and manual-download steps recorded in `ASSETS.md`; mansion/car/pistol **BLOCKED** (Sketchfab login); no weapon activities yet |
+| 13 | Preserve existing fixes | VERIFIED | launch boundary test passes; `jump-test` planter/open-ground checks fail on this machine **also at the pre-session commit** (timing-sensitive, not a regression) |
+| 14 | Intermittent low-graphics-memory message | PARTIAL (evidence only) | headless WebGL context lost ("Web page caused context loss and was blocked") when only ~200 MB of 3.5 GB RAM was free at Q=high; an app-level handler already shows the message on `webglcontextlost`. Root-cause fix and a real-device log: not done |
+| 15 | Batch reporting | ongoing | |

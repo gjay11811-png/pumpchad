@@ -51,4 +51,15 @@ Source: Poly Haven, CC0 (licence page verified; attribution not required, credit
 | Shrub 02 / 03 / 04 as models | shrub_02 (5.3 m, sparse willowy stems), shrub_03 (1.3 x 0.4 m) and shrub_04 (0.6 x 0.2 m) are wild ground plants, not lush garden shrubs. **Rejected**; procedural shrubs stay. |
 | **Chosen standard** | The procedural trees/shrubs/hedges (real branching, per-species recipes, cell LOD) **textured with Poly Haven's real Jacaranda leaf and bark maps**: `public/chadverse/textures/veg/leaf_jacaranda.webp` (89 KB, greyscale compound-leaf cutout) and `bark_jacaranda.webp` (13 KB). Vertex colours keep the species palette. Same triangle count as before; two small image swaps. |
 
-Not found: the exact mansion, car, pistol and sword links. The message that supplied the pack contained no links, and the pack's README / REFERENCE-GUIDE / prompt contain none; nothing was downloaded for them. The Antique Estoc (CC0) remains the only verified weapon candidate.
+## Supplied links — verified through the Sketchfab API (2026-10-15)
+
+| Asset | URL | Licence | Size | Download |
+|---|---|---|---|---|
+| Lakeside mansion | https://sketchfab.com/3d-models/lakeside-mansion-d6c5158e0eb14915a3e9ed356f889fd9 | **CC BY 4.0** (credit the author on the page) | ~1.23 M faces (far too heavy for web/phone without heavy decimation) | `isDownloadable: true`, but the archive endpoint needs a signed-in Sketchfab session — **BLOCKED here** (anonymous requests return an empty archive list) |
+| Realistic sports car | https://sketchfab.com/3d-models/realistic-sports-car-df14049903224e5b892c53be1bdd6ae7 | **CC BY 4.0** | ~762 K faces (heavy) | same: needs Jay's login |
+| Pistol 9mm semi-auto | https://sketchfab.com/3d-models/pistol-9mm-semi-auto-7d363c3cf2f74a9a9fb0cab9874898eb | **CC BY 4.0** | ~18 K faces (light, suitable) | same: needs Jay's login |
+| Antique Estoc (sword) | https://polyhaven.com/a/antique_estoc | **CC0** | ~8 K tris, 1K glTF textures | not blocked — **not downloaded yet** (kept for the sword activity; downloads from `https://api.polyhaven.com/files/antique_estoc`) |
+
+**Manual download steps (Jay, ~2 minutes, no purchase):** sign in to Sketchfab → open each link → *Download 3D model* → choose **glTF** (the auto-converted `.zip`) → save the zip into `C:/Users/zafe5/Downloads/pumpchad-assets/sketchfab/<name>.zip` and tell me. I then unzip into a fresh folder, check geometry (faces, scale, materials), decimate + compress the mansion and car to a phone budget (gltf-transform + meshopt, target well under 60 K tris and 2 MB each), and record the author credit in `CREDITS.md` (CC BY requires it). Until then nothing from these three is used: the mansion, cars and pistol remain our own procedural models.
+
+(Superseded: the mansion, car, pistol and sword links arrived in a later message and are recorded in the table above. The Antique Estoc (CC0) remains the only weapon asset that can be fetched without a login.)
