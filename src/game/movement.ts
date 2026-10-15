@@ -5,6 +5,9 @@ import type { Character } from './character/character'
 export const JUMP_V = 4.6 // m/s take-off speed  → ~0.7 m apex
 export const GRAVITY = 15
 export const JUMP_CROUCH = 0.11 // s between pressing jump and leaving the ground (the take-off clip's crouch, played slowly)
+/** forgiveness (tunable): a jump pressed this long BEFORE landing still fires on touch-down; a jump pressed this long AFTER walking off an edge still fires */
+export const JUMP_BUFFER = 0.13
+export const COYOTE = 0.1
 
 /** velocity response: snappy starts, a touch of slide when stopping from a run, little steering in the air */
 export function velocityRate(wantsMove: boolean, speed: number, airborne: boolean) {
@@ -48,6 +51,14 @@ export class Jumper {
   landed = false
   private crouch = -1
   private launch = JUMP_V
+  /** true from take-off until touch-down: a jump you made yourself (coyote time only forgives WALKING off an edge) */
+  jumping = false
+  /** seconds since the last touch-down (the landing absorb reads this) */
+  sinceLand = 9
+  /** 0 → 1 across the take-off crouch (the weight shift before the push-off) */
+  get crouchFrac() {
+    return this.crouch >= 0 ? 1 - this.crouch / JUMP_CROUCH : 0
+  }
 
   get grounded() {
     return this.y <= this.floor + 1e-3 && this.vy <= 0 && this.crouch < 0
@@ -60,8 +71,11 @@ export class Jumper {
    * returns true if the jump started. `apex` (m above the feet) asks for a taller jump — a vault onto a low ledge:
    * the take-off speed is whatever reaches that apex (capped so it is a hop, never a leap).
    */
-  tryJump(p: Character | null, apex = 0) {
-    if (!this.grounded) return false
+  tryJump(p: Character | null, apex = 0, coyote = false) {
+    // coyote: just walked off an edge (not a jump of our own, still near the lip, not yet falling fast)
+    const forgiven = coyote && !this.jumping && this.crouch < 0 && this.vy > -3 && this.y - this.floor < 0.9
+    if (!this.grounded && !forgiven) return false
+    this.jumping = true
     this.crouch = JUMP_CROUCH
     this.launch = apex > 0 ? Math.min(JUMP_V_MAX, Math.sqrt(2 * GRAVITY * apex)) : JUMP_V
     p?.jump?.()
@@ -72,6 +86,7 @@ export class Jumper {
   update(dt: number, p: Character | null, floorY = 0) {
     this.landed = false
     this.floor = floorY
+    this.sinceLand += dt
     if (this.crouch >= 0) {
       this.crouch -= dt
       if (this.crouch < 0) this.vy = this.launch
@@ -83,6 +98,8 @@ export class Jumper {
         this.y = floorY
         this.vy = 0
         this.landed = true
+        this.jumping = false
+        this.sinceLand = 0
       }
     } else if (this.y < floorY) {
       this.y = floorY // a step up onto a kerb-height surface
@@ -96,6 +113,8 @@ export class Jumper {
     this.floor = 0
     this.crouch = -1
     this.launch = JUMP_V
+    this.jumping = false
+    this.sinceLand = 9
   }
 }
 

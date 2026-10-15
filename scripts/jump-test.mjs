@@ -20,25 +20,40 @@ const C = (fn, ...a) => p.evaluate(([f, a]) => window.__chadverse[f](...a), [fn,
 const wait = (ms) => p.waitForTimeout(ms)
 const P = Math.PI
 // the west forecourt planter (x -13.3..-11.9, z 64.3..68.5, 0.6 m high) approached from the west along +x with nothing else in the way
-const run = async (x, z, yaw, jumpAfter) => {
+// jump when the character is `gap` metres short of the obstacle along +x (or after a fixed time when gap is a number of ms > 100), then follow it
+// by POLLING until it has landed — a fixed wait made this test depend on the machine's frame rate (a slow software renderer plays game time slower
+// than wall time), which is why it failed before, on a build that was fine
+const run = async (x, z, yaw, jumpAfter, until) => {
   await C('teleport', x, z, yaw)
   await wait(500)
   let maxY = 0
   let stood = false
   await p.keyboard.down('w')
-  await wait(jumpAfter)
+  if (until) {
+    for (let i = 0; i < 80; i++) {
+      const w = await C('world')
+      if (until(w)) break
+      await wait(30)
+    }
+  } else await wait(jumpAfter)
   await p.keyboard.press('Space')
-  for (let i = 0; i < 28; i++) {
-    await wait(100)
+  let landed = 0
+  for (let i = 0; i < 80 && landed < 4; i++) {
+    await wait(60)
     const a = await C('anim')
     maxY = Math.max(maxY, a.jumpY)
     if (a.jumpY > 0.4 && !a.airborne) stood = true
+    if (!a.airborne && i > 4) landed++
+    else landed = 0
   }
+  // keep walking until clear of the planter's far side (or 3 s)
+  for (let i = 0; i < 50 && (await C('world')).x < -11.2; i++) await wait(60)
   await p.keyboard.up('w')
   await wait(700)
   return { w: await C('world'), a: await C('anim'), maxY, stood }
 }
-let r = await run(-16, 66.4, P / 2, 750)
+// walk up to the planter's face (it blocks at x -13.65), then jump — what a person does
+let r = await run(-16, 66.4, P / 2, 0, (w) => w.x >= -13.72)
 console.log('  planter run:', JSON.stringify({ x: +r.w.x.toFixed(2), peak: r.maxY, stoodOnIt: r.stood, airborne: r.a.airborne }))
 check(r.maxY >= 0.55, `a jump at the planter peaks above its 0.6 m top (peak ${r.maxY} m)`)
 check(r.stood || r.w.x > -11.3, `the player stood on it or ended on the far side (x ${r.w.x.toFixed(2)}, stood ${r.stood})`)
@@ -58,7 +73,8 @@ check(w3.x < -13.2, `walking into the 0.6 m planter without a jump is blocked (x
 await C('teleport', 0, 20, 0)
 await wait(400)
 await p.keyboard.press('Space')
-await wait(900)
+await p.waitForFunction(() => window.__chadverse.anim().airborne, null, { timeout: 3000 }).catch(() => {})
+await p.waitForFunction(() => !window.__chadverse.anim().airborne, null, { timeout: 5000 }).catch(() => {})
 const a4 = await C('anim')
 check(!a4.airborne && a4.jumpY === 0, 'a jump on open ground lands back at 0 and is grounded again')
 await p.keyboard.down('w'); await wait(900); await p.keyboard.up('w')

@@ -413,11 +413,11 @@ function closedValleyGate(T: Town, vx: number, vz: number, stone: THREE.Material
       T.batch.put(boxUV(1.3, 0.5, 1.0, 1), stone, vx + s * 3.7, 0.25, hz)
       GATE_SHRUBS.push([vx + s * 3.7, 0.5, hz, 0.95]) // a real shrub (planted by vegetation()), standing on the planter's soil line
     }
-    T.colliders.push({ kind: 'box', minX: vx + s * 3.7 - 0.65, maxX: vx + s * 3.7 + 0.65, minZ: vz - 3.6, maxZ: vz - 0.4, h: 1.2 })
+    T.colliders.push({ kind: 'box', minX: vx + s * 3.7 - 0.65, maxX: vx + s * 3.7 + 0.65, minZ: vz - 3.6, maxZ: vz - 0.4, h: 1.2, noVault: true })
   }
   // a plinth-rail under the gate + the unbroken collision across the opening (pier to pier)
   T.batch.put(boxUV(6.4, 0.16, 0.5, 1), stone, vx, 0.08, vz)
-  T.colliders.push({ kind: 'box', minX: vx - 3.2, maxX: vx + 3.2, minZ: vz - 0.4, maxZ: vz + 0.45, h: 3.4 })
+  T.colliders.push({ kind: 'box', minX: vx - 3.2, maxX: vx + 3.2, minZ: vz - 0.4, maxZ: vz + 0.45, h: 3.4, noVault: true })
   lampPosts(T, [[vx - 5.5, vz - 0.9], [vx + 5.5, vz - 0.9]])
   // the plaque, hung between the piers above the leaves, facing the village
   const board = new THREE.MeshStandardMaterial({ map: boardTexture(LOCKED_SIGN, ['The valley road opens in the next update'], 5, PANEL.dark, T.disposables), roughness: 0.7 })

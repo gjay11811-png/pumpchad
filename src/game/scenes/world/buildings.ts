@@ -5,7 +5,10 @@ import { boxUV, gableGeo, type Palette, type StaticBatch } from './kit'
 import { signTexture } from '../textures'
 import { awning, inscription, shopSign } from './textures'
 
-export type Collider = { kind: 'circle'; x: number; z: number; r: number; h?: number } | { kind: 'box'; minX: number; maxX: number; minZ: number; maxZ: number; h?: number }
+export type Collider = ({ kind: 'circle'; x: number; z: number; r: number; h?: number } | { kind: 'box'; minX: number; maxX: number; minZ: number; maxZ: number; h?: number }) & {
+  /** never vaulted or climbed, however low (the closed gate, anything that guards the boundary) */
+  noVault?: boolean
+}
 export type LightSpot = { x: number; y: number; z: number; color: string; intensity: number; dist: number; priority: number; fire?: Fire }
 
 /** Everything a builder can contribute to the town. */

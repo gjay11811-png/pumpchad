@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { setNpcTextureCap } from '../character/chad'
 import { Emoter, type EmoteId } from '../emotes'
-import { Jumper, KERB, LOW_OBSTACLE, OUTDOOR, SPEED_UNIT, STEP_UP, leanFor, targetSpeed, turnRate, velocityRate } from '../movement'
+import { COYOTE, JUMP_BUFFER, Jumper, KERB, LOW_OBSTACLE, OUTDOOR, SPEED_UNIT, STEP_UP, leanFor, targetSpeed, turnRate, velocityRate } from '../movement'
 import { buildCharacter } from '../character/build'
 import { createCharacter, disposeCharacter, type Character } from '../character/character'
 import type { Appearance } from '../character/types'
@@ -18,6 +18,7 @@ import { BENCHES, kingdom, mountains } from './world/kingdom'
 import { GARDEN, SPAWN, VALLEY_GATE, bridgeHeight, clampToCity } from './world/city'
 import { EXPANSION_OPEN, LANTERN_ROLLOUT, SAFE_ARRIVAL, isLocked } from '../launch'
 import { COURSES, PLATFORMS, SECRET, YARD, fmtMs, type CourseId } from '../parkour'
+import type { Platform } from '../parkour'
 import { ParkourRun, planTraverse, platformFloor, platformResolve, travAt, type RunResult, type TravFrame, type TravPlan } from '../parkourSystem'
 import { PARKOUR_LAMPS, parkourYard, type ParkourBuild } from './world/parkourYard'
 import { lanternFamily } from './world/lanternFamily'
@@ -251,6 +252,11 @@ export class World implements GameScene {
   private trav: { plan: TravPlan; t: number; f: TravFrame } | null = null
   private pkHudT = 0
   private pkSecretTaken = false
+  /** jump forgiveness: a press shortly before landing is kept; a press shortly after walking off an edge still counts */
+  private jumpBuf = 0
+  /** seconds left of the forward push that carries a hop onto / over a low obstacle */
+  private hopAssist = 0
+  private coyote = 0
   /** the Sword Drill (Antique Estoc, CC0) in the Parkour Yard's north strip */
   drill: SwordDrill | null = null
   /** QA: the last traversal decision (why a vault / mantle did or did not start) */
@@ -1076,6 +1082,28 @@ export class World implements GameScene {
     else if (k === 't') this.parkourCmd('restart')
     else if (k === 'x') this.parkourCmd('exit')
   }
+  /**
+   * Everything a jump can vault or climb right here: the parkour platforms plus ANY thin low collider near the player (fences, hedges, low walls: 0.5–1.45 m tall,
+   * no thicker than 1.2 m, not flagged noVault). The planner still refuses a landing outside the walkable city, inside the closed expansion or inside something solid,
+   * so the outer barrier, the Valley Gate and the expansion boundary can never be crossed this way.
+   */
+  private obstaclesNear(base: Platform[]): Platform[] {
+    const px = this.playerPos.x
+    const pz = this.playerPos.z
+    const out: Platform[] = [...base]
+    for (const c of this.colliders) {
+      const h = c.h
+      if (h === undefined || h < 0.5 || h > 1.45 || c.noVault) continue
+      const minX = c.kind === 'circle' ? c.x - c.r : c.minX
+      const maxX = c.kind === 'circle' ? c.x + c.r : c.maxX
+      const minZ = c.kind === 'circle' ? c.z - c.r : c.minZ
+      const maxZ = c.kind === 'circle' ? c.z + c.r : c.maxZ
+      if (maxX < px - 4 || minX > px + 4 || maxZ < pz - 4 || minZ > pz + 4) continue
+      if (Math.min(maxX - minX, maxZ - minZ) > 1.2) continue
+      out.push({ minX, maxX, minZ, maxZ, top: h, kind: 'wall', vault: true })
+    }
+    return out
+  }
   /** is a solid body at (x, z) for feet at feetY? (tall colliders the feet are below) */
   private solidAt(x: number, z: number, feetY: number) {
     for (const c of this.colliders) {
@@ -1580,7 +1608,7 @@ export class World implements GameScene {
       mv = { x: 0, z: 0, run: false, analog: false }
       jumpReq = false
     } else if (jumpReq && !this.paused && !this.seat && this.jumper.grounded) {
-      const r = planTraverse(this.playerPos.x, this.playerPos.z, this.jumper.y, this.playerYaw, (x, z, fy) => !insideCity(x, z, 0.5) || isLocked(x, z) || this.solidAt(x, z, fy), PLATFORMS, 1.5 + 0.1 * Math.hypot(this.playerVel.x, this.playerVel.z))
+      const r = planTraverse(this.playerPos.x, this.playerPos.z, this.jumper.y, this.playerYaw, (x, z, fy) => !insideCity(x, z, 0.5) || isLocked(x, z) || this.solidAt(x, z, fy), this.obstaclesNear(PLATFORMS), 1.5 + 0.1 * Math.hypot(this.playerVel.x, this.playerVel.z))
       if (r.why !== 'no-obstacle') this.travLog = { kind: r.plan?.kind ?? 'none', why: r.why, at: +this.t.toFixed(2) }
       if (r.plan) {
         this.trav = { plan: r.plan, t: 0, f: travAt(r.plan, 0) }
@@ -1598,9 +1626,25 @@ export class World implements GameScene {
     const mag = Math.min(1, wish.length())
     const targetVel = mag > 0.01 ? wish.normalize().multiplyScalar(targetSpeed(mag, mv.run, mv.analog, OUTDOOR)) : new THREE.Vector3()
     // jump (Space / touch button); moving or jumping ends an emote
-    if (jumpReq && !this.paused && this.jumper.tryJump(p, this.vaultApex())) this.emoter.cancel(p)
+    if (jumpReq) this.jumpBuf = JUMP_BUFFER
+    this.coyote = this.jumper.grounded ? COYOTE : Math.max(0, this.coyote - dt)
+    if (this.jumpBuf > 0 && !this.paused && !this.trav) {
+      const apex = this.vaultApex()
+      if (this.jumper.tryJump(p, apex, this.coyote > 0)) {
+        this.emoter.cancel(p)
+        this.jumpBuf = 0
+        // hopping onto / over a low obstacle from a standstill (pressed against its face, velocity eaten by the wall): the push-off carries you forward
+        // (a person steps INTO the jump). Without it the air control is too slow to reach the top before the jump is over.
+        if (apex > 0 && Math.hypot(mv.x, mv.z) > 0.1) this.hopAssist = 0.6
+      }
+    }
+    this.jumpBuf = Math.max(0, this.jumpBuf - dt)
     if (mag > 0.05 && this.emoter.busy) this.emoter.cancel(p)
     this.jumper.update(dt, p, this.floorAt(this.playerPos.x, this.playerPos.z, this.jumper.y))
+    if (this.hopAssist > 0) {
+      this.hopAssist -= dt
+      if (this.jumper.jumping && Math.hypot(this.playerVel.x, this.playerVel.z) < 2.8) this.playerVel.set(Math.sin(this.playerYaw) * 2.8, 0, Math.cos(this.playerYaw) * 2.8)
+    }
     this.emoter.update(dt)
     const nowSpeed = Math.hypot(this.playerVel.x, this.playerVel.z)
     this.playerVel.lerp(targetVel, 1 - Math.exp(-dt * velocityRate(mag > 0.01, nowSpeed, this.jumper.airborne)))
@@ -1613,7 +1657,7 @@ export class World implements GameScene {
       if (dt > 0) {
         const ax = (this.playerPos.x - px) / dt
         const az = (this.playerPos.z - pz) / dt
-        if (Math.hypot(ax, az) < Math.hypot(this.playerVel.x, this.playerVel.z) - 0.05) this.playerVel.set(ax, this.playerVel.y, az)
+        if (!this.jumper.jumping && Math.hypot(ax, az) < Math.hypot(this.playerVel.x, this.playerVel.z) - 0.05) this.playerVel.set(ax, this.playerVel.y, az)
       }
     }
     const gy = groundHeight(this.playerPos.x, this.playerPos.z)
@@ -1642,7 +1686,26 @@ export class World implements GameScene {
       p.root.rotation.y = this.playerYaw
       // a vault / mantle leans the body (pitch over the hands, a roll through the hips); order YXZ so the lean is about the body, not the world
       p.root.rotation.order = 'YXZ'
-      p.root.rotation.x = this.trav ? this.trav.f.pitch : 0
+      // the weight shift: sink and lean into the push-off during the take-off crouch, lean forward through the rise (more at speed), stand tall to reach
+      // for the ground, and absorb the landing (a short dip + lean that decays). Added on top of the clips; a vault / mantle brings its own lean.
+      const fs = Math.min(1, speed / 7.6)
+      const cf = this.jumper.crouchFrac
+      let fp = 0
+      let fd = 0
+      if (cf > 0) {
+        fd = 0.07 * cf
+        fp = 0.11 * cf * (0.4 + fs * 0.6)
+      } else if (!this.jumper.grounded) {
+        const k = Math.max(-1, Math.min(1, this.jumper.vy / 4.6))
+        fp = (0.04 + 0.13 * fs) * Math.max(0, k)
+      }
+      const land = Math.max(0, 1 - this.jumper.sinceLand / 0.16)
+      if (land > 0) {
+        fd = Math.max(fd, 0.1 * land * (0.4 + fs * 0.6))
+        fp = Math.max(fp, 0.12 * land * (0.3 + fs * 0.7))
+      }
+      p.root.position.y -= this.trav ? 0 : fd
+      p.root.rotation.x = this.trav ? this.trav.f.pitch : fp
       p.root.rotation.z = this.trav ? this.trav.f.roll : 0
       if (this.trav) p.setGrounded?.(false)
       this.pet?.update(dt, this.playerPos, this.playerYaw, groundHeight, (q) => this.resolve(q, 0.2))

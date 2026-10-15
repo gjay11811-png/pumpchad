@@ -64,7 +64,7 @@ const B: Platform[] = [
 /** the yard's solid enclosure (tall: never climbable) — x/z boxes only, drawn + collided by the builder */
 export const YARD_WALLS: Rect[] = [
   { x0: -241.2, x1: -240.4, z0: -19.2, z1: 25.6 }, // corridor west wall
-  { x0: -227.6, x1: -226.8, z0: 4.4, z1: 25.6 }, // corridor east wall, south part
+  { x0: -227.6, x1: -226.8, z0: 4.4, z1: 16.4 }, // corridor east wall, south part (the entrance apron south of it is open to the yard plaza)
   { x0: -227.6, x1: -226.8, z0: -19.2, z1: -4.4 }, // corridor east wall, north part (the branch opens between)
   { x0: -242, x1: -240.4, z0: 25.6, z1: 26.8 }, // south boundary wall either side of the entrance
   { x0: -227.6, x1: -170.4, z0: 25.6, z1: 26.8 },
