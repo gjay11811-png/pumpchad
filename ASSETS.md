@@ -21,3 +21,11 @@ third-party preview viewer.
 ## Open actions
 * Jay: supply exact URLs for the mansion, sports car and pistol if they should be considered.
 * Download Antique Estoc glTF (1K) into `public/models/` with this record when Phase 4 starts; record triangle count and texture sizes after optimisation.
+
+
+## Local inventory (checked 2026-10-15) — visual references vs usable 3D assets
+
+Visual references on disk: `~\Downloads\pumpchadrt-source-pumpchad.png` (PumpChad's original artwork, 2.2 MB) · `publicrt\pumpchad-hero-1254.webp`, `pumpchad-hero-760.webp`, `pumpchad-logo.webp`, `publicrt\chadverse–05-*.webp` (Chadverse art) · `~\Downloads\Pumpkin King Crypto Throne.png` · our own game captures in `~\Downloads\pumpchad\docs\*`, `~\Downloads\pumpchad-review\*`, `~\Downloads\pumpchad-teasers\*`, `~\Desktop\Chadverse-Overnight-Review\*`.
+NOT on disk: the "World Upgrade Pack" reference images (no zip or extracted folder found anywhere under the user profile), any gym / arcade / workshop / mansion / haunted-house / parkour / housing reference photos, the cjmitchell mansion, the sports car, the pistol.
+
+Usable 3D (all Quaternius, CC0, in `~\Downloads\pumpchad-assetsaw\`, already integrated where noted): Universal Base Characters + Modular Character Outfits (Fantasy) → in game as `public\chadverse\models\chad_body/ranger/villager_*.glb`; Universal Animation Library 1 + 2 → `chad_anims*.glb`; skull OBJ → `chad_skull.glb`; **Bestiary – Dungeon Monsters Kit** (`bestiary-dungeon-monsters-kit.zip`, 46 MB, NOT extracted, NOT integrated; contains e.g. Imp.glb 9 MB, Puglin.glb 7.7 MB — too heavy for mobile as-is, would need decimating; candidate enemies for the haunted combat activity).
