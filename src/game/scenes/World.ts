@@ -38,6 +38,7 @@ import { kingdomStyle, styleMaterials } from './world/style'
 import * as TX from './world/textures'
 import { RushGame } from '../minigames/pumpkinRush'
 import { EventDirector } from '../minigames/events'
+import { TargetRange } from '../minigames/targetThrow'
 import { flowerTexture } from './world/foliage'
 import { fountainV4 } from './world/fountain'
 import { fingerpost } from './world/wayfinding'
@@ -59,7 +60,7 @@ import { lawns, PATCH } from './world/lawns'
 import { streetDetails } from './world/details'
 import { MAPBOARD, WELCOME } from './world/gateway'
 import { CHAMPIONS, NOTICE, squareExtras, standFor } from './world/square'
-import { ARCADE, CANAL, OVERLOOK, RIDES, insideCity } from './world/city'
+import { ARCADE, CANAL, OVERLOOK, RIDES, inCanal, insideCity } from './world/city'
 import { PumpkinBuilder } from './world/pumpkins'
 import { stallV4 } from './world/market'
 import { FOREST, FOREST_WISPS, LAKE_FIREFLIES, enchantedForest, lakeLamps, moonlightLake } from './world/wilds'
@@ -231,6 +232,7 @@ export class World implements GameScene {
   /** Pumpkin Rush mini-game (lives in the square; the UI drives start / stop) */
   rush!: RushGame
   eventDir!: EventDirector
+  range: TargetRange | null = null
   cameraSensitivity = 1
   private t = 0
   private disposed = false
@@ -634,6 +636,45 @@ export class World implements GameScene {
     }
   }
 
+  /** is (x, z) clear, plain ground for a prop (inside the village, level, off every collider and every sellable estate plot)? */
+  private plainGround(x: number, z: number) {
+    if (isLocked(x, z) || !insideCity(x, z, 0.8) || inCanal(x, z, 1) || Math.abs(groundHeight(x, z)) > 0.35) return false
+    if (x < -29 && z > 40) return false // Chadville Estates (plots to buy and build on)
+    if (Math.hypot(x, z) < 8) return false // the fountain
+    for (const c of this.colliders) {
+      if (c.kind === 'circle' ? Math.hypot(x - c.x, z - c.z) < c.r + 0.5 : x > c.minX - 0.5 && x < c.maxX + 0.5 && z > c.minZ - 0.5 && z < c.maxZ + 0.5) return false
+    }
+    return true
+  }
+
+  /** QA: an ASCII map of plainGround over the village (2 m cells) */
+  siteMap() {
+    const rows: string[] = []
+    for (let z = -10; z <= 74; z += 2) {
+      let r = ''
+      for (let x = -62; x <= 130; x += 2) r += this.plainGround(x, z) ? '.' : '#'
+      rows.push(String(z).padStart(4) + ' ' + r)
+    }
+    return rows
+  }
+
+  /** the open lawn on Moonlight Lake's south shore (else the nearest spot) with a clear 10 × 18 m rectangle (any quarter-turn), tested on the finished colliders */
+  private findRangeSite(walk: (x: number, z: number) => boolean) {
+    void walk
+    const cands: { x: number; z: number; yaw: number; d: number }[] = []
+    // preference: the open lawn on the lake's south shore (the village's one big flat green), then anywhere clear nearer the square
+    for (let x = -60; x <= 126; x += 2) for (let z = -8; z <= 68; z += 2) for (const yaw of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) cands.push({ x, z, yaw, d: Math.hypot(x - 84, z - 56) })
+    cands.sort((a, b) => a.d - b.d)
+    for (const c of cands) {
+      const f = [Math.sin(c.yaw), Math.cos(c.yaw)]
+      const r = [-Math.cos(c.yaw), Math.sin(c.yaw)]
+      let ok = true
+      for (let lz = -2; lz <= 16 && ok; lz += 1.5) for (let lx = -5; lx <= 5 && ok; lx += 1.5) ok = this.plainGround(c.x + r[0] * lx + f[0] * lz, c.z + r[1] * lx + f[1] * lz)
+      if (ok) return { x: c.x, z: c.z, yaw: c.yaw }
+    }
+    return null
+  }
+
   private buildSky() {
     mountains(this.scene, this.disposables, this.night)
   }
@@ -698,6 +739,14 @@ export class World implements GameScene {
       return true
     }
     this.eventDir = new EventDirector(this.scene, open, walk, groundHeight, { r: 29 })
+    // PUMPKIN TOSS: a target range on the nearest open ground big enough for it (searched against the finished colliders)
+    const site = this.findRangeSite(walk)
+    if (site) {
+      this.range = new TargetRange(this.scene, this.camera, site, groundHeight, () => this.playerPos)
+      this.colliders.push(...this.range.colliders())
+      const s = this.range.at(0, -1.6)
+      add('target', 'Play Pumpkin Toss', s.x, s.z, 2.0, 'activity')
+    }
     for (const r of RESIDENTS) if (r.talk) add(r.id, r.talk, r.talkAt?.[0] ?? r.x, r.talkAt?.[1] ?? r.z, r.talkAt ? 1.6 : 2.2, 'talk')
 
     // the Events Board: two posts and a lit notice, where the village events are started
@@ -1392,6 +1441,7 @@ export class World implements GameScene {
     audio.setWater(1 - Math.min(1, Math.max(0, (Math.hypot(this.playerPos.x, this.playerPos.z) - 5) / 13)))
     if (!this.paused) this.rush?.update(dt, this.playerPos, groundHeight)
     if (!this.paused) this.eventDir?.update(dt, this.playerPos)
+    if (!this.paused) this.range?.update(dt)
     let mi = 0
     for (const [, m] of this.markers) {
       m.position.y += Math.sin(t * 2.4 + mi++) * 0.004
@@ -1531,6 +1581,7 @@ export class World implements GameScene {
     this.estate?.dispose()
     this.rush?.dispose()
     this.eventDir?.dispose()
+    this.range?.dispose()
     this.daylight?.dispose()
     if (this.player) disposeCharacter(this.player)
     this.crowd.dispose()

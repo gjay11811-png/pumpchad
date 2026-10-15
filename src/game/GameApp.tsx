@@ -25,6 +25,8 @@ import { STATIONS, setXp, type SetState, type StationId } from './workout'
 import { WorkoutPanel } from './ui/WorkoutPanel'
 import { RushPanel, type RushResult } from './ui/RushPanel'
 import { EventPanel, type EventResult } from './ui/EventPanel'
+import { TargetPanel, type TossResult } from './ui/TargetPanel'
+import { tossXp, type TossStats } from './minigames/targetThrow'
 import { EVENT_DEFS, EVENT_IDS, type EventId, type EventStats } from './minigames/events'
 import { rushXp, type RushStats } from './minigames/pumpkinRush'
 import { Showroom } from './scenes/Showroom'
@@ -97,6 +99,9 @@ export function GameApp() {
   const rushRef = useRef(rush)
   rushRef.current = rush
   const [evt, setEvt] = useState<null | 'ready' | 'run' | 'done'>(null)
+  const [tgt, setTgt] = useState<null | 'ready' | 'run' | 'done'>(null)
+  const tgtRef = useRef(tgt)
+  tgtRef.current = tgt
   const evtRef = useRef(evt)
   evtRef.current = evt
   const lastXp = useRef(save.progress.xp)
@@ -323,7 +328,7 @@ export function GameApp() {
       if (h) void go('interior', { house: h.id, label: `Entering ${h.name}` })
       return
     }
-    if (rushRef.current === 'run' || evtRef.current === 'run') return // mid-sprint: nothing else steals the E key
+    if (rushRef.current === 'run' || evtRef.current === 'run' || tgtRef.current === 'run') return // mid-sprint: nothing else steals the E key
     if (overlay === 'photo' || overlay === 'intro') return // framing a shot / watching the intro: E does nothing
     // the opening adventure: Goldie → three Guardian Lanterns → the Golden Sigil
     const qd = saveRef.current.progress.discoveries
@@ -420,6 +425,11 @@ export function GameApp() {
       case 'events':
         input.current?.clear()
         setEvt('ready')
+        break
+      case 'target':
+        input.current?.clear()
+        if (w.range) w.teleport(w.range.stand.x, w.range.stand.z, w.range.stand.yaw)
+        setTgt('ready')
         break
       case 'greeter':
       case 'shakes':
@@ -675,15 +685,15 @@ export function GameApp() {
   /* ── pause world while any UI is up ── */
   useEffect(() => {
     // photo mode keeps full control (frame + move); everything else pauses the world
-    const blocked = (!!overlay && overlay !== 'photo') || !!dialogue || !!portal || challenges || rush === 'ready' || rush === 'done' || evt === 'ready' || evt === 'done'
+    const blocked = (!!overlay && overlay !== 'photo') || !!dialogue || !!portal || challenges || rush === 'ready' || rush === 'done' || evt === 'ready' || evt === 'done' || tgt === 'ready' || tgt === 'done'
     if (world.current) world.current.paused = blocked
     if (gym.current) gym.current.paused = blocked
     if (interior.current) interior.current.paused = blocked
     if (input.current) {
-      input.current.enabled = !blocked
+      input.current.enabled = !blocked && tgt !== 'run' // the toss holds you on the line; clicks still reach the range
       if (blocked) input.current.clear()
     }
-  }, [overlay, dialogue, portal, phase, rush, evt, challenges])
+  }, [overlay, dialogue, portal, phase, rush, evt, tgt, challenges])
   // any overlay opening — photo mode included, which keeps control — first drops whatever was being held
   useEffect(() => {
     if (overlay || challenges) input.current?.clear()
@@ -698,8 +708,8 @@ export function GameApp() {
     const k = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && challenges) return setChallenges(false)
       // M: the map + journal (in the open world, when nothing else is up)
-      if ((e.key === 'm' || e.key === 'M') && phase === 'world' && !overlay && !dialogue && !portal && !challenges && !rushRef.current && !evtRef.current) return setOverlay('map')
-      if (e.key === 'Escape' && (phase === 'world' || phase === 'interior' || (phase === 'gym' && gymMode === 'free')) && !overlay && !dialogue && !portal && !rushRef.current && !evtRef.current) setOverlay('pause')
+      if ((e.key === 'm' || e.key === 'M') && phase === 'world' && !overlay && !dialogue && !portal && !challenges && !rushRef.current && !evtRef.current && !tgtRef.current) return setOverlay('map')
+      if (e.key === 'Escape' && (phase === 'world' || phase === 'interior' || (phase === 'gym' && gymMode === 'free')) && !overlay && !dialogue && !portal && !rushRef.current && !evtRef.current && !tgtRef.current) setOverlay('pause')
     }
     window.addEventListener('keydown', k)
     return () => window.removeEventListener('keydown', k)
@@ -818,6 +828,27 @@ export function GameApp() {
     if (st.won) unlock(({ hunt: 'hunt_won', invasion: 'ghost_buster', festival: 'festival_lit', storm: 'storm_rider', race: 'race_won' } as const)[st.id])
     const best = st.won && st.id === 'race' ? Math.min(p0.records.race_best || 1e6, Math.round(st.time * 100)) : p0.records.race_best
     return { xp: r.xp, mult: r.mult, wins: (p0.records[key] ?? 0) + (st.won ? 1 : 0), best }
+  }
+
+  /** a finished Pumpkin Toss: XP (daily fatigue), personal best, achievement */
+  const finishToss = (st: TossStats): TossResult => {
+    const p0 = saveRef.current.progress
+    const r = setRewards(tossXp(st.score), 0, rollDaily(p0.daily).sets.pumpkin_toss ?? 0)
+    const prev = p0.records.pumpkin_toss ?? 0
+    setSave((s) => {
+      const d = rollDaily(s.progress.daily)
+      return {
+        ...s,
+        progress: {
+          ...s.progress,
+          xp: s.progress.xp + r.xp,
+          records: { ...s.progress.records, pumpkin_toss: Math.max(s.progress.records.pumpkin_toss ?? 0, st.score) },
+          daily: { day: d.day, sets: { ...d.sets, pumpkin_toss: (d.sets.pumpkin_toss ?? 0) + 1 } },
+        },
+      }
+    })
+    if (st.bulls >= 3) unlock('dead_eye')
+    return { xp: r.xp, mult: r.mult, best: Math.max(prev, st.score), newBest: st.score > prev }
   }
 
   /** a finished fishing round: XP (daily fatigue like the other activities), best score, new species in the log */
@@ -981,6 +1012,10 @@ export function GameApp() {
       rush: () => (world.current?.rush ? { phase: world.current.rush.phase, timeLeft: +world.current.rush.timeLeft.toFixed(2), combo: world.current.rush.combo, ...world.current.rush.stats, targets: world.current.rush.targetsInfo() } : null),
       rushGame: () => world.current?.rush ?? null,
       events: () => world.current?.eventDir?.info() ?? null,
+      range: () => (world.current?.range ? { phase: world.current.range.phase, ...world.current.range.stats, left: world.current.range.left, stand: world.current.range.stand } : null),
+      siteMap: () => world.current?.siteMap() ?? [],
+      rangeBoards: () => world.current?.range?.boardsNdc() ?? [],
+      rangeAim: (x: number, y: number) => world.current?.range?.throwAt(x, y) ?? false,
       eventOpen: (x: number, z: number) => world.current?.eventDir?.isOpen(x, z) ?? 0,
       character: () => (world.current?.player ?? null)?.kind ?? null,
       showroom: () => showroom.current,
@@ -1015,7 +1050,7 @@ export function GameApp() {
                 {overlay === 'intro' && <IntroOverlay onSkip={finishIntro} />}
                 {overlay !== 'photo' && overlay !== 'intro' && <Hud
                   save={save}
-                  prompt={dialogue || overlay || rush || evt ? null : prompt}
+                  prompt={dialogue || overlay || rush || evt || tgt ? null : prompt}
                   touch={touch}
                   onPause={() => setOverlay('pause')}
                   onProfile={() => setOverlay('profile')}
@@ -1030,6 +1065,18 @@ export function GameApp() {
                   onPhoto={() => setOverlay('photo')}
                   onMap={() => setOverlay('map')}
                 />}
+                {tgt && world.current?.range && (
+                  <TargetPanel
+                    range={world.current.range}
+                    best={save.progress.records.pumpkin_toss ?? 0}
+                    onPhase={setTgt}
+                    onFinish={finishToss}
+                    onClose={() => {
+                      setTgt(null)
+                      world.current?.cooldown()
+                    }}
+                  />
+                )}
                 {evt && world.current?.eventDir && (
                   <EventPanel
                     director={world.current.eventDir}
