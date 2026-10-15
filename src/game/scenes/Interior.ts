@@ -266,7 +266,19 @@ export class Interior implements GameScene {
     return v
   }
 
+  /** QA: a fixed photo camera inside the room (null = the normal follow camera) */
+  private shot: { cam: THREE.Vector3; look: THREE.Vector3 } | null = null
+  setShotCam(o: { cam: [number, number, number]; look: [number, number, number]; fov?: number } | null) {
+    this.shot = o ? { cam: new THREE.Vector3(...o.cam), look: new THREE.Vector3(...o.look) } : null
+    this.camera.fov = o?.fov ?? (this.portrait ? 70 : 62)
+    this.camera.updateProjectionMatrix()
+  }
   private placeCamera(k: number) {
+    if (this.shot) {
+      this.camera.position.copy(this.shot.cam)
+      this.camera.lookAt(this.shot.look)
+      return
+    }
     const dist = this.portrait ? 4.0 : 3.5
     const want = new THREE.Vector3(Math.sin(this.camYaw) * Math.cos(this.camPitch) * dist, 1.25 + Math.sin(this.camPitch) * dist, Math.cos(this.camYaw) * Math.cos(this.camPitch) * dist).add(this.pos)
     // squeezed by a wall: trade the lost distance for height, so you look over your shoulder, not into your head

@@ -8,6 +8,7 @@ import type { Kit } from './furniture'
 import { HAUNTED_INTERIORS } from './haunted'
 import { SHOP_INTERIORS } from './shops'
 import { VALLEY_INTERIORS } from './valleyInteriors'
+import { SHOW_HOME_INTERIORS } from './showHomes'
 import type { VillagerLook } from '../../character/villager'
 
 /**
@@ -668,6 +669,7 @@ export const HOUSES: HouseSpec[] = [
 HOUSES.push(...HAUNTED_INTERIORS)
 // Motor Row: Chad Pets + Chad Motors
 HOUSES.push(...SHOP_INTERIORS)
+HOUSES.push(...SHOW_HOME_INTERIORS)
 // the valley's own places: the roadside inn, the old watchtower, Mooncrest Manor
 HOUSES.push(...VALLEY_INTERIORS)
 

@@ -969,7 +969,7 @@ export function GameApp() {
         if (o.yaw !== undefined) r.yaw = o.yaw
         if (o.zoom !== undefined) r.zoom = o.zoom
       },
-      shotCam: (o: Parameters<World['setShotCam']>[0]) => world.current?.setShotCam(o),
+      shotCam: (o: Parameters<World['setShotCam']>[0]) => (world.current ?? interior.current)?.setShotCam(o),
       stats: () => engine.current?.stats,
       gfxLog: () => engine.current?.gfxLog() ?? [],
       handPos: () => world.current?.handPos() ?? null,
