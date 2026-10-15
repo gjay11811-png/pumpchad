@@ -161,6 +161,7 @@ export function EventPanel({
               </button>
             </div>
             <p className="mt-1 font-display text-3xl uppercase leading-none">{ids.length === 1 ? EVENT_DEFS[ids[0]].name : 'Village events'}</p>
+            {ids.length > 1 && <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.16em] text-ash">Single-player rounds · scores and clears are saved on this device only</p>}
             {ids.length === 1 && (
               <>
                 <ul className="mt-3 grid gap-1.5 text-[14px] text-bone/80">

@@ -17,6 +17,7 @@ import { CASTLE_Z, ROADS, buildGround, castle, clutter, fence, lampPosts, poles,
 import { BENCHES, kingdom, mountains } from './world/kingdom'
 import { GARDEN, SPAWN, VALLEY_GATE, bridgeHeight, clampToCity } from './world/city'
 import { EXPANSION_OPEN, SAFE_ARRIVAL, isLocked } from '../launch'
+import { PANEL, boardTexture } from './world/signs'
 import { buildDaylight, isNight, skyPresetFromUrl } from './world/daylight'
 import { B4S_BENCH, PLAZA_BENCHES, SEAT_FWD } from './world/props'
 
@@ -769,7 +770,9 @@ export class World implements GameScene {
     // PUMPKIN TOSS: a target range on the nearest open ground big enough for it (searched against the finished colliders)
     const site = this.findRangeSite(walk)
     if (site) {
-      this.range = new TargetRange(this.scene, this.camera, site, groundHeight, () => this.playerPos)
+      const note = new THREE.MeshStandardMaterial({ map: boardTexture('PUMPKIN TOSS', ['10 throws · click or tap', 'bullseye 50'], 1.8, PANEL.dark, this.disposables), roughness: 0.8 })
+      this.disposables.push(note)
+      this.range = new TargetRange(this.scene, this.camera, site, groundHeight, () => this.playerPos, note)
       this.colliders.push(...this.range.colliders())
       const s = this.range.at(0, -1.6)
       add('target', 'Play Pumpkin Toss', s.x, s.z, 2.0, 'activity')
@@ -779,7 +782,7 @@ export class World implements GameScene {
     // the Events Board: two posts and a lit notice, where the village events are started
     {
       const wood = new THREE.MeshStandardMaterial({ color: 0x4a3626, roughness: 0.9 })
-      const paper = new THREE.MeshStandardMaterial({ color: 0xe8d9b0, emissive: 0x6a4a18, emissiveIntensity: 0.5, roughness: 0.8 })
+      const paper = new THREE.MeshStandardMaterial({ map: boardTexture('VILLAGE EVENTS', ['Pumpkin Hunt · Ghost Invasion', 'Harvest Festival · Thunderstorm', 'Square Time Trial — press E'], 1.9, PANEL.dark, this.disposables), roughness: 0.8 })
       const eb = new THREE.Group()
       const g1 = new THREE.BoxGeometry(0.14, 2.1, 0.14)
       const g2 = new THREE.BoxGeometry(1.7, 1.0, 0.1)

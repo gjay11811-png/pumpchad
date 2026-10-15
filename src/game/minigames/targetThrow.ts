@@ -54,6 +54,7 @@ export class TargetRange {
     site: TossSite,
     private ground: (x: number, z: number) => number,
     private playerAt: () => THREE.Vector3,
+    private noteMat?: THREE.Material,
   ) {
     this.stand = site
     this.fwd = new THREE.Vector3(Math.sin(site.yaw), 0, Math.cos(site.yaw))
@@ -79,7 +80,7 @@ export class TargetRange {
     const wood = new THREE.MeshStandardMaterial({ color: 0x5a3f2a, roughness: 0.9 })
     const dark = new THREE.MeshStandardMaterial({ color: 0x2b2420, roughness: 0.9 })
     const hedge = new THREE.MeshStandardMaterial({ color: 0x2f5a34, roughness: 1 })
-    const paper = new THREE.MeshStandardMaterial({ color: 0xe8d9b0, emissive: 0x6a4a18, emissiveIntensity: 0.55, roughness: 0.8 })
+    const paper = this.noteMat ?? new THREE.MeshStandardMaterial({ color: 0xe8d9b0, emissive: 0x6a4a18, emissiveIntensity: 0.55, roughness: 0.8 })
     this.disposables.push(wood, dark, hedge, paper)
     const yaw = this.stand.yaw
     const put = (m: THREE.Mesh, lx: number, lz: number, y: number) => {
