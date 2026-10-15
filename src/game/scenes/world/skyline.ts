@@ -2,6 +2,9 @@ import * as THREE from 'three'
 import type { Town } from './buildings'
 import { boxUV, gableGeo, rng } from './kit'
 import { isNight } from './daylight'
+import { CASTLE_AT } from './mountain'
+import { DESCENT } from './descent'
+import { lakeRho } from './valley'
 
 /**
  * CHAD CITY SKYLINE — the distant city seen from the village overlook while the expansion is closed. Shells only: no colliders, no lights,
@@ -13,7 +16,11 @@ import { isNight } from './daylight'
  * pair, a water tank block). Window grids are painted into four small atlases (warm, amber, cyan, magenta) — one material each, so the whole
  * skyline is a few draw calls.
  */
-export const SKYLINE = { x0: 22, x1: 124, z0: -122, z1: -8, core: { x: 66, z: -52 } }
+/**
+ * The castle mountain stands between the village and Downtown (it hides the city's west half from the overlook), so the skyline reaches
+ * east of it: the tall core sits at local x ≈ 112 (world ≈ -8) with outskirts thinning out to local x 236 (world ≈ 116).
+ */
+export const SKYLINE = { x0: 22, x1: 236, z0: -128, z1: -8, core: { x: 112, z: -64 } }
 
 const WIN = [
   { base: '#17141f', lit: ['#ffd27a', '#ffc15a', '#fff0c8'], dark: '#2a2630' }, // warm
@@ -59,6 +66,9 @@ export function citySkyline(T: Town) {
   const gold = new THREE.MeshStandardMaterial({ color: '#d9a844', roughness: 0.35, metalness: 0.7, emissive: '#6a4a10', emissiveIntensity: night ? 0.6 : 0.1 })
   const beacon = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ff3a3a').multiplyScalar(2), toneMapped: false })
   const water = new THREE.MeshStandardMaterial({ color: '#4a3a30', roughness: 0.9 })
+  // seen from ~350 m the scene fog would swallow every window: the city keeps its own (lighter) atmosphere — the lit windows read at
+  // distance while the darker stone and roofs sink into the haze by their own low light
+  for (const m of [...wins, ...roofs, stone, trim, gold, water]) m.fog = false
   D.push(...roofs, stone, trim, gold, beacon, water)
 
   const put = (g: THREE.BufferGeometry, m: THREE.Material, x: number, y: number, z: number, ry = 0) => T.batch.put(g, m, x, y, z, ry, 1, 1, 1, { cast: false })
@@ -66,11 +76,12 @@ export function citySkyline(T: Town) {
 
   /** a window-wall box from y0 to y1 (windows tile at ~3 m) with a thin cornice ledge on top */
   const wall = (x: number, z: number, w: number, d: number, y0: number, y1: number, mat: THREE.Material, ry = 0) => {
-    put(boxUV(w, y1 - y0, d, 12), mat, x, (y0 + y1) / 2, z, ry)
+    const b = y0 === 0 ? -5 : y0 // sink the foot below the rolling valley floor so no shell hovers
+    put(boxUV(w, y1 - b, d, 12), mat, x, (b + y1) / 2, z, ry)
     put(boxUV(w + 0.5, 0.35, d + 0.5, 3), trim, x, y1 + 0.1, z, ry)
   }
 
-  const dCore = (x: number, z: number) => Math.hypot((x - SKYLINE.core.x) / 38, (z - SKYLINE.core.z) / 44)
+  const dCore = (x: number, z: number) => Math.hypot((x - SKYLINE.core.x) / 52, (z - SKYLINE.core.z) / 46)
   const LOT = 12
   let count = 0
   for (let gx = SKYLINE.x0; gx < SKYLINE.x1; gx += LOT) {
@@ -80,6 +91,10 @@ export function citySkyline(T: Town) {
       const cj = Math.round((gz - SKYLINE.z0) / LOT)
       if (ci % 4 === 3 || cj % 4 === 3) continue
       if (R() < 0.08) continue
+      // not in the lake, and clear of the valley road (world coordinates = local + the valley frame's origin)
+      const wx = gx + LOT / 2 + CASTLE_AT.x
+      const wz = gz + LOT / 2 + CASTLE_AT.z
+      if (lakeRho(wx, wz) < 1.7 || DESCENT.nearest(wx, wz).d < 16) continue
       const x = gx + LOT / 2 + (R() - 0.5) * 2.2
       const z = gz + LOT / 2 + (R() - 0.5) * 2.2
       const w = 7 + R() * 3.4
@@ -90,7 +105,7 @@ export function citySkyline(T: Town) {
       count++
       if (kind === 'tower') {
         // a stepped slab: shaft, one or two setbacks, a crown, sometimes a mast
-        const h = 26 + core * 38 + R() * 10
+        const h = 38 + core * 56 + R() * 14
         const h1 = h * 0.7
         wall(x, z, w, d, 0, h1, win)
         wall(x, z, w * 0.78, d * 0.78, h1, h, win)
@@ -107,7 +122,7 @@ export function citySkyline(T: Town) {
         }
       } else if (kind === 'deco') {
         // art-deco: tall shaft with stepped shoulders and a gold-tipped spire (rare, so no two towers repeat)
-        const h = 46 + R() * 14
+        const h = 72 + R() * 18
         wall(x, z, w, d, 0, h * 0.55, win)
         wall(x, z, w * 0.8, d * 0.8, h * 0.55, h * 0.8, win)
         wall(x, z, w * 0.55, d * 0.55, h * 0.8, h, win)
@@ -115,7 +130,7 @@ export function citySkyline(T: Town) {
         put(new THREE.SphereGeometry(0.3, 6, 4), beacon, x, h + h * 0.26 + 0.3, z)
       } else if (kind === 'mid') {
         // mid-rise block with a mansard or gable roof and a chimney or two
-        const h = 12 + R() * 12 + core * 10
+        const h = 16 + R() * 14 + core * 14
         wall(x, z, w, d, 0, h, win)
         const roof = roofFor(R())
         if (R() < 0.55) {
@@ -137,7 +152,7 @@ export function citySkyline(T: Town) {
   }
   // landmarks: a clock tower and a twin pair on the core's edge, so the skyline is recognisable rather than a field of boxes
   {
-    const cx = SKYLINE.core.x - 20
+    const cx = SKYLINE.core.x - 26
     const cz = SKYLINE.core.z + 30
     put(boxUV(6, 30, 6, 12), stone, cx, 15, cz)
     wall(cx, cz, 6.6, 6.6, 30, 36, wins[0])
@@ -146,9 +161,9 @@ export function citySkyline(T: Town) {
     for (const s of [-1, 1]) {
       const tx = SKYLINE.core.x + 30
       const tz = SKYLINE.core.z - 18 + s * 7
-      wall(tx, tz, 8, 8, 0, 54, wins[2])
-      put(boxUV(8.6, 1.4, 8.6, 3), stone, tx, 54.9, tz)
-      put(new THREE.SphereGeometry(0.3, 6, 4), beacon, tx, 56.2, tz)
+      wall(tx, tz, 8, 8, 0, 82, wins[2])
+      put(boxUV(8.6, 1.4, 8.6, 3), stone, tx, 82.9, tz)
+      put(new THREE.SphereGeometry(0.3, 6, 4), beacon, tx, 84.2, tz)
     }
   }
   return count
