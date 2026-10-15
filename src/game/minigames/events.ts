@@ -8,8 +8,8 @@ import * as THREE from 'three'
  *   storm    Thunderstorm: gather storm crystals and keep out of the marked strike circles (3 lives)
  * Rules are plain numbers below; EventDirector owns the 3D side (markers, ghosts, strike rings, rain, lightning).
  */
-export type EventId = 'hunt' | 'invasion' | 'festival' | 'storm'
-export const EVENT_IDS: EventId[] = ['hunt', 'invasion', 'festival', 'storm']
+export type EventId = 'hunt' | 'invasion' | 'festival' | 'storm' | 'race'
+export const EVENT_IDS: EventId[] = ['hunt', 'invasion', 'festival', 'storm', 'race']
 
 export const EVENT_DEFS: Record<EventId, { name: string; blurb: string; rules: string[]; duration: number; goal: number; lives: number; xp: number; color: number }> = {
   hunt: {
@@ -42,6 +42,16 @@ export const EVENT_DEFS: Record<EventId, { name: string; blurb: string; rules: s
     xp: 30,
     color: 0xffd36a,
   },
+  race: {
+    name: 'Square Time Trial',
+    blurb: 'A sprint through six gates around the square, against the clock.',
+    rules: ['Run through the glowing gate — only the next one is lit.', 'Clear all six in order inside 45 seconds. Sprint with Shift / the far stick.', 'Your fastest clear is kept.'],
+    duration: 45,
+    goal: 6,
+    lives: 0,
+    xp: 35,
+    color: 0x7cf0c0,
+  },
   storm: {
     name: 'Thunderstorm',
     blurb: 'Lightning strikes the square. Collect the storm crystals.',
@@ -54,7 +64,7 @@ export const EVENT_DEFS: Record<EventId, { name: string; blurb: string; rules: s
   },
 }
 
-export type EventStats = { id: EventId; won: boolean; score: number; goal: number; lives: number; timeLeft: number }
+export type EventStats = { id: EventId; won: boolean; score: number; goal: number; lives: number; timeLeft: number; time: number }
 export type EventPhase = 'idle' | 'countdown' | 'playing' | 'done'
 
 type Mark = { group: THREE.Object3D; x: number; z: number; born: number; vx?: number; vz?: number }
@@ -76,6 +86,8 @@ export class EventDirector {
   private spawnT = 0
   private strikeT = 0
   private flash = 0
+  /** a race can lose gates to blocked ground: the goal is what was actually placed */
+  goalOverride = 0
   private flashLight: THREE.HemisphereLight
   private rain: THREE.LineSegments
   private rainPos: Float32Array
@@ -106,6 +118,7 @@ export class EventDirector {
     this.geo.crystal = new THREE.OctahedronGeometry(0.42)
     this.geo.lantern = new THREE.SphereGeometry(0.4, 12, 10)
     this.geo.pole = new THREE.CylinderGeometry(0.05, 0.07, 2.6, 6).translate(0, 1.3, 0)
+    this.geo.gate = new THREE.TorusGeometry(1.5, 0.12, 8, 24)
     this.geo.ring = new THREE.RingGeometry(1.7, 2.2, 28).rotateX(-Math.PI / 2)
     for (const k of EVENT_IDS) {
       this.mats[k] = new THREE.MeshBasicMaterial({ color: EVENT_DEFS[k].color, transparent: true, opacity: 0.9 })
@@ -116,6 +129,10 @@ export class EventDirector {
     this.mats.strike = new THREE.MeshBasicMaterial({ color: 0xff4040, transparent: true, opacity: 0.7, side: THREE.DoubleSide, depthWrite: false })
   }
 
+  get goal() {
+    return this.id === 'race' && this.goalOverride ? this.goalOverride : this.def.goal
+  }
+
   get def() {
     return EVENT_DEFS[this.id]
   }
@@ -123,6 +140,7 @@ export class EventDirector {
   start(id: EventId, player: THREE.Vector3) {
     this.clear()
     this.id = id
+    this.goalOverride = 0
     const d = EVENT_DEFS[id]
     this.timeLeft = d.duration
     this.score = 0
@@ -134,6 +152,7 @@ export class EventDirector {
     this.root.visible = true
     this.hint = d.rules[0]
     if (id === 'festival') this.placeLanterns(player)
+    if (id === 'race') this.placeGates(player)
     if (id === 'hunt') for (let i = 0; i < 4; i++) this.spawnPumpkin(player)
     if (id === 'storm') {
       for (let i = 0; i < 3; i++) this.spawnCrystal(player)
@@ -160,7 +179,7 @@ export class EventDirector {
 
   /** what the QA hook and the HUD show */
   info() {
-    return { phase: this.phase, id: this.id, score: this.score, goal: this.def.goal, lives: this.lives, timeLeft: +this.timeLeft.toFixed(1), marks: this.marks.map((m) => ({ x: +m.x.toFixed(1), z: +m.z.toFixed(1) })) }
+    return { phase: this.phase, id: this.id, score: this.score, goal: this.goal, lives: this.lives, timeLeft: +this.timeLeft.toFixed(1), marks: this.marks.map((m) => ({ x: +m.x.toFixed(1), z: +m.z.toFixed(1) })) }
   }
 
   private clear() {
@@ -212,6 +231,31 @@ export class EventDirector {
     this.add(g, p[0], p[1])
   }
 
+  /** six gates in a ring (clockwise from the player's side); only the next is lit */
+  private placeGates(player: THREE.Vector3) {
+    const a0 = Math.atan2(player.z, player.x)
+    for (let i = 1; i <= 6; i++) {
+      for (let k = 0; k < 14; k++) {
+        const a = a0 + (i / 6) * Math.PI * 2 + (k % 2 ? 1 : -1) * Math.floor(k / 2) * 0.09
+        const r = 19 - Math.floor(k / 4)
+        const x = Math.cos(a) * r
+        const z = Math.sin(a) * r
+        if (!this.valid(x, z)) continue
+        const g = new THREE.Group()
+        const ring = new THREE.Mesh(this.geo.gate, this.mats.race)
+        ring.position.y = 1.3
+        ring.rotation.y = Math.PI / 2 - a
+        const b = new THREE.Mesh(this.geo.beam, this.mats.raceBeam)
+        g.add(ring, b)
+        g.visible = this.marks.length === 0
+        this.add(g, x, z)
+        break
+      }
+    }
+    this.goalOverride = this.marks.length
+    this.hint = 'Run through the lit gate'
+  }
+
   private placeLanterns(player: THREE.Vector3) {
     const base = Math.random() * Math.PI * 2
     for (let i = 0; i < 5; i++) {
@@ -254,7 +298,7 @@ export class EventDirector {
     this.root.visible = false
     this.flashLight.intensity = 0
     this.onHit?.(won ? 'win' : 'lose')
-    this.onEnd?.({ id: this.id, won, score: this.score, goal: this.def.goal, lives: this.lives, timeLeft: Math.max(0, this.timeLeft) })
+    this.onEnd?.({ id: this.id, won, score: this.score, goal: this.goal, lives: this.lives, timeLeft: Math.max(0, this.timeLeft), time: this.def.duration - Math.max(0, this.timeLeft) })
   }
 
   private collect(i: number, player: THREE.Vector3) {
@@ -281,6 +325,7 @@ export class EventDirector {
     // idle motion
     for (const m of this.marks) {
       if (this.id === 'hunt' || this.id === 'storm') m.group.children[0].rotation.y += dt * 1.6
+      if (this.id === 'race') continue
       m.group.children[0].position.y += Math.sin(this.t * 2.4 + m.born) * dt * 0.12
     }
     // pickups / banishing
@@ -305,6 +350,17 @@ export class EventDirector {
           this.marks.splice(i, 1)
           this.score++
           if (this.score >= this.def.goal) return this.finish(true)
+        }
+      } else if (this.id === 'race') {
+        // gates are ordered: marks[0] is the lit one
+        if (i === 0 && Math.hypot(m.x - player.x, m.z - player.z) < 1.8) {
+          m.group.removeFromParent()
+          this.marks.shift()
+          this.score++
+          this.onHit?.('good')
+          if (this.marks[0]) this.marks[0].group.visible = true
+          if (this.score >= this.goal) return this.finish(true)
+          this.hint = `Gate ${this.score + 1} of ${this.goal}`
         }
       } else if (this.id === 'festival') {
         if (Math.hypot(m.x - player.x, m.z - player.z) < 1.5) {
@@ -379,6 +435,6 @@ export class EventDirector {
       }
       this.rain.geometry.attributes.position.needsUpdate = true
     }
-    if (this.timeLeft <= 0) this.finish(this.score >= this.def.goal)
+    if (this.timeLeft <= 0) this.finish(this.score >= this.goal)
   }
 }

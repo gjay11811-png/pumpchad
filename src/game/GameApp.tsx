@@ -792,13 +792,18 @@ export function GameApp() {
         progress: {
           ...s.progress,
           xp: s.progress.xp + r.xp,
-          records: { ...s.progress.records, [key]: (s.progress.records[key] ?? 0) + (st.won ? 1 : 0) },
+          records: {
+            ...s.progress.records,
+            [key]: (s.progress.records[key] ?? 0) + (st.won ? 1 : 0),
+            ...(st.won && st.id === 'race' ? { race_best: Math.min(s.progress.records.race_best || 1e6, Math.round(st.time * 100)) } : {}),
+          },
           daily: { day: d.day, sets: { ...d.sets, [key]: (d.sets[key] ?? 0) + 1 } },
         },
       }
     })
-    if (st.won) unlock(({ hunt: 'hunt_won', invasion: 'ghost_buster', festival: 'festival_lit', storm: 'storm_rider' } as const)[st.id])
-    return { xp: r.xp, mult: r.mult, wins: (p0.records[key] ?? 0) + (st.won ? 1 : 0) }
+    if (st.won) unlock(({ hunt: 'hunt_won', invasion: 'ghost_buster', festival: 'festival_lit', storm: 'storm_rider', race: 'race_won' } as const)[st.id])
+    const best = st.won && st.id === 'race' ? Math.min(p0.records.race_best || 1e6, Math.round(st.time * 100)) : p0.records.race_best
+    return { xp: r.xp, mult: r.mult, wins: (p0.records[key] ?? 0) + (st.won ? 1 : 0), best }
   }
 
   /** a finished fishing round: XP (daily fatigue like the other activities), best score, new species in the log */

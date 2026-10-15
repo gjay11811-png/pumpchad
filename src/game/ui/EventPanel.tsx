@@ -5,7 +5,7 @@ import { audio } from '../audio'
 import { EVENT_DEFS, EVENT_IDS, type EventDirector, type EventId, type EventStats } from '../minigames/events'
 import { Btn, Label } from './kit'
 
-export type EventResult = { xp: number; mult: number; wins: number }
+export type EventResult = { xp: number; mult: number; wins: number; best?: number }
 type Phase = 'ready' | 'run' | 'done'
 
 /** The Events Board: pick an event → 3-2-1 → live HUD (timer / progress / lives / hint) → result → play again or back. */
@@ -57,7 +57,7 @@ export function EventPanel({
       }
       const d = director.def
       if (timeRef.current) timeRef.current.textContent = Math.max(0, director.timeLeft).toFixed(1)
-      if (scoreRef.current) scoreRef.current.textContent = `${director.score} / ${d.goal}`
+      if (scoreRef.current) scoreRef.current.textContent = `${director.score} / ${director.goal}`
       if (livesRef.current) livesRef.current.textContent = d.lives ? '♥'.repeat(Math.max(0, director.lives)) + '♡'.repeat(Math.max(0, d.lives - director.lives)) : ''
       if (hintRef.current) hintRef.current.textContent = director.hint
       if (barRef.current) barRef.current.style.width = `${(Math.max(0, director.timeLeft) / d.duration) * 100}%`
@@ -178,7 +178,7 @@ export function EventPanel({
               {result.s.won ? 'Cleared!' : 'Not this time'}
             </p>
             <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.2em] text-ash">
-              {result.s.score} / {result.s.goal}
+              {result.s.score} / {result.s.goal}{result.s.won && result.s.id === 'race' ? ` · ${result.s.time.toFixed(2)}s${result.r.best && result.s.time <= result.r.best / 100 + 0.005 ? ' · new best!' : ''}` : ''}
               {d.lives > 0 ? ` · ${Math.max(0, result.s.lives)} lives left` : ''} · {result.s.timeLeft.toFixed(0)}s left
             </p>
             <p className="mt-4 text-center font-display text-2xl uppercase text-molten" data-testid="event-xp">

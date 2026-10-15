@@ -70,6 +70,12 @@ await p.click('[data-testid=event-menu]')
 await play('storm', goTo)
 check((await p.textContent('[data-testid=event-result]')).includes('Cleared') || (await p.textContent('[data-testid=event-result]')).includes('Not this time'), 'Thunderstorm: round ends with a result')
 
+await p.click('[data-testid=event-menu]')
+await play('race', goTo)
+check((await p.textContent('[data-testid=event-result]')).includes('Cleared'), 'Square Time Trial: all gates cleared in order')
+const sv = (await C('save')).progress
+check(sv.records.race_best > 0 && sv.achievements.includes('race_won'), `time trial: best time kept (${sv.records.race_best} cs) + achievement`)
+
 // failing: stand still through the invasion
 await p.click('[data-testid=event-menu]')
 await C('teleport', 25, 0, 0)
