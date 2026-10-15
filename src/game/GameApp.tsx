@@ -961,6 +961,7 @@ export function GameApp() {
       teleport: (x: number, z: number, yaw?: number, y?: number) => world.current?.teleport(x, z, yaw, y),
       parkour: () => world.current?.parkourState() ?? null,
       sword: () => world.current?.swordState() ?? null,
+      hang: () => world.current?.hangState() ?? null,
       shotCam: (o: Parameters<World['setShotCam']>[0]) => world.current?.setShotCam(o),
       stats: () => engine.current?.stats,
       gfxLog: () => engine.current?.gfxLog() ?? [],

@@ -19,6 +19,7 @@ import { GARDEN, SPAWN, VALLEY_GATE, bridgeHeight, clampToCity } from './world/c
 import { EXPANSION_OPEN, LANTERN_ROLLOUT, SAFE_ARRIVAL, isLocked } from '../launch'
 import { COURSES, PLATFORMS, SECRET, YARD, fmtMs, type CourseId } from '../parkour'
 import type { Platform } from '../parkour'
+import { SHIMMY_SPEED, END_MARGIN, cornerNext, findCatch, handPoints, hangPose, ledgeGeom, pullUpSpot, type LedgeGeom } from '../ledge'
 import { ParkourRun, planTraverse, platformFloor, platformResolve, travAt, type RunResult, type TravFrame, type TravPlan } from '../parkourSystem'
 import { PARKOUR_LAMPS, parkourYard, type ParkourBuild } from './world/parkourYard'
 import { lanternFamily } from './world/lanternFamily'
@@ -256,6 +257,28 @@ export class World implements GameScene {
   private jumpBuf = 0
   /** seconds left of the forward push that carries a hop onto / over a low obstacle */
   private hopAssist = 0
+  /** a ledge catch / hang / shimmy / pull-up in progress (ledge.ts) */
+  private hang: {
+    plat: Platform
+    g: LedgeGeom
+    s: number
+    mode: 'catch' | 'hang' | 'pullup' | 'corner'
+    t: number
+    dur: number
+    from: { x: number; z: number; y: number; yaw: number }
+    to: { x: number; z: number; y: number; yaw: number }
+    phase: number
+    endHold: number
+    pitch: number
+    /** the player must let go of the controls once after the catch before anything they press counts (a held W must not pull straight up) */
+    armed: boolean
+    next?: { side: 'n' | 's' | 'w' | 'e'; s: number }
+  } | null = null
+  private catchCool = 0
+  private hintT = 0
+  private hintKey = ''
+  /** QA: the last ledge decision */
+  hangLog = ''
   private coyote = 0
   /** the Sword Drill (Antique Estoc, CC0) in the Parkour Yard's north strip */
   drill: SwordDrill | null = null
@@ -292,6 +315,8 @@ export class World implements GameScene {
     window.addEventListener('chad-parkour-cmd', this.onParkourCmd)
     window.addEventListener('keydown', this.onParkourKey)
     window.addEventListener('chad-sword-cmd', this.onSwordCmd)
+    window.addEventListener('chad-trav-cmd', this.onTravCmd)
+    window.addEventListener('keydown', this.onTravKey)
     this.camYaw = this.playerYaw + Math.PI
   }
 
@@ -1094,10 +1119,12 @@ export class World implements GameScene {
     for (const c of this.colliders) {
       const h = c.h
       if (h === undefined || h < 0.5 || h > 1.45 || c.noVault) continue
-      const minX = c.kind === 'circle' ? c.x - c.r : c.minX
-      const maxX = c.kind === 'circle' ? c.x + c.r : c.maxX
-      const minZ = c.kind === 'circle' ? c.z - c.r : c.minZ
-      const maxZ = c.kind === 'circle' ? c.z + c.r : c.maxZ
+      // (a circle is inflated a little so a row of fence posts reads as one continuous barrier: the body cannot pass between them either)
+      const pad = c.kind === 'circle' ? c.r * 0.55 : 0
+      const minX = (c.kind === 'circle' ? c.x - c.r : c.minX) - pad
+      const maxX = (c.kind === 'circle' ? c.x + c.r : c.maxX) + pad
+      const minZ = (c.kind === 'circle' ? c.z - c.r : c.minZ) - pad
+      const maxZ = (c.kind === 'circle' ? c.z + c.r : c.maxZ) + pad
       if (maxX < px - 4 || minX > px + 4 || maxZ < pz - 4 || minZ > pz + 4) continue
       if (Math.min(maxX - minX, maxZ - minZ) > 1.2) continue
       out.push({ minX, maxX, minZ, maxZ, top: h, kind: 'wall', vault: true })
@@ -1581,6 +1608,12 @@ export class World implements GameScene {
     let mv = this.paused ? { x: 0, z: 0, run: false, analog: false } : this.input.move()
     if (look.x || look.y) this.lastLookT = this.t
     let jumpReq = this.input.takeJump()
+    const rawMv = mv
+    const rawJump = jumpReq
+    if (this.hang) {
+      mv = { x: 0, z: 0, run: false, analog: false }
+      jumpReq = false
+    }
     this.lockT = Math.max(0, this.lockT - dt)
     if (this.pendingHide && (this.pendingHide.t -= dt) <= 0) {
       this.pendingHide.g.visible = false
@@ -1618,7 +1651,8 @@ export class World implements GameScene {
         mv = { x: 0, z: 0, run: false, analog: false }
       }
     }
-    if (this.trav) this.stepTravel(dt)
+    if (this.hang) this.stepHang(dt, rawMv, rawJump)
+    else if (this.trav) this.stepTravel(dt)
     else {
     const fwd = new THREE.Vector3(-Math.sin(this.camYaw), 0, -Math.cos(this.camYaw))
     const right = new THREE.Vector3(-fwd.z, 0, fwd.x)
@@ -1663,6 +1697,8 @@ export class World implements GameScene {
     const gy = groundHeight(this.playerPos.x, this.playerPos.z)
     this.playerPos.y += (gy - this.playerPos.y) * (1 - Math.exp(-dt * 18))
     }
+    this.catchCool = Math.max(0, this.catchCool - dt)
+    if (!this.hang && !this.trav && !this.jumper.grounded && this.catchCool <= 0 && !this.paused) this.tryCatch()
 
     const speed = Math.hypot(this.playerVel.x, this.playerVel.z)
     const yaw0 = this.playerYaw
@@ -1719,6 +1755,7 @@ export class World implements GameScene {
         p.lean.accel = l.accel
       }
       p.update(dt)
+      if (this.hang) this.hangIK(p)
     }
     this.lastSpeed = speed
     if (this.intro) {
@@ -1879,6 +1916,243 @@ export class World implements GameScene {
     f.getWorldPosition(v)
     return { x: +v.x.toFixed(3), y: +v.y.toFixed(3), z: +v.z.toFixed(3) }
   }
+  /* ───────── ledges: catch, hang, shimmy, pull up, release (ledge.ts) ───────── */
+  private ledgePlats() {
+    return PLATFORMS.filter((q) => q.ledge)
+  }
+  private freeBody = (x: number, z: number, y: number) => insideCity(x, z, 0.5) && !isLocked(x, z) && !this.solidAt(x, z, y + 0.15)
+  private tryCatch() {
+    const sp = Math.hypot(this.playerVel.x, this.playerVel.z)
+    const hx = sp > 0.8 ? this.playerVel.x / sp : Math.sin(this.playerYaw)
+    const hz = sp > 0.8 ? this.playerVel.z / sp : Math.cos(this.playerYaw)
+    const { c } = findCatch(this.playerPos.x, this.playerPos.z, this.jumper.y, hx, hz, this.ledgePlats(), this.freeBody)
+    if (!c) return
+    const to = hangPose(c.g, c.s)
+    this.hang = {
+      plat: c.plat,
+      g: c.g,
+      s: c.s,
+      mode: 'catch',
+      t: 0,
+      dur: 0.2,
+      from: { x: this.playerPos.x, z: this.playerPos.z, y: this.jumper.y, yaw: this.playerYaw },
+      to,
+      phase: 0,
+      endHold: 0,
+      pitch: 0,
+      armed: false,
+    }
+    this.playerVel.set(0, 0, 0)
+    this.jumper.vy = 0
+    this.hangLog = `catch ${c.g.side} top ${c.g.top} at s ${c.s.toFixed(2)}`
+    this.emitHint()
+  }
+  private releaseHang(why: string) {
+    const h = this.hang
+    if (!h) return
+    this.hangLog = `release (${why})`
+    // a proper fall: a little push away from the wall, the air loop, and the ordinary landing on the way down
+    this.playerVel.set(h.g.nx * 1.0, 0, h.g.nz * 1.0)
+    this.jumper.vy = -0.5
+    this.jumper.jumping = true
+    this.catchCool = 0.6
+    this.hang = null
+    this.emitHint()
+  }
+  private stepHang(dt: number, mv: { x: number; z: number }, jumpIn: boolean) {
+    const h = this.hang!
+    const jump = jumpIn || this.pendingPull
+    this.pendingPull = false
+    const p = this.player
+    h.t += dt
+    const lerp = (a: number, b: number, u: number) => a + (b - a) * u
+    const ease = (u: number) => u * u * (3 - 2 * u)
+    const yawLerp = (a: number, b: number, u: number) => a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) * u
+    if (h.mode === 'catch') {
+      const u = ease(Math.min(1, h.t / h.dur))
+      this.playerPos.x = lerp(h.from.x, h.to.x, u)
+      this.playerPos.z = lerp(h.from.z, h.to.z, u)
+      this.jumper.y = lerp(h.from.y, h.to.y, u)
+      this.playerYaw = yawLerp(h.from.yaw, h.to.yaw, u)
+      h.pitch = 0.18 * (1 - u)
+      if (h.t >= h.dur) {
+        h.mode = 'hang'
+        h.t = 0
+        this.emitHint()
+      }
+    } else if (h.mode === 'hang') {
+      // the player's push, in the world
+      const fwd = new THREE.Vector3(-Math.sin(this.camYaw), 0, -Math.cos(this.camYaw))
+      const right = new THREE.Vector3(-fwd.z, 0, fwd.x)
+      const wish = fwd.multiplyScalar(mv.z).add(right.multiplyScalar(mv.x))
+      let along = wish.x * h.g.tx + wish.z * h.g.tz
+      let toward = -(wish.x * h.g.nx + wish.z * h.g.nz) // into the wall
+      let press = jump
+      if (!h.armed) {
+        // the catch happened with the controls still held: wait for them to be let go once, then listen
+        if (Math.hypot(mv.x, mv.z) < 0.2 && !jumpIn) h.armed = true
+        along = 0
+        toward = 0
+        press = false
+      }
+      if (press || toward > 0.6) {
+        const stand = pullUpSpot(h.g, h.s, PLATFORMS, h.plat, this.freeBody)
+        if (stand) {
+          h.mode = 'pullup'
+          h.t = 0
+          h.dur = 0.95
+          h.from = { x: this.playerPos.x, z: this.playerPos.z, y: this.jumper.y, yaw: this.playerYaw }
+          h.to = stand
+          this.hangLog = 'pull-up'
+        } else if (press || h.endHold === 0) {
+          this.hangLog = 'pull-up refused: no room on top'
+          h.endHold = 0.001
+          this.emitHint('No room to pull up here')
+        }
+      } else if (toward < -0.6) {
+        this.releaseHang('player')
+        return
+      } else if (Math.abs(along) > 0.25) {
+        const dir = Math.sign(along)
+        h.phase += dt * 7
+        const ns = h.s + dir * SHIMMY_SPEED * dt
+        const lo = END_MARGIN
+        const hi = h.g.len - END_MARGIN
+        if (ns < lo || ns > hi) {
+          h.s = Math.min(hi, Math.max(lo, ns))
+          h.endHold += dt
+          if (h.endHold > 0.35) {
+            // pressing on at the end of the ledge: round a convex corner of the same box when the next side is free, else stop (an unsupported end)
+            const nx = cornerNext(h.plat, h.g, dir as 1 | -1)
+            if (nx) {
+              const ng = ledgeGeom(h.plat, nx.side)
+              const sTo = nx.s === 0 ? END_MARGIN : ng.len - END_MARGIN
+              const to = hangPose(ng, sTo)
+              if (this.freeBody(to.x, to.z, to.y)) {
+                h.mode = 'corner'
+                h.t = 0
+                h.dur = 0.5
+                h.from = { x: this.playerPos.x, z: this.playerPos.z, y: this.jumper.y, yaw: this.playerYaw }
+                h.to = to
+                h.next = { side: nx.side, s: sTo }
+                this.hangLog = `corner ${h.g.side}→${nx.side}`
+              } else h.endHold = 0
+            } else h.endHold = 0
+          }
+        } else {
+          h.s = ns
+          h.endHold = 0
+        }
+        const pose = hangPose(h.g, h.s)
+        this.playerPos.x = pose.x
+        this.playerPos.z = pose.z
+      } else {
+        h.endHold = 0
+      }
+      this.jumper.y = h.g.top - 1.92 + Math.sin(this.t * 1.6) * 0.012 // a faint settle, so a held hang is not frozen
+      h.pitch = 0.04 + Math.abs(Math.sin(h.phase)) * 0.02
+    } else if (h.mode === 'corner') {
+      const u = ease(Math.min(1, h.t / h.dur))
+      this.playerPos.x = lerp(h.from.x, h.to.x, u)
+      this.playerPos.z = lerp(h.from.z, h.to.z, u)
+      this.jumper.y = lerp(h.from.y, h.to.y, u)
+      this.playerYaw = yawLerp(h.from.yaw, h.to.yaw, u)
+      if (h.t >= h.dur && h.next) {
+        h.g = ledgeGeom(h.plat, h.next.side)
+        h.s = h.next.s
+        h.mode = 'hang'
+        h.t = 0
+        h.endHold = 0
+      }
+    } else {
+      // pull-up: elbows bend and the chest comes up to the edge (0–0.5), then a knee over and the weight rolls onto the top (0.5–1)
+      const u = Math.min(1, h.t / h.dur)
+      const top = h.plat.top
+      if (u < 0.5) {
+        const k = ease(u / 0.5)
+        this.jumper.y = lerp(h.from.y, top - 0.62, k)
+        this.playerPos.x = lerp(h.from.x, h.from.x - h.g.nx * 0.12, k)
+        this.playerPos.z = lerp(h.from.z, h.from.z - h.g.nz * 0.12, k)
+        h.pitch = 0.1 + 0.35 * k
+      } else {
+        const k = ease((u - 0.5) / 0.5)
+        const mx = h.from.x - h.g.nx * 0.12
+        const mz = h.from.z - h.g.nz * 0.12
+        this.jumper.y = lerp(top - 0.62, top, k)
+        this.playerPos.x = lerp(mx, h.to.x, k)
+        this.playerPos.z = lerp(mz, h.to.z, k)
+        h.pitch = 0.45 * (1 - k)
+      }
+      if (u >= 1) {
+        this.playerPos.x = h.to.x
+        this.playerPos.z = h.to.z
+        this.jumper.y = top
+        this.jumper.floor = top
+        this.jumper.vy = 0
+        this.jumper.landed = true
+        this.jumper.jumping = false
+        this.playerVel.set(0, 0, 0)
+        this.hangLog = 'standing on top'
+        this.hang = null
+        this.emitHint()
+        return
+      }
+    }
+    this.playerVel.set(0, 0, 0)
+    this.jumper.vy = 0
+    this.hintT -= dt
+    void p
+  }
+  /** the hands on the ledge (after the clip has posed the body): arm IK to two points on the edge, alternating a little while shimmying */
+  private hangIK(p: NonNullable<typeof this.player>) {
+    const h = this.hang
+    if (!h) return
+    p.setGrounded?.(false)
+    p.root.rotation.order = 'YXZ'
+    const pts = handPoints(h.g, h.s, h.phase)
+    const L = new THREE.Vector3(pts.left.x, pts.left.y, pts.left.z)
+    const R = new THREE.Vector3(pts.right.x, pts.right.y, pts.right.z)
+    // during the pull-up's second half the hands let go of the edge and push on the top
+    if (h.mode === 'pullup' && h.t / h.dur > 0.55) {
+      const k = Math.min(1, (h.t / h.dur - 0.55) / 0.45)
+      L.addScaledVector(new THREE.Vector3(-h.g.nx, 0, -h.g.nz), 0.28 * k)
+      R.addScaledVector(new THREE.Vector3(-h.g.nx, 0, -h.g.nz), 0.28 * k)
+    }
+    p.grip?.(L, R)
+  }
+  /** a small prompt for what the next press does (desktop keys / phone buttons); sent only when it changes */
+  private emitHint(note?: string) {
+    let text = note ?? ''
+    let mode: 'none' | 'hang' | 'jump' = 'none'
+    if (this.hang && !note) {
+      mode = this.hang.mode === 'hang' ? 'hang' : 'none'
+      text = this.hang.mode === 'hang' ? 'A / D shimmy · W or Space pull up · S or C drop' : ''
+    }
+    const key = `${mode}|${text}`
+    if (key === this.hintKey) return
+    this.hintKey = key
+    window.dispatchEvent(new CustomEvent('chad-trav-hint', { detail: { mode, text } }))
+  }
+  /** QA */
+  hangState() {
+    const h = this.hang
+    return { hanging: !!h, mode: h?.mode ?? null, side: h?.g.side ?? null, s: h ? +h.s.toFixed(2) : null, top: h?.plat.top ?? null, y: +this.jumper.y.toFixed(2), log: this.hangLog }
+  }
+  /** a command from the on-screen buttons (touch) or the C key */
+  private onTravCmd = (e: Event) => {
+    const c = (e as CustomEvent<string>).detail
+    if (!this.hang || this.hang.mode !== 'hang') return
+    if (c === 'drop') this.releaseHang('button')
+    else if (c === 'pullup') {
+      this.pendingPull = true
+      this.hang.armed = true
+    }
+  }
+  private pendingPull = false
+  private onTravKey = (e: KeyboardEvent) => {
+    if (e.repeat || !this.hang || this.hang.mode !== 'hang') return
+    if (e.key.toLowerCase() === 'c') this.releaseHang('key')
+  }
   /** QA: the heaviest meshes in the scene (triangles × instances), to find what costs the frame */
   triBreakdown(top = 14) {
     const rows: { tris: number; inst: number; geo: string; at: number[]; mat: string; lod: boolean }[] = []
@@ -1979,6 +2253,8 @@ export class World implements GameScene {
     window.removeEventListener('chad-parkour-cmd', this.onParkourCmd)
     window.removeEventListener('keydown', this.onParkourKey)
     window.removeEventListener('chad-sword-cmd', this.onSwordCmd)
+    window.removeEventListener('chad-trav-cmd', this.onTravCmd)
+    window.removeEventListener('keydown', this.onTravKey)
     this.drill?.dispose()
     this.pet?.dispose()
     this.estate?.dispose()

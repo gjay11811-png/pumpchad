@@ -22,9 +22,11 @@ export type Platform = {
   bottom?: number
   /** can be mantled onto (a tall face) */
   climb?: boolean
+  /** its top edge can be caught, hung from, shimmied along and pulled up onto (ledge.ts) */
+  ledge?: boolean
   /** a thin low obstacle that can be vaulted over (the landing is validated) */
   vault?: boolean
-  kind: 'wall' | 'crate' | 'beam' | 'roof' | 'block' | 'step' | 'slab' | 'plate'
+  kind: 'wall' | 'crate' | 'beam' | 'roof' | 'block' | 'step' | 'slab' | 'plate' | 'building'
   /** paint colour for the builder */
   color?: string
 }
@@ -50,15 +52,15 @@ const RZ1 = 2.5
 const B: Platform[] = [
   box(-227.4, -224.8, -2, 2, 1.2, 'crate', { climb: true, color: '#b84a2a' }),
   box(-224.8, -222.2, -2, 2, 2.2, 'crate', { climb: true, color: '#2a6a9a' }),
-  box(-222.2, -212.0, RZ0, RZ1, 3.2, 'roof', { climb: true, color: '#8a4a2a' }),
+  box(-222.2, -212.0, RZ0, RZ1, 3.2, 'roof', { climb: true, ledge: true, color: '#8a4a2a' }),
   // roof 2 is hollow: a slab on three walls, open to the north (the secret room, its mouth screened by a vaultable crate wall)
   box(-209.4, -202.0, RZ0, RZ1, 3.6, 'slab', { climb: true, bottom: 2.6, color: '#3a7a5a' }),
   box(-209.4, -208.9, -4.2, RZ1, 3.6, 'wall', { color: '#3a7a5a' }),
   box(-202.5, -202.0, -4.2, RZ1, 3.6, 'wall', { color: '#3a7a5a' }),
   box(-209.4, -202.0, 2.0, RZ1, 3.6, 'wall', { color: '#3a7a5a' }),
   box(-208.9, -202.5, -4.2, -3.8, 1.1, 'wall', { vault: true, color: '#b84a2a' }), // the decoy wall in front of the room's mouth
-  box(-199.2, -192.0, RZ0, RZ1, 3.2, 'roof', { climb: true, color: '#8a4a2a' }),
-  box(-189.4, -182.0, RZ0, RZ1, 3.6, 'roof', { climb: true, color: '#2a6a9a' }),
+  box(-199.2, -192.0, RZ0, RZ1, 3.2, 'roof', { climb: true, ledge: true, color: '#8a4a2a' }),
+  box(-189.4, -182.0, RZ0, RZ1, 3.6, 'roof', { climb: true, ledge: true, color: '#2a6a9a' }),
   box(-179.2, -171.5, -3, 3, 4.0, 'roof', { climb: true, color: '#e0a83e' }),
 ]
 /** the yard's solid enclosure (tall: never climbable) — x/z boxes only, drawn + collided by the builder */
@@ -71,7 +73,29 @@ export const YARD_WALLS: Rect[] = [
   { x0: -241.2, x1: -170.4, z0: -19.8, z1: -19.2 }, // north boundary
   { x0: -170.8, x1: -170.4, z0: -19.2, z1: 25.6 }, // east boundary
 ]
-export const PLATFORMS: Platform[] = [...A, ...B]
+/**
+ * THE TRAVERSAL LANE (the yard's plaza, z 8…25): the demonstration route for every action, west → east along z ≈ 20:
+ *   a sprint-jump ditch → a vaultable fence → the Workshop (a 2.35 m ledge to catch, hang from, shimmy along and pull up onto) → a roof-gap jump to the
+ *   Store (2.2 m) → a crate stair (mantle) and a jump to catch the Tower Shed's 3.5 m ledge. All of it is ordinary shared traversal: the same rules work anywhere
+ *   a flagged platform or a thin low fence stands.
+ */
+export const LANE = {
+  ditch: { x0: -220.4, x1: -217.6, z0: 16.5, z1: 24 },
+  fenceX: -212,
+  signs: [
+    { text: 'SPRINT JUMP', x: -224.4, z: 14.6 },
+    { text: 'FENCE VAULT', x: -213.6, z: 14.6 },
+    { text: 'LEDGE · HANG · SHIMMY · PULL UP', x: -209.4, z: 12.6 },
+    { text: 'ROOF GAP', x: -197.2, z: 12.6 },
+  ],
+}
+const LANE_B: Platform[] = [
+  box(-208, -199, 14, 22, 2.35, 'building', { ledge: true, color: '#8a5a44' }), // the Workshop
+  box(-195.6, -187, 14, 22, 2.2, 'building', { ledge: true, color: '#56667a' }), // the Store
+  box(-184.4, -182.6, 15, 19, 1.2, 'crate', { climb: true, color: '#b84a2a' }), // a crate to climb
+  box(-182, -176, 14, 20, 3.5, 'building', { ledge: true, color: '#6a4a5a' }), // the Tower Shed
+]
+export const PLATFORMS: Platform[] = [...A, ...B, ...LANE_B]
 
 export type Checkpoint = { x: number; z: number; y: number; yaw: number }
 export type CourseId = 'rookie' | 'roof'
@@ -143,7 +167,7 @@ export function runCoins(c: Course, prevBestMs: number, ms: number) {
 export const fmtMs = (ms: number) => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}.${String(Math.floor((ms % 1000) / 100))}`
 
 /* ── traversal rules (vault / mantle), pure so the tests and the world share them ── */
-export const REACH_MAX = 2.3 // the tallest face a mantle can pull up (m above the feet)
+export const REACH_MAX = 1.6 // the tallest face a standing mantle can pull up (m above the feet); taller ledges are caught by jumping (ledge.ts)
 export const REACH_MIN = 0.45 // lower than this is just a step / a jump
 export const HEADROOM = 1.8 // clear height needed on top
 

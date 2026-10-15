@@ -89,6 +89,7 @@ export function estatesDistrict(T: Town) {
     fingerpost(T, x + 2.8, z - 3.6, [
       { label: 'CHADVILLE ESTATES', to: [-47, 60] },
       { label: 'CHADVILLE HEIGHTS', to: [-120, 38] },
+      { label: 'PARKOUR YARD', to: [-234, 30] },
       { label: 'CHAD VIEW', to: [-53, 38.5] },
       { label: 'CANAL · GATEWAY', to: [0, 50] },
     ])
