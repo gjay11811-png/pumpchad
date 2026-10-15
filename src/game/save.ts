@@ -132,7 +132,7 @@ function countMap(v: unknown, keys: string[], max = 1e7): Record<string, number>
 }
 /** station → rep count, only known stations */
 const repMap = (v: unknown) => countMap(v, STATION_KEYS)
-export const RECORD_KEYS = ['pumpkin_rush', 'fishing', 'event_hunt', 'event_invasion', 'event_festival', 'event_storm', 'event_race', 'race_best', 'pumpkin_toss', 'ghost_hunt', 'event_ghosthunt', 'parkour_rookie', 'parkour_roof', 'pistol_range']
+export const RECORD_KEYS = ['pumpkin_rush', 'fishing', 'event_hunt', 'event_invasion', 'event_festival', 'event_storm', 'event_race', 'race_best', 'pumpkin_toss', 'ghost_hunt', 'event_ghosthunt', 'parkour_rookie', 'parkour_roof', 'pistol_range', 'sword_drill']
 
 export function sanitizeSave(raw: unknown): SaveData {
   const d = defaultSave()
@@ -251,6 +251,7 @@ export const ACHIEVEMENTS: Record<string, { name: string; desc: string }> = {
   parkour_rookie: { name: 'Rookie Runner', desc: 'Finish the Rookie Run in the Chad Parkour Yard.' },
   parkour_roof: { name: 'Roof Runner', desc: 'Finish the Rooftop Run.' },
   parkour_gold: { name: 'Golden Stride', desc: 'Win a gold medal on either parkour course.' },
+  sword_drill: { name: 'Estoc Apprentice', desc: 'Score 150 in the Sword Drill.' },
   parkour_secret: { name: 'The Hidden Room', desc: 'Find the Golden Pumpkin under the rooftops.' },
   dead_eye: { name: 'Dead Eye', desc: 'Land three bullseyes in one Pumpkin Toss round.' },
   ghost_catcher: { name: 'Ghost Catcher', desc: 'Capture every ghost on the Ghost Hunt.' },

@@ -7,6 +7,7 @@ import { EmoteWheel } from './EmoteWheel'
 import type { EmoteId } from '../emotes'
 import { ChallengeTab } from './Challenges'
 import { ParkourChip } from './ParkourChip'
+import { SwordChip } from './SwordChip'
 
 export function objectiveFor(save: SaveData) {
   const d = save.progress.discoveries
@@ -97,6 +98,7 @@ export function Hud({
   return (
     <div className="pointer-events-none absolute inset-0">
       <ParkourChip touch={touch} />
+      <SwordChip touch={touch} />
       {/* top bar */}
       <div className="flex items-start justify-between gap-3 safe-t safe-x">
         <button type="button" {...tap(() => onProfile?.())} aria-label="Open profile" data-testid="hud-profile" className="panel pointer-events-auto flex items-center gap-3 rounded-2xl py-2 pl-2 pr-4 text-left transition-transform active:scale-[0.97]">

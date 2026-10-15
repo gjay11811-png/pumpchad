@@ -21,6 +21,7 @@ import { COURSES, PLATFORMS, SECRET, YARD, fmtMs, type CourseId } from '../parko
 import { ParkourRun, planTraverse, platformFloor, platformResolve, travAt, type RunResult, type TravFrame, type TravPlan } from '../parkourSystem'
 import { PARKOUR_LAMPS, parkourYard, type ParkourBuild } from './world/parkourYard'
 import { lanternFamily } from './world/lanternFamily'
+import { SwordDrill, type DrillResult, type DrillStats } from '../minigames/swordDrill'
 import { PANEL, boardTexture } from './world/signs'
 import { citySkyline } from './world/skyline'
 import { GYM_SHRUBS } from './world/gymExterior'
@@ -100,6 +101,8 @@ export type WorldEvents = {
   onDiscover?(id: string): void
   /** a timed parkour run was finished: save the best, pay the coins, return the result for the card */
   onParkourFinish?(id: CourseId, ms: number, falls: number): RunResult
+  /** a Sword Drill round ended: save the best, pay XP, return the result for the card */
+  onSwordFinish?(s: DrillStats): DrillResult
 }
 
 /** the parkour platforms as camera blockers (the lens must not sit inside a roof; slabs you can walk under are left out) */
@@ -248,6 +251,8 @@ export class World implements GameScene {
   private trav: { plan: TravPlan; t: number; f: TravFrame } | null = null
   private pkHudT = 0
   private pkSecretTaken = false
+  /** the Sword Drill (Antique Estoc, CC0) in the Parkour Yard's north strip */
+  drill: SwordDrill | null = null
   /** QA: the last traversal decision (why a vault / mantle did or did not start) */
   travLog: { kind: string; why: string; at: number } | null = null
   private pendingHide: { g: THREE.Object3D; t: number } | null = null
@@ -280,6 +285,7 @@ export class World implements GameScene {
     this.buildTown(quality)
     window.addEventListener('chad-parkour-cmd', this.onParkourCmd)
     window.addEventListener('keydown', this.onParkourKey)
+    window.addEventListener('chad-sword-cmd', this.onSwordCmd)
     this.camYaw = this.playerYaw + Math.PI
   }
 
@@ -755,6 +761,12 @@ export class World implements GameScene {
     this.seats.forEach((b, i) => add(`bench_${i}`, b.label, b.x + Math.sin(b.ry) * 0.75, b.z + Math.cos(b.ry) * 0.75, 1.1, 'activity'))
     add('rush', 'Play Pumpkin Rush', RUSH_CART.x, RUSH_CART.z + 1.3, 1.5, 'activity')
     add('events', 'Read the Events Board', 6.5, 9.5, 2.5, 'activity')
+    // the Sword Drill rack in the Parkour Yard's north strip (the dummies stand in front of it)
+    this.drill = new SwordDrill(this.scene, { x: -196, z: -15.4, yaw: 0 }, groundHeight, () => this.player, () => this.playerPos, () => this.playerYaw)
+    this.drill.onFinish = (s) => this.events.onSwordFinish?.(s) ?? { xp: 0, best: s.score, newBest: false, coins: 0 }
+    this.drill.onEvent = () => this.emitSword()
+    this.colliders.push(...this.drill.colliders(), { kind: 'box', minX: -196.9, maxX: -195.1, minZ: -15.8, maxZ: -15.0, h: 0.6 })
+    add('sword', 'Take up the Estoc · Sword Drill', -196, -14.2, 1.9, 'activity')
     // the Chad Parkour Yard: a start pad for each course (and the Golden Pumpkin once you find the hidden room)
     for (const c of Object.values(COURSES)) add(`pk:${c.id}`, `Start ${c.name} · ${c.blurb}`, c.start.x, c.start.z, c.start.r, 'activity')
     add('wardrobe', 'Browse the wardrobe stall', -24, 5.0, 1.3, 'info')
@@ -1147,6 +1159,19 @@ export class World implements GameScene {
       }),
     )
   }
+  private onSwordCmd = (e: Event) => {
+    const c = (e as CustomEvent<string>).detail
+    if (c === 'quit') this.drill?.stop()
+    else if (c === 'again') this.drill?.start()
+  }
+  private emitSword() {
+    const d = this.drill
+    window.dispatchEvent(
+      new CustomEvent('chad-sword', {
+        detail: d && d.active ? { state: d.done ? 'done' : 'run', score: d.stats.score, hits: d.stats.hits, swings: d.stats.swings, combo: d.combo, bestCombo: d.stats.bestCombo, left: Math.ceil(d.timeLeft), result: d.result } : { state: 'idle' },
+      }),
+    )
+  }
   /** the save says whether the Golden Pumpkin has been taken */
   setParkour(secretTaken: boolean) {
     this.pkSecretTaken = secretTaken
@@ -1155,6 +1180,10 @@ export class World implements GameScene {
     if (!secretTaken) this.interactables.push({ id: SECRET.id, label: 'Take the Golden Pumpkin', pos: new THREE.Vector3(SECRET.x, 0, SECRET.z), radius: 1.3, kind: 'collect' })
   }
   /** QA */
+  swordState() {
+    const d = this.drill
+    return d ? { active: d.active, done: d.done, score: d.stats.score, hits: d.stats.hits, swings: d.stats.swings, combo: d.combo, bestCombo: d.stats.bestCombo, timeLeft: +d.timeLeft.toFixed(1), result: d.result } : null
+  }
   parkourState() {
     const r = this.pkRun.run
     return {
@@ -1647,7 +1676,7 @@ export class World implements GameScene {
     // interaction prompt
     let best: Interactable | null = null
     let bestD = Infinity
-    if (!this.paused && !this.seat && this.lockT === 0)
+    if (!this.paused && !this.seat && this.lockT === 0 && !this.drill?.active)
       for (const it of this.interactables) {
         const d = Math.hypot(it.pos.x - this.playerPos.x, it.pos.z - this.playerPos.z)
         if (d < it.radius + PLAYER_R && d < bestD) {
@@ -1660,10 +1689,14 @@ export class World implements GameScene {
       this.events.onPrompt(best)
     }
     this.actionCooldown = Math.max(0, this.actionCooldown - dt)
-    if (this.input.takeAction() && this.prompt && !this.paused && this.actionCooldown === 0) {
+    if (this.drill?.active) {
+      // mid-drill the action key is a cut (and the prompts stay out of the way)
+      if (this.input.takeAction() && !this.paused && this.drill.slash()) audio.play('interact')
+    } else if (this.input.takeAction() && this.prompt && !this.paused && this.actionCooldown === 0) {
       audio.play('interact')
       if (this.prompt.id.startsWith('bench_')) this.sit(+this.prompt.id.slice(6))
       if (this.prompt.id.startsWith('pk:')) this.startParkour(this.prompt.id.slice(3) as CourseId)
+      else if (this.prompt.id === 'sword') this.drill?.start()
       else this.events.onInteract(this.prompt.id)
     }
 
@@ -1684,6 +1717,8 @@ export class World implements GameScene {
     audio.setWater(1 - Math.min(1, Math.max(0, (Math.hypot(this.playerPos.x, this.playerPos.z) - 5) / 13)))
     if (!this.paused) this.rush?.update(dt, this.playerPos, groundHeight)
     if (!this.paused) this.updateParkour(dt)
+    if (!this.paused) this.drill?.update(dt)
+    else if (this.drill?.active) this.drill.stop()
     if (!this.paused) this.eventDir?.update(dt, this.playerPos)
     if (!this.paused) this.range?.update(dt)
     let mi = 0
@@ -1857,6 +1892,8 @@ export class World implements GameScene {
     this.disposed = true
     window.removeEventListener('chad-parkour-cmd', this.onParkourCmd)
     window.removeEventListener('keydown', this.onParkourKey)
+    window.removeEventListener('chad-sword-cmd', this.onSwordCmd)
+    this.drill?.dispose()
     this.pet?.dispose()
     this.estate?.dispose()
     this.rush?.dispose()

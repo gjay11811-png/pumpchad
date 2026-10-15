@@ -58,8 +58,14 @@ Source: Poly Haven, CC0 (licence page verified; attribution not required, credit
 | Lakeside mansion | https://sketchfab.com/3d-models/lakeside-mansion-d6c5158e0eb14915a3e9ed356f889fd9 | **CC BY 4.0** (credit the author on the page) | ~1.23 M faces (far too heavy for web/phone without heavy decimation) | `isDownloadable: true`, but the archive endpoint needs a signed-in Sketchfab session — **BLOCKED here** (anonymous requests return an empty archive list) |
 | Realistic sports car | https://sketchfab.com/3d-models/realistic-sports-car-df14049903224e5b892c53be1bdd6ae7 | **CC BY 4.0** | ~762 K faces (heavy) | same: needs Jay's login |
 | Pistol 9mm semi-auto | https://sketchfab.com/3d-models/pistol-9mm-semi-auto-7d363c3cf2f74a9a9fb0cab9874898eb | **CC BY 4.0** | ~18 K faces (light, suitable) | same: needs Jay's login |
-| Antique Estoc (sword) | https://polyhaven.com/a/antique_estoc | **CC0** | ~8 K tris, 1K glTF textures | not blocked — **not downloaded yet** (kept for the sword activity; downloads from `https://api.polyhaven.com/files/antique_estoc`) |
+| Antique Estoc (sword) | https://polyhaven.com/a/antique_estoc | **CC0** | ~8 K tris, 1K glTF textures | **DOWNLOADED + IN USE** (2026-10-15): glTF 1K pack in `C:/Users/zafe5/Downloads/pumpchad-assets/estoc/`; baked to `public/chadverse/models/estoc.glb` (8,246 triangles, 312 KB, 512 px WebP diffuse + normal, ARM map dropped to metal/rough constants) by gltf-transform in a scratch folder. Used by the Sword Drill (`minigames/swordDrill.ts`). |
 
 **Manual download steps (Jay, ~2 minutes, no purchase):** sign in to Sketchfab → open each link → *Download 3D model* → choose **glTF** (the auto-converted `.zip`) → save the zip into `C:/Users/zafe5/Downloads/pumpchad-assets/sketchfab/<name>.zip` and tell me. I then unzip into a fresh folder, check geometry (faces, scale, materials), decimate + compress the mansion and car to a phone budget (gltf-transform + meshopt, target well under 60 K tris and 2 MB each), and record the author credit in `CREDITS.md` (CC BY requires it). Until then nothing from these three is used: the mansion, cars and pistol remain our own procedural models.
 
 (Superseded: the mansion, car, pistol and sword links arrived in a later message and are recorded in the table above. The Antique Estoc (CC0) remains the only weapon asset that can be fetched without a login.)
+
+
+## Weapons in the game (2026-10-15)
+
+* **Sword Drill** — Antique Estoc (Poly Haven, CC0, James Ray Cock + Ulan Cabanilla) in the Parkour Yard's north strip: three straw dummies, 30 s, cuts with the action key, combo for hitting different dummies, local personal best.
+* **Pistol Range** — the second weapon on the Pumpkin Toss range. The pistol is our own procedural model (slide, barrel, grip, sights; no third-party asset), held in the right hand with the arm IK following the aim. The supplied Sketchfab 9mm (CC BY 4.0, ~18 K faces) is still **blocked behind a login**; once downloaded it can replace the procedural model.

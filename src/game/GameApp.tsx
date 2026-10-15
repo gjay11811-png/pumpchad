@@ -27,6 +27,7 @@ import { RushPanel, type RushResult } from './ui/RushPanel'
 import { EventPanel, type EventResult } from './ui/EventPanel'
 import { TargetPanel, type TossResult } from './ui/TargetPanel'
 import { WEAPONS, type Weapon } from './minigames/targetThrow'
+import { drillXp, type DrillResult, type DrillStats } from './minigames/swordDrill'
 import { tossXp, type TossStats } from './minigames/targetThrow'
 import { ALL_EVENT_IDS, EVENT_DEFS, EVENT_IDS, type EventId, type EventStats } from './minigames/events'
 import { rushXp, type RushStats } from './minigames/pumpkinRush'
@@ -223,6 +224,7 @@ export function GameApp() {
   const handleInteractRef = useRef<(id: string) => void>(() => {})
   /** Discover Chad Village: one step found (zone reached or place inspected) → toast + City Explorer at 5/5 */
   const cityStepRef = useRef<(id: string) => void>(() => {})
+  const finishSwordRef = useRef<(s: DrillStats) => DrillResult>(() => ({ xp: 0, best: 0, newBest: false, coins: 0 }))
   const finishParkourRef = useRef<(id: CourseId, ms: number, falls: number) => RunResult>(() => ({ ms: 0, falls: 0, medal: 0, coins: 0, newBest: false, best: 0, xp: 0 }))
   cityStepRef.current = (id: string) => {
     if (saveRef.current.progress.discoveries.includes(id)) return
@@ -283,7 +285,7 @@ export function GameApp() {
       audio.setAmbience('menu')
     } else if (next === 'world' && app) {
       showroom.current = null
-      const w = new World(e, input.current!, { onPrompt: setPrompt, onInteract: (id) => handleInteractRef.current(id), onDiscover: (id) => cityStepRef.current(id), onParkourFinish: (id, ms, falls) => finishParkourRef.current(id, ms, falls) }, saveRef.current.settings.quality)
+      const w = new World(e, input.current!, { onPrompt: setPrompt, onInteract: (id) => handleInteractRef.current(id), onDiscover: (id) => cityStepRef.current(id), onParkourFinish: (id, ms, falls) => finishParkourRef.current(id, ms, falls), onSwordFinish: (s) => finishSwordRef.current(s) }, saveRef.current.settings.quality)
       w.cameraSensitivity = saveRef.current.settings.cameraSensitivity
       // load + compile behind the portal overlay; the previous scene keeps rendering until the swap
       await w.populate(app, opts.spawn ?? 'start', saveRef.current.progress.discoveries)
@@ -859,6 +861,19 @@ export function GameApp() {
     return { xp: r.xp, mult: r.mult, wins: (p0.records[key] ?? 0) + (st.won ? 1 : 0), best }
   }
 
+  /** a finished Sword Drill round: XP (a little each round, daily fatigue like the other activities), personal best, achievement */
+  finishSwordRef.current = (st: DrillStats): DrillResult => {
+    const p0 = saveRef.current.progress
+    const r = setRewards(drillXp(st.score), 0, rollDaily(p0.daily).sets.sword_drill ?? 0)
+    const prev = p0.records.sword_drill ?? 0
+    setSave((s) => {
+      const d = rollDaily(s.progress.daily)
+      return { ...s, progress: { ...s.progress, xp: s.progress.xp + r.xp, records: { ...s.progress.records, sword_drill: Math.max(s.progress.records.sword_drill ?? 0, st.score) }, daily: { day: d.day, sets: { ...d.sets, sword_drill: (d.sets.sword_drill ?? 0) + 1 } } } }
+    })
+    if (st.score >= 150) unlock('sword_drill')
+    return { xp: r.xp, best: Math.max(prev, st.score), newBest: st.score > prev, coins: 0 }
+  }
+
   /** a finished parkour run: the personal best (lowest ms), coins for the clear and each NEW medal tier, XP (a quarter on repeats), achievements */
   finishParkourRef.current = (id: CourseId, ms: number, falls: number): RunResult => {
     const c = COURSES[id]
@@ -945,6 +960,7 @@ export function GameApp() {
       world: () => world.current?.debug() ?? null,
       teleport: (x: number, z: number, yaw?: number, y?: number) => world.current?.teleport(x, z, yaw, y),
       parkour: () => world.current?.parkourState() ?? null,
+      sword: () => world.current?.swordState() ?? null,
       shotCam: (o: Parameters<World['setShotCam']>[0]) => world.current?.setShotCam(o),
       stats: () => engine.current?.stats,
       gfxLog: () => engine.current?.gfxLog() ?? [],

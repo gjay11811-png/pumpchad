@@ -20,3 +20,5 @@ Free Demon Character (GameAssetsFin). If used later they must be credited by nam
 
 ## Poly Haven (CC0)
 Leaf and bark texture detail derived from the "Jacaranda Tree" textures by Rico Cilliers (with Rob Tuytel, guidance) — https://polyhaven.com/a/jacaranda_tree — CC0, credit appreciated.
+
+- Antique Estoc (sword) — Poly Haven, CC0 (modelling Ulan Cabanilla, texturing James Ray Cock). https://polyhaven.com/a/antique_estoc
