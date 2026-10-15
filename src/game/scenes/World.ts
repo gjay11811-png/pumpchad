@@ -716,7 +716,7 @@ export class World implements GameScene {
     add('yard', 'Read the yard board', 17.4, 12.9, 1.3, 'info')
     add('well', 'Toss a coin in the wishing well', -29.4, 2.5, 1.7, 'activity')
     add('window', 'Peer through the window', 16.6, -19.5, 1.8, 'info')
-    add('arcade', 'Pump Arcade — opening soon', ARCADE.x - 7.2, ARCADE.z, 2.0, 'info')
+    add('arcade', 'Pump Arcade — opening soon', ARCADE.x - 2.4, ARCADE.z, 2.4, 'info')
     add('rune', 'Press the strange rune', -23.6, -25.5, 1.6, 'secret')
     add('pumpkin', 'Poke the suspicious pumpkin', -9.6, 10.4, 2.1, 'info')
     this.seats.forEach((b, i) => add(`bench_${i}`, b.label, b.x + Math.sin(b.ry) * 0.75, b.z + Math.cos(b.ry) * 0.75, 1.1, 'activity'))

@@ -167,9 +167,11 @@ export function eastside(T: Town, stoneTex: THREE.Texture) {
   /* ═════════ PUMP ARCADE ═════════ */
   {
     const W = 17 // along the facade (world z)
-    const Dd = 10.5
-    const H = 8.2
-    const F = Frame.at(T.batch, ARCADE.x, 0, ARCADE.z, -Math.PI / 2) // faces west down the street
+    // a shallower building set back to the district's east edge: the street ends in a real forecourt instead of running into the facade
+    const Dd = 7
+    const H = 9.4
+    const AX = ARCADE.x + 1.75 // centre of the building (its east wall stays where it was)
+    const F = Frame.at(T.batch, AX, 0, ARCADE.z, -Math.PI / 2) // faces west down the street
     const fz = Dd / 2
     const panelDark = std({ color: '#2a2036', roughness: 0.55, metalness: 0.3 })
     const purpleTrim = std({ color: '#7a4ad8', roughness: 0.4, metalness: 0.4 })
@@ -248,8 +250,32 @@ export function eastside(T: Town, stoneTex: THREE.Texture) {
     const B = F.sub(W / 2 - 0.4, 5.2, fz + 0.9, 0, Math.PI / 2, 0)
     framedBoard(B, 1.5, 3.4, blade, SM, true, 0.12)
     for (const y of [-1.2, 1.2]) F.box(0.08, 0.08, 0.8, darkMetal, W / 2 - 0.4, 5.2 + y, fz + 0.45)
-    T.colliders.push({ kind: 'box', minX: ARCADE.x - Dd / 2, maxX: ARCADE.x + Dd / 2 + 0.3, minZ: ARCADE.z - W / 2, maxZ: ARCADE.z + W / 2, h: H })
-    // the arcade forecourt: paving with a purple/orange inlay and two benches
-    for (const [w, c] of [[4.4, P.glowOrange], [4.0, purpleTrim]] as const) T.batch.put(new THREE.RingGeometry(w - 0.12, w, 48).rotateX(-Math.PI / 2), c, ARCADE.x - Dd / 2 - 4.5, 0.03, ARCADE.z, 0, 1, 1, 1, { cast: false })
+    T.colliders.push({ kind: 'box', minX: AX - Dd / 2, maxX: AX + Dd / 2 + 0.3, minZ: ARCADE.z - W / 2, maxZ: ARCADE.z + W / 2, h: H })
+    // the arcade forecourt: a paved plaza with a purple/orange inlay, lit bollards, planters and two pylon signs flanking the facade
+    for (const [w, c] of [[3.4, P.glowOrange], [3.0, purpleTrim]] as const) T.batch.put(new THREE.RingGeometry(w - 0.12, w, 48).rotateX(-Math.PI / 2), c, AX - Dd / 2 - 3.6, 0.03, ARCADE.z, 0, 1, 1, 1, { cast: false })
+    T.batch.put(new THREE.CircleGeometry(2.9, 40).rotateX(-Math.PI / 2), P.stoneLight, AX - Dd / 2 - 3.6, 0.028, ARCADE.z, 0, 1, 1, 1, { cast: false })
+    {
+      const x0 = ARCADE.x - 5.4
+      const x1 = AX - Dd / 2 + 0.2
+      const pg = new THREE.PlaneGeometry(x1 - x0, 9).rotateX(-Math.PI / 2)
+      const pu = pg.attributes.uv as THREE.BufferAttribute
+      for (let i = 0; i < pu.count; i++) pu.setXY(i, (pu.getX(i) * (x1 - x0)) / 3, (pu.getY(i) * 9) / 3)
+      T.batch.put(pg, P.cobble, (x0 + x1) / 2, 0.025, ARCADE.z, 0, 1, 1, 1, { cast: false }) // the street runs on into the forecourt, wider than the street itself
+    }
+    // two tall neon pylons give the landmark a silhouette that reads from down the street
+    for (const sx of [-1, 1]) {
+      const px = sx * (W / 2 + 0.2)
+      F.box(0.7, 13.2, 0.7, panelDark, px, 6.6, fz + 0.4)
+      F.box(0.5, 11.4, 0.08, P.glowOrange, px, 6.5, fz + 0.78, false)
+      for (const y of [4, 7.5, 11]) F.put(new THREE.TorusGeometry(0.62, 0.06, 6, 20), neonLetters, px, y, fz + 0.8)
+      F.put(new THREE.ConeGeometry(0.5, 1.4, 4).rotateY(Math.PI / 4), P.gold, px, 13.9, fz + 0.4)
+      T.colliders.push({ kind: 'box', minX: AX - fz - 0.9, maxX: AX - fz + 0.1, minZ: ARCADE.z + px - 0.45, maxZ: ARCADE.z + px + 0.45, h: 13 })
+    }
+    for (const dz of [-2.4, 0, 2.4]) {
+      const bx = AX - Dd / 2 - 7
+      T.batch.put(new THREE.CylinderGeometry(0.11, 0.13, 0.8, 10), darkMetal, bx, 0.4, ARCADE.z + dz)
+      T.batch.put(new THREE.CylinderGeometry(0.115, 0.115, 0.05, 10), P.glowOrange, bx, 0.76, ARCADE.z + dz, 0, 1, 1, 1, { cast: false })
+      T.colliders.push({ kind: 'circle', x: bx, z: ARCADE.z + dz, r: 0.14, h: 0.8 })
+    }
   }
 }
