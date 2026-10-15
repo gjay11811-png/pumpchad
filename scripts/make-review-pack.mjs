@@ -11,7 +11,7 @@ mkdirSync(join(OUT, 'images'), { recursive: true })
 // [section, status, caption, file]
 const ITEMS = [
   ['Housing — Chadville Heights', 'before', 'Before: the four original plots (A–D) and the estate lane', 'wall2-estates-aerial.jpg'],
-  ['Housing — Chadville Heights', 'awaiting visual review', 'After: plan view — 48 new plots H01–H48 in four rows either side of two lanes, plus A–D, and the parkour yard at the top-left', 'hs2-heights-plan.jpg'],
+  ['Housing — Chadville Heights', 'awaiting visual review', 'After, in daylight: the district from the south-east — four rows of plots either side of two lanes, show homes by the entrance, the parkour yard at the far end', 'day2-heights-aerial.jpg'],
   ['Housing — Chadville Heights', 'awaiting visual review', 'Show homes seen from the lane: the Premium, the Contemporary and the Cottage', 'hs2-show-homes.jpg'],
   ['Housing — Chadville Heights', 'awaiting visual review', 'Show-home cottage interior: hearth, sofa, kitchen corner, sleeping nook', 'showhome-cottage-1.jpg'],
   ['Housing — Chadville Heights', 'awaiting visual review', 'Show-home premium interior: drawing room, dining, library, loft bedrooms', 'showhome-premium-1.jpg'],
@@ -37,7 +37,6 @@ const ITEMS = [
   ['Lanterns (L01 gaslight post · L02 crook · L03 pillar) — demo only', 'awaiting your approval', 'Daylight', 'lantern-afternoon-lantern-demo.jpg'],
   ['Lanterns (L01 gaslight post · L02 crook · L03 pillar) — demo only', 'awaiting your approval', 'Night', 'lantern-night-lantern-demo.jpg'],
   ['Arcade', 'awaiting visual review', 'Forecourt: the end shops stepped back, lawns either side', 'ar2-arcade-high.jpg'],
-  ['Gym', 'awaiting visual review', 'Interior with the new mirror panels', 'teaser-left-wide.png'],
   ['Weapons', 'functionally checked', 'Pistol Range: arm aimed with the pistol', 'pistol-side-near.jpg'],
   ['Weapons', 'functionally checked', 'Sword Drill: the Antique Estoc (CC0)', 'sword-cut-side.jpg'],
   ['Haunted Quarter', 'awaiting visual review', 'Quarter square (before the Victorian detailing pass)', 'hq1-hq-square.jpg'],
