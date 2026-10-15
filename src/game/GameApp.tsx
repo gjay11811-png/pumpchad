@@ -945,6 +945,9 @@ export function GameApp() {
       parkour: () => world.current?.parkourState() ?? null,
       shotCam: (o: Parameters<World['setShotCam']>[0]) => world.current?.setShotCam(o),
       stats: () => engine.current?.stats,
+      gfxLog: () => engine.current?.gfxLog() ?? [],
+      triBreakdown: (n?: number) => world.current?.triBreakdown(n) ?? null,
+      loseContext: () => engine.current?.canvasLoseContext(),
       integrity: () => world.current?.integrity() ?? null,
       playerInspect: () => (world.current?.player as unknown as { inspect?: () => unknown } | null)?.inspect?.() ?? null,
       gymInspect: () => (gym.current?.player as unknown as { inspect?: () => unknown } | null)?.inspect?.() ?? null,
@@ -1335,7 +1338,7 @@ export function GameApp() {
             <div className="absolute inset-0 z-[70] flex items-center justify-center bg-ink/85 p-6" role="alertdialog" aria-label="Graphics reset" data-testid="gfx-lost">
               <div className="panel max-w-md rounded-[24px] p-6 text-center">
                 <p className="font-display text-3xl uppercase">The graphics took a nap</p>
-                <p className="mt-3 text-[15px] text-bone/70">Your device ran low on graphics memory. Your progress is saved — reload to jump back in.</p>
+                <p className="mt-3 text-[15px] text-bone/70">The browser took the graphics back (usually the device ran short of graphics memory, or the tab sat in the background). Your progress is saved — reload to jump back in.</p>
                 <button type="button" onClick={() => location.reload()} className="btn-primary mt-5 inline-flex min-h-12 items-center rounded-full px-6 font-semibold uppercase tracking-wider">
                   Reload
                 </button>

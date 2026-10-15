@@ -1750,6 +1750,28 @@ export class World implements GameScene {
       npcs: this.crowd.live.length,
     }
   }
+  /** QA: the heaviest meshes in the scene (triangles × instances), to find what costs the frame */
+  triBreakdown(top = 14) {
+    const rows: { tris: number; inst: number; geo: string; at: number[]; mat: string; lod: boolean }[] = []
+    let total = 0
+    const v = new THREE.Vector3()
+    this.scene.traverse((o) => {
+      const m = o as THREE.Mesh & { isInstancedMesh?: boolean; count?: number }
+      if (!m.isMesh || !m.geometry) return
+      let vis = true
+      for (let n: THREE.Object3D | null = o; n; n = n.parent) if (!n.visible) vis = false
+      if (!vis) return
+      const g = m.geometry
+      const per = (g.index ? g.index.count : g.attributes.position.count) / 3
+      const inst = m.isInstancedMesh ? m.count ?? 1 : 1
+      const t = per * inst
+      total += t
+      m.getWorldPosition(v)
+      rows.push({ tris: Math.round(t), inst, geo: g.type, at: [Math.round(v.x), Math.round(v.y), Math.round(v.z)], mat: (m.material as THREE.Material)?.type ?? '?', lod: !!(o.parent && (o.parent as THREE.LOD).isLOD) })
+    })
+    rows.sort((a, b) => b.tris - a.tris)
+    return { total: Math.round(total), meshes: rows.length, top: rows.slice(0, top) }
+  }
   /** QA: is the player or the camera inside any solid building volume right now? */
   integrity() {
     const inside = (x: number, z: number, y: number, pad: number) =>

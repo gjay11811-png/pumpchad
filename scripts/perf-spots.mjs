@@ -19,6 +19,7 @@ for (const [name, [x, z, yaw]] of Object.entries(SPOTS)) {
   for (let i = 0; i < 4; i++) { s.push(await p.evaluate(() => window.__chadverse.stats())); await p.waitForTimeout(700) }
   const f = s.map((r) => r.fps ?? r[0]?.fps)
   const last = s[s.length - 1]
-  console.log(name.padEnd(15), JSON.stringify(last).slice(0, 220))
+  const wd = await p.evaluate(() => window.__chadverse.world())
+  console.log(name.padEnd(15), JSON.stringify(last).slice(0, 150), `calls=${wd.calls} tris=${wd.triangles}`)
 }
 await b.close()

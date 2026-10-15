@@ -102,11 +102,61 @@ export class Engine {
   private onLost = (e: Event) => {
     e.preventDefault() // lets the browser try to restore it
     console.error('[chadverse] WebGL context lost') // always visible: a real failure, not a warning
+    this.recordGfxEvent('lost')
     this.onContextLost?.()
+  }
+  /**
+   * EVIDENCE for "the graphics took a nap": every loss / restore is written (last 12) to localStorage `chadverse.gfxlog` with what the GPU was
+   * holding at that moment, so a real phone can be asked for the log instead of guessing. `window.__chadverse.gfxLog()` returns it.
+   */
+  private recordGfxEvent(kind: 'lost' | 'restored') {
+    try {
+      const gl = this.renderer.getContext()
+      const mem = (performance as unknown as { memory?: { usedJSHeapSize: number; jsHeapSizeLimit: number } }).memory
+      const nav = navigator as unknown as { deviceMemory?: number }
+      const entry = {
+        kind,
+        at: new Date().toISOString(),
+        sinceLoadS: Math.round(performance.now() / 1000),
+        hidden: document.hidden,
+        quality: this.quality,
+        dpr: this.renderer.getPixelRatio(),
+        canvas: [this.canvas.width, this.canvas.height],
+        geometries: this.renderer.info.memory.geometries,
+        textures: this.renderer.info.memory.textures,
+        programs: this.renderer.info.programs?.length ?? 0,
+        triangles: this.renderer.info.render.triangles,
+        heapMB: mem ? Math.round(mem.usedJSHeapSize / 1048576) : null,
+        heapLimitMB: mem ? Math.round(mem.jsHeapSizeLimit / 1048576) : null,
+        deviceMemoryGB: nav.deviceMemory ?? null,
+        maxTexture: gl.getParameter(gl.MAX_TEXTURE_SIZE),
+        ua: navigator.userAgent.slice(0, 120),
+      }
+      const raw = localStorage.getItem('chadverse.gfxlog')
+      const log = raw ? (JSON.parse(raw) as unknown[]) : []
+      log.push(entry)
+      localStorage.setItem('chadverse.gfxlog', JSON.stringify(log.slice(-12)))
+    } catch {
+      /* storage / context unavailable: the console line above still exists */
+    }
+  }
+  /** QA: force a context loss through the standard extension (the same event a phone's browser raises) */
+  canvasLoseContext() {
+    const ext = this.renderer.getContext().getExtension('WEBGL_lose_context')
+    ext?.loseContext()
+    setTimeout(() => ext?.restoreContext(), 400)
+  }
+  gfxLog(): unknown[] {
+    try {
+      return JSON.parse(localStorage.getItem('chadverse.gfxlog') ?? '[]')
+    } catch {
+      return []
+    }
   }
   private onRestored = () => {
     // three.js re-uploads its state; the post-processing targets are ours to rebuild
     try {
+      this.recordGfxEvent('restored')
       this.buildComposer()
       this.onContextRestored?.()
     } catch (err) {
