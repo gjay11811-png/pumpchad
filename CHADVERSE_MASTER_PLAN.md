@@ -197,3 +197,32 @@ Valley road: 727 m, drop 52 m, ~7.2 % grade; walking 5.5 min, jogging 140 s, spr
 **Remaining / deferred (tracked, not removed):** vehicle racing (after reliable driving); remaining activities (escape rooms, parkour, maze, dungeon, farming, treasure hunts); Castle chapter 3 + Castle District interiors; hamlet cottage interiors; Downtown / Southshore / Mill Row shop interiors; workshop interior; waterfall; remaining restoration, Festival Grounds, collection and housing features; accessibility, audio, save export/import, performance. **BLOCKED until a backend exists:** accounts, multiplayer, trading, online leaderboards, shared events (events here are explicitly single-player).
 
 **Regression run for this build (simulated desktop/emulated-phone browser, headless software GL):** launch-test, events-test (incl. Escape-cleanup loop), ghost-test, toss-test, trial-walk (sprint), mobile-activities-test, mobile-input-test, valley-test and stairs-test (`?expansion=open`, i.e. the preserved expansion) all pass; rush-test passes alone (30/30) but timed out once when the machine was under memory pressure during a concurrent compile — treat as a resource flake, not a fix. Not run this stage: the full e2e (known context-loss at check 16 on low memory) and real-device checks. Review evidence: `Desktop\Chadverse-Overnight-Review\launch-*.jpg` (earlier `final-*`, `night*` captures preserved).
+
+## WALKTHROUGH FIXES, REALISTIC ASSETS AND GAMEPLAY UPGRADE — tracker (started 2026-10-15)
+
+FIRST RELEASE: Chad Village and its available surrounding activities. FUTURE EXPANSION: Chad City, the valley, mansion and mountain castle (closed in the public launch configuration; `?expansion=open` = controlled local review). Nothing pushed or deployed. Statuses: COMPLETE / PARTIAL / MISSING / BLOCKED (walkthrough items are *observed issues to investigate*, not assumed fixed by earlier automated checks).
+
+| # | Requirement | Phase | Status | Notes |
+|---|---|---|---|---|
+| 1 | Selective inspection of the current build | 1 | PARTIAL | done per item below; no full audit |
+| 2 | Better assets, consistent style; licence + attribution record (`ASSETS.md`); runtime assets stored with the project; shared-resource ownership kept | 2 | MISSING | candidates: Poly Haven (CC0), cjmitchell lakeside mansion, sports car, pistol, Antique Estoc — source/licence/availability to be verified before use; nothing purchased |
+| 3 | Realistic trees and bushes (trunks, branching, layered canopy, species variety, alpha-tested foliage, LOD, terrain contact) across the launch area incl. Haunted Forest | 2 | MISSING | current: lumpy-crown geometry (`treegeo.ts`) + foliage.ts |
+| 4 | PumpChad head fix (mobile + rear), identity preserved, other characters rechecked | 1 | MISSING | investigate geometry vs scaling vs LOD vs projection vs viewport |
+| 5 | Garage / workshop rebuild; cars; lifts; tyres; reposition if impractical; bikes kept, no bicycles; driving + purchases stay unavailable | 2 | MISSING | |
+| 6 | Pump Gym exterior (interior preserved) | 2 | MISSING | |
+| 7 | Pump Arcade as a standalone landmark | 2 | MISSING | plan relocation before modifying |
+| 8 | Pets: species models, faces, animation, ground contact, shop presentation; behaviour through doors/activities/reload | 2 | MISSING | |
+| 9 | Haunted Quarter architecture | 3 | MISSING | |
+| 10 | Expanded Haunted Forest + quest mystery; boundary kept closed to the valley | 3 | MISSING | |
+| 11 | Sign fixes (post through text, orientation, contrast, housing signs) | 1 | MISSING | |
+| 12 | Real-phone landscape panels (compact HUD, Challenges button, scrolling panel, reachable Start/Close, safe areas) | 1 | PARTIAL | activity cards fixed in emulation last stage; the Challenges panel + HUD still to rework; real-phone check outstanding |
+| 13 | Height-aware jumping, landing on surfaces, takeoff/air/landing animation, vault/mantle; release boundary stays separate | 1 | MISSING | |
+| 14 | Starter-map parkour area + rooftop/ledge routes | 3 | MISSING | |
+| 15 | ~50 Chadville plots, stable ids, safe migration, LOD | 3 | MISSING | |
+| 16 | One gun + one sword, shooting range, haunted combat activity | 4 | MISSING | no PvP, no networking |
+| 17 | Rewards through existing XP/coins/achievements/cosmetics/trophies | 4 | MISSING | |
+| 18 | Perimeter walls on slopes; distant Chad City skyline from the overlook | 1 / 5 | MISSING | |
+| 19 | Mooncrest Manor facade/courtyard/cars (expansion) | 5 | MISSING | |
+| 20 | Castle parkour route (expansion) | 5 | MISSING | |
+| 21 | Whole existing gameplay plan retained | — | tracked | see launch tracker above; BLOCKED backend items unchanged |
+| 22–24 | Staged delivery, performance, evidence | — | ongoing | |
