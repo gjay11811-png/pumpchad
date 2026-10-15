@@ -65,12 +65,14 @@ import { inValley, lakeR } from './world/city'
 import { CASTLE_AT, castleGround } from './world/mountain'
 import { VALLEY_Y, descentGround } from './world/descent'
 import { inFrame } from './world/frame'
-import { valleyGround } from './world/valley'
+import { VALLEY_DISCOVERIES, valleyGround } from './world/valley'
 import { castleRoad } from './world/mountainRoad'
 import { summitCastle } from './world/summitCastle'
 import { downtown } from './world/downtown'
 import { descentRoad } from './world/descentRoad'
-import { valleyLake } from './world/valleyLake'
+import { LAKE_PIER, valleyLake } from './world/valleyLake'
+import { hamlet, watchtower, woodland } from './world/hamlet'
+import { manor } from './world/manor'
 import { MILL_LAMPS, SOUTHSHORE_LAMPS, southshore } from './world/southshore'
 import { LANTERNS, SIGIL, guardianLanterns, type GuardianLanterns } from './world/lanterns'
 import { ESTATE_LAMPS, EstateView, estatesDistrict } from './world/estates'
@@ -110,6 +112,11 @@ const ZONES: { id: string; inside: (x: number, z: number) => boolean }[] = [
   { id: 'visit_castle', inside: (x, z) => Math.hypot(x + 110, z - 272) < 25 },
   { id: 'visit_southshore', inside: (x, z) => x > 66 && z > 74 },
   { id: 'visit_millrow', inside: (x, z) => x < -12 && z > 78 },
+  { id: 'visit_hamlet', inside: (x, z) => x > -52 && x < -5 && z > 196 && z < 236 },
+  { id: 'visit_watchtower', inside: (x, z) => Math.hypot(x - 96, z - 262) < 8 },
+  { id: 'visit_landing', inside: (x, z) => x > 49 && x < 80 && z > 418 && z < 454 },
+  { id: 'visit_bridge', inside: (x, z) => x > 2 && x < 44 && Math.abs(z - 415) < 4 },
+  { id: 'visit_manor', inside: (x, z) => Math.hypot(x - 142, z - 516) < 30 },
   { id: 'visit_estates', inside: (x, z) => x < -30 && x > -66 && z > 44 },
 ]
 
@@ -362,6 +369,10 @@ export class World implements GameScene {
     descentRoad(T, q)
     const valleySeats: BenchSpot[] = []
     valleyLake(T, wn, q, valleySeats, tex.stone)
+    woodland(T, q)
+    hamlet(T, q, tex.stone, valleySeats)
+    watchtower(T)
+    manor(T, q, tex.stone, valleySeats)
     this.seats.push(...valleySeats)
     squareExtras(T, SM.trim)
     // street trees + bushes for the south + east districts
@@ -619,6 +630,9 @@ export class World implements GameScene {
     add('statue', 'Read the fountain plaque', 0, 6.7, 1.6, 'info')
     // Moonlight Lake: fishing off the end of the pier
     add('fishing', 'Fish off the pier', 98, 33.2, 1.6, 'activity')
+    // Moonmere: fishing off the landing's pier, and the small finds on the way down
+    add('fishing_landing', 'Fish off the lakeside pier', LAKE_PIER.x + 0.7, LAKE_PIER.z, 1.9, 'activity')
+    for (const d of VALLEY_DISCOVERIES) add(`disc:${d.id}`, d.name, d.x, d.z, 1.9, 'info')
     add('gate', 'Knock on the citadel doors', 0, -28.2, 1.8, 'info')
     add('gym', 'Enter Pump Gym', 14.4, -4, 2.2, 'activity')
     // every village home + Arcade Street shop: its front door opens into its own interior

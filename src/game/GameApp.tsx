@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { castleRoadWorld } from './scenes/world/mountain'
+import { VALLEY_DISCOVERIES } from './scenes/world/valley'
 import { objectiveTarget } from './atlas'
 import { DESCENT } from './scenes/world/descent'
 import { AnimatePresence, LazyMotion, MotionConfig, domAnimation } from 'framer-motion'
@@ -388,7 +389,19 @@ export function GameApp() {
       w.questSync(saveRef.current.progress.discoveries)
       return void setDialogue(QUEST2_STONE)
     }
+    if (id.startsWith('disc:')) {
+      // the small finds between the big places (shrine, hidden garden, stream crossing, buried treasure): +XP once, then just the story
+      const d = VALLEY_DISCOVERIES.find((x) => `disc:${x.id}` === id)
+      if (!d) return
+      if (!qd.includes(d.disc)) {
+        discover(d.disc)
+        setSave((sv) => ({ ...sv, progress: { ...sv.progress, xp: sv.progress.xp + d.xp } }))
+        notify(`Discovered: ${d.speaker}`, `+${d.xp} XP · ${d.role}`, 'discover')
+      }
+      return void setDialogue({ speaker: d.speaker, role: d.role, lines: d.lines })
+    }
     switch (id) {
+      case 'fishing_landing':
       case 'fishing':
         input.current?.clear()
         setOverlay('fishing')

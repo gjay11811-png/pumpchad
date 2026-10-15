@@ -1,5 +1,6 @@
 import { SUMMIT_WORLD, castleRoadWorld } from '../scenes/world/mountain'
 import { DESCENT } from '../scenes/world/descent'
+import { MANOR_PAD, inLakeWater } from '../scenes/world/valley'
 import { useMemo, useState } from 'react'
 import { LANDMARKS, canTravel, journal, objectiveTarget, type Landmark, type MapKind } from '../atlas'
 import type { SaveData } from '../save'
@@ -9,7 +10,23 @@ import { Btn, Segmented } from './kit'
 import { Header, Overlay, useEsc } from './Menus'
 
 /** world bounds drawn by the map (x right = east, z down = south, so north is up) */
-const VB = { x: -150, z: -100, w: 300, h: 590 }
+/** the lake as rows of 4 m cells (built once): [x, z, width] runs where the water is */
+const LAKE_RUNS: [number, number, number][] = (() => {
+  const out: [number, number, number][] = []
+  for (let z = 360; z < 620; z += 4) {
+    let x0: number | null = null
+    for (let x = -110; x <= 150; x += 4) {
+      const w = inLakeWater(x + 2, z + 2)
+      if (w && x0 === null) x0 = x
+      if ((!w || x === 150) && x0 !== null) {
+        out.push([x0, z, x - x0])
+        x0 = null
+      }
+    }
+  }
+  return out
+})()
+const VB = { x: -150, z: -100, w: 320, h: 720 }
 const KIND_COLOR: Record<MapKind, string> = { place: '#e9e4da', shop: '#ffd25a', quest: '#ff9a3c' }
 
 /**
@@ -77,6 +94,13 @@ export function MapJournal({
               <ellipse cx={LAKE.x} cy={LAKE.z} rx={LAKE.rx} ry={LAKE.rz} fill="#1e4a6e" />
               <rect x={PIER.x0} y={PIER.head.z0} width={PIER.x1 - PIER.x0} height={PIER.z1 - PIER.head.z0} fill="#8a6040" />
               <rect x={PIER.head.x0} y={PIER.head.z0} width={PIER.head.x1 - PIER.head.x0} height={PIER.head.z1 - PIER.head.z0} fill="#8a6040" />
+              {/* Moonmere (the lake in the valley basin) and Mooncrest Manor's hillside terrace */}
+              <g fill="#1e4a6e">
+                {LAKE_RUNS.map((r, i) => (
+                  <rect key={i} x={r[0]} y={r[1]} width={r[2]} height={4} />
+                ))}
+              </g>
+              <circle cx={MANOR_PAD.x} cy={MANOR_PAD.z} r={MANOR_PAD.r} fill="#3a4a3a" opacity={0.7} />
               {/* the valley road down to Chad City, and the Castle Road up the mountain beyond it */}
               <polyline points={DESCENT.pts.map((p) => `${p.x},${p.z}`).join(' ')} fill="none" stroke="#b9a98c" strokeWidth={6} strokeLinejoin="round" opacity={0.85} />
               <polyline points={castleRoadWorld().map((p) => `${p.x},${p.z}`).join(' ')} fill="none" stroke="#b9a98c" strokeWidth={5.2} strokeLinejoin="round" opacity={0.85} />

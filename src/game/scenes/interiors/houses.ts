@@ -7,6 +7,7 @@ import * as Fu from './furniture'
 import type { Kit } from './furniture'
 import { HAUNTED_INTERIORS } from './haunted'
 import { SHOP_INTERIORS } from './shops'
+import { VALLEY_INTERIORS } from './valleyInteriors'
 import type { VillagerLook } from '../../character/villager'
 
 /**
@@ -667,6 +668,8 @@ export const HOUSES: HouseSpec[] = [
 HOUSES.push(...HAUNTED_INTERIORS)
 // Motor Row: Chad Pets + Chad Motors
 HOUSES.push(...SHOP_INTERIORS)
+// the valley's own places: the roadside inn, the old watchtower, Mooncrest Manor
+HOUSES.push(...VALLEY_INTERIORS)
 
 export const HOUSE = (id: string) => HOUSES.find((h) => h.id === id)
 /** your cottage in Chadville Estates: registered (or refreshed) from the save just before you go in */

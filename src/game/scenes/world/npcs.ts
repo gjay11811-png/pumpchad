@@ -45,6 +45,8 @@ export const RESIDENTS: ResidentDef[] = [
   // market traders
   { id: 'grocer', v: V({ body: 'm', cloth: '#e0d0b0', apron: '#e8e0cc', hat: 'cap', hatColor: '#5a3a22', prop: 'basket', skin: -0.7 }), x: -15, z: -2.6, face: 0, minQuality: 'medium' },
   { id: 'tailor', v: V({ body: 'f', cloth: '#f2d4e6', hat: 'bonnet', hatColor: '#efe4f2', hair: 'buns', hairColor: '#c8a070', skin: 0.8 }), x: -24, z: 7.6, face: Math.PI, minQuality: 'medium' },
+  // the roadside hamlet: Rowan tends the courtyard well and the noticeboard
+  { id: 'hamlet_rowan', v: V({ body: 'm', cloth: '#d8c8a0', apron: '#8a6a3a', hat: 'cap', hatColor: '#4a3a2a', beard: true, hairColor: '#8a7a5a', prop: 'basket', skin: 0.1 }), x: -23.4, z: 213.6, face: -2.2, talk: 'Talk to Rowan, the hamlet gardener', minQuality: 'medium' },
   // CHAD CITY: the greeter at the gate, Mo at the shake stall
   { id: 'greeter', v: V({ body: 'f', cloth: '#ffe2b8', hair: 'long', hairColor: '#d8a03a', prop: 'lantern', skin: 0.3 }), x: -3.6, z: 60.8, face: 0.9, talk: 'Talk to Goldie, the greeter' },
   { id: 'shakes', v: V({ body: 'm', cloth: '#d0f0dc', apron: '#5fae6a', hat: 'cap', hatColor: '#3a7a4a', hair: 'buzzed', hairColor: '#1a1210', skin: -0.9 }), x: -39, z: -4.55, face: 0, talk: 'Talk to Mo at Pump Shakes', talkAt: [-39, -1.9] },
@@ -88,6 +90,8 @@ export const WALKERS: WalkerDef[] = [
   { id: 'wander3', when: 'day', v: V({ body: 'm', cloth: '#d8d0f0', hat: 'cap', hatColor: '#5b2a86', skin: 0.4 }), path: [[6, 18.2], [43, 18.2], [43, 20], [6, 20]], speed: 1.3, pause: 3, minQuality: 'medium' },
   { id: 'wander4', v: V({ body: 'f', cloth: '#c0a8d8', hat: 'witch', hatColor: '#1e1428', hair: 'long', hairColor: '#5a1a2a', prop: 'broom', skin: 0.9 }), path: [[-24, 36.6], [-4.5, 36.6], [4.5, 36.6], [24, 36.6]], speed: 1.2, pause: 4, minQuality: 'medium' },
   { id: 'wander5', when: 'day', v: V({ body: 'f', cloth: '#e0f0d0', hat: 'bonnet', hatColor: '#d8e8c8', hair: 'buns', hairColor: '#a06a3a', prop: 'basket', skin: -0.2 }), path: [[-54.2, 13.8], [-33.8, 13.8], [-33.8, 32.2], [-54.2, 32.2]], speed: 1.1, pause: 5, minQuality: 'high' },
+  // the hamlet's villager strolls the courtyard ring and the lane to the road
+  { id: 'hamlet_walker', v: V({ body: 'f', cloth: '#e8d0c0', hat: 'bonnet', hatColor: '#c8a0a0', hair: 'buns', hairColor: '#4a2a1a', prop: 'basket', skin: -0.2 }), path: [[-34, 209], [-20, 209], [-19, 226], [-34, 226], [-34, 215], [-12, 209], [-34, 209]], speed: 1.15, pause: 3.2, minQuality: 'medium' },
   // the lamplighter on the arrival forecourt
   { id: 'wander6', when: 'night', v: V({ body: 'm', cloth: '#e8d8c0', hat: 'cap', hatColor: '#26242a', beard: true, hairColor: '#6a6050', prop: 'lantern', skin: 0.2 }), path: [[-5, 53.5], [-5, 66], [5, 66], [5, 53.5]], speed: 1.25, pause: 3, minQuality: 'high' },
   // NIGHT ROUTINES: the lamplighter makes his rounds (the paths are legs the day walkers already prove clear), and a late

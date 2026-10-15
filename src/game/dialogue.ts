@@ -84,6 +84,15 @@ export const QUEST2_STONE: Dialogue = {
 }
 
 export const DIALOGUE: Record<string, Dialogue> = {
+  hamlet_rowan: {
+    speaker: 'Rowan',
+    role: 'Gardener · Lantern Hamlet',
+    lines: [
+      'Mind the pumpkins — they remember who stepped on them.',
+      'This is the Lantern Hamlet: a stop for everyone going down to Chad City, and twice for everyone going up to the castle.',
+      'The inn’s open, the old watchtower’s open, and there’s a garden behind the cottages that isn’t on any map. I haven’t told you that.',
+    ],
+  },
   coach: {
     speaker: 'Coach Gourdon',
     role: 'Pump Gym · Head Coach',
