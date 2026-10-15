@@ -39,3 +39,16 @@ third-party preview viewer.
 * No vegetation, building, vehicle, pet, weapon or parkour 3D asset is on disk. Everything for those in the game today is procedural code.
 
 **Free sources checked online (licence verified, not downloaded)**: Poly Haven (CC0; vegetation scans far too heavy), Poly Haven Antique Estoc (CC0, ~8K tris, glTF 1K), Kenney Car Kit / Graveyard Kit / Blaster Kit (CC0; zip contents and formats must be checked after download, before import).
+
+
+## Vegetation standard — evaluation (2026-10-15)
+
+Source: Poly Haven, CC0 (licence page verified; attribution not required, credit given here and in CREDITS.md). Downloaded 1K glTF packs to `C:/Users/zafe5/Downloads/pumpchad-assets/polyhaven/` (jacaranda_tree 205 MB, shrub_02, shrub_03, shrub_04). Optimised outputs: `C:/Users/zafe5/Downloads/pumpchad-assets/polyhaven-optimised/` (`jacaranda_opt.glb` 2.0 MB, `shrub_02_opt.glb` 0.4 MB), built with `scripts/optimise-veg.mjs` (gltf-transform + meshoptimizer + sharp, run from a scratch folder).
+
+| Candidate | Result |
+|---|---|
+| Jacaranda Tree as a model | Only one LOD ships (no lower-detail version): 1.2 M tris of wood + 2.4 M tris of leaf geometry, 11.6 M render vertices. Optimised to ~26 K (wood) + 14 K (leaves) = ~40 K tris, 2 MB, 512 px WebP, alpha rebuilt from the black-background JPEG. Limbs look right, canopy is sparse (116 K leaf clusters thinned to ~700); a full canopy needs 120 K+ tris. **Rejected for repetition**; kept (disabled) in `vegModels.ts` for review. |
+| Shrub 02 / 03 / 04 as models | shrub_02 (5.3 m, sparse willowy stems), shrub_03 (1.3 x 0.4 m) and shrub_04 (0.6 x 0.2 m) are wild ground plants, not lush garden shrubs. **Rejected**; procedural shrubs stay. |
+| **Chosen standard** | The procedural trees/shrubs/hedges (real branching, per-species recipes, cell LOD) **textured with Poly Haven's real Jacaranda leaf and bark maps**: `public/chadverse/textures/veg/leaf_jacaranda.webp` (89 KB, greyscale compound-leaf cutout) and `bark_jacaranda.webp` (13 KB). Vertex colours keep the species palette. Same triangle count as before; two small image swaps. |
+
+Not found: the exact mansion, car, pistol and sword links. The message that supplied the pack contained no links, and the pack's README / REFERENCE-GUIDE / prompt contain none; nothing was downloaded for them. The Antique Estoc (CC0) remains the only verified weapon candidate.

@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
+import { swapInScan } from './vegTextures'
 import { barkTexture, growTree, needleTexture, type TreeGeo, type TreeKind } from './treegen'
 
 /**
@@ -27,7 +28,7 @@ const canvasTex = (w: number, h: number, draw: (g: CanvasRenderingContext2D) => 
 
 /** a spray of small leaves on transparent background (light grey: tinted per vertex) */
 export function leafTexture(D: D) {
-  return canvasTex(
+  const tex = canvasTex(
     128,
     128,
     (g) => {
@@ -52,6 +53,8 @@ export function leafTexture(D: D) {
     },
     D,
   )
+  swapInScan(tex, 'leaf_jacaranda.webp') // real compound-leaf detail replaces the painted spray once it has loaded
+  return tex
 }
 
 /** little blooms with stems (already coloured: orange, gold, purple, white — Halloween garden) */

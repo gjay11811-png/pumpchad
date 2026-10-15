@@ -20,6 +20,8 @@ import { EXPANSION_OPEN, SAFE_ARRIVAL, isLocked } from '../launch'
 import { PANEL, boardTexture } from './world/signs'
 import { citySkyline } from './world/skyline'
 import { GYM_SHRUBS } from './world/gymExterior'
+import { HERO_SHRUBS, HERO_TREES, placeHeroVeg } from './world/vegModels'
+import { FoliageBuilder, leafTexture } from './world/foliage'
 import { WORKSHOP_SHRUBS } from './world/workshop'
 import { buildDaylight, isNight, skyPresetFromUrl } from './world/daylight'
 import { B4S_BENCH, PLAZA_BENCHES, SEAT_FWD } from './world/props'
@@ -915,6 +917,13 @@ export class World implements GameScene {
   }
 
   async populate(player: Appearance, spawn: SpawnAt = 'start', discoveries: string[] = []) {
+    // the representative real-scan plants (Poly Haven, optimised); if they cannot load the same spots get procedural plants
+    if (!(await placeHeroVeg(this.scene, this.disposables, this.quality))) {
+      const FB = new FoliageBuilder(88, this.quality === 'high' ? 1 : 0.6)
+      for (const [x, z] of HERO_TREES) FB.plant('oak', x, z, 1, [new THREE.Color('#4f8a3a'), new THREE.Color('#5f9a40')], new THREE.Color('#3a2a20'))
+      for (const [x, y, z, s] of HERO_SHRUBS) FB.bush(x, y, z, s * 2, new THREE.Color('#3f5e34'))
+      FB.build(this.scene, leafTexture(this.disposables), this.disposables, false)
+    }
     const [p] = await Promise.all([createCharacter(player), this.crowd.load(this.scene, this.quality, groundHeight, this.night)])
     if (this.disposed) {
       disposeCharacter(p)

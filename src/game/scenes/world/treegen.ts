@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { swapInScan } from './vegTextures'
 
 /**
  * PROCEDURAL TREES AND SHRUBS — real branching structure, not blobs on sticks.
@@ -328,6 +329,7 @@ export function barkTexture(D: (THREE.Texture | THREE.Material | THREE.BufferGeo
   t.wrapS = t.wrapT = THREE.RepeatWrapping
   t.anisotropy = 4
   D.push(t)
+  swapInScan(t, 'bark_jacaranda.webp') // real bark detail replaces the painted fissures once it has loaded
   return t
 }
 

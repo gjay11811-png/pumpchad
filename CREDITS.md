@@ -16,3 +16,7 @@ Licence files are kept with the raw downloads (pumpchad-assets/raw, outside the 
 Evaluated but not used yet (all CC-BY 4.0, need a free Sketchfab login to download):
 Pumpkin Head (sirenhead1929), Fully Rigged Man (NoObStUfFs), Skeleton animated (danielmclogan),
 Free Demon Character (GameAssetsFin). If used later they must be credited by name.
+
+
+## Poly Haven (CC0)
+Leaf and bark texture detail derived from the "Jacaranda Tree" textures by Rico Cilliers (with Rob Tuytel, guidance) — https://polyhaven.com/a/jacaranda_tree — CC0, credit appreciated.

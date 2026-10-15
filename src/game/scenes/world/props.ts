@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { FoliageBuilder, leafTexture, rockGeo } from './foliage'
+import { isHeroBush, isHeroTree } from './vegModels'
 import type { Quality } from '../../save'
 import { signTexture, bannerTexture } from '../textures'
 import type { Town } from './buildings'
@@ -165,7 +166,7 @@ export function vegetation(T: Town, q: Quality, avoid: (x: number, z: number) =>
   extra.trees.forEach(([x, z], i) => {
     if (i % 5 === 2) F.conifer(x, z, 0.85 + r() * 0.3, pine, barkCol)
     else if (i % 5 === 4) F.poplar(x, z, 0.9 + r() * 0.25, [C('#7aa848'), C('#d9a42a'), C('#5f9a40')], barkCol)
-    else F.tree(x, z, 0.9 + r() * 0.35, i % 5 === 1 ? autumnCols : summerCols, barkCol)
+    else if (!isHeroTree(x, z)) F.tree(x, z, 0.9 + r() * 0.35, i % 5 === 1 ? autumnCols : summerCols, barkCol) // (the hero scan tree stands at the hero spots)
     T.colliders.push({ kind: 'circle', x, z, r: 0.45, h: 5 })
   })
   for (const [x, z] of dead) {
@@ -176,7 +177,7 @@ export function vegetation(T: Town, q: Quality, avoid: (x: number, z: number) =>
   const greens = [C('#3d5a33'), C('#4a6b38'), C('#34502f'), C('#6b6a2a')]
   const bushSpots: [number, number][] = [[-7, -10], [7, -10], [-7, 10.5], [7, 10.5], [-12.5, 6.5], [-12.5, -1.5], [12, 1.5], [12, -9.5], [-6.6, 27.6], [6.6, 27.6], [-24, 13], [-21, 19.5], [-18, -18], [-24, -6], [18, -12], [-29, 12], ...extra.bushes]
   for (const [x, z] of bushSpots)
-    for (let k = 0; k < 3; k++) F.bush(x + (r() - 0.5) * 1.6, 0, z + (r() - 0.5) * 1.6, 0.75 + r() * 0.45, greens[Math.floor(r() * greens.length)])
+    if (!isHeroBush(x, z)) for (let k = 0; k < 3; k++) F.bush(x + (r() - 0.5) * 1.6, 0, z + (r() - 0.5) * 1.6, 0.75 + r() * 0.45, greens[Math.floor(r() * greens.length)])
   // planter shrubs (raised: they sit on the soil line of a stone planter)
   for (const [x, y, z, s] of extra.potted ?? []) F.bush(x, y, z, s, C('#3f5e34'))
   // clipped hedges along the north road and the plaza mouth (same footprint + colliders as before)
