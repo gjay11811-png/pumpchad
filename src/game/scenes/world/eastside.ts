@@ -7,6 +7,7 @@ import { boxUV } from './kit'
 import { GYM } from './props'
 import { Frame, PANEL, channelLetters, framedBoard, panelTexture, postedBoard, type SignMats } from './signs'
 import { archMats, displayMaterial, planterBox, shop } from './architecture'
+import { gymExterior } from './gymExterior'
 
 const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z)
 type D = (THREE.Material | THREE.Texture | THREE.BufferGeometry)[]
@@ -65,115 +66,14 @@ export function eastside(T: Town, stoneTex: THREE.Texture) {
   const SM: SignMats = { frame: P.iron, metal: P.iron, gold: P.gold, stone: P.stoneLight }
   const darkMetal = std({ color: '#26252b', metalness: 0.7, roughness: 0.4 })
   const orangeLetters = std({ color: '#ff8a2a', metalness: 0.3, roughness: 0.45, ...(isNight() ? { emissive: '#ff8a2a', emissiveIntensity: 1.8 } : {}) })
-  const goldLetters = std({ color: '#ffcf5a', metalness: 0.85, roughness: 0.3, ...(isNight() ? { emissive: '#ff9a1a', emissiveIntensity: 0.9 } : {}) })
-  const leafMat = std({ color: '#2f5c36', roughness: 0.95 })
   const lightStrip = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffcf8a').multiplyScalar(1.25), toneMapped: false })
   Dp.push(lightStrip)
   const stone = archMats(T, 'stone', stoneTex, glass)
   const render = archMats(T, 'render', stoneTex, glass)
   const brick = archMats(T, 'brick', stoneTex, glass)
 
-  /* ═════════ PUMP GYM exterior (the interior + its door interaction are unchanged) ═════════ */
-  {
-    const W = 10.4 // along the facade (world z)
-    const Dd = 9.4 // depth (world x)
-    const H = 7.4
-    const F = Frame.at(T.batch, GYM.x, 0, GYM.z, -Math.PI / 2) // local +z = west, the entrance side
-    const fz = Dd / 2
-    F.put(boxUV(W, H, Dd, 2), brick.wall, 0, H / 2, 0)
-    F.put(boxUV(W + 0.14, 0.5, Dd + 0.14, 1.2), brick.plinth, 0, 0.25, 0)
-    F.put(boxUV(W + 0.3, 0.35, Dd + 0.3, 1.2), brick.trim, 0, H + 0.15, 0)
-    // parapet with an orange coping line
-    F.put(boxUV(W + 0.3, 0.6, 0.3, 1), brick.wall, 0, H + 0.6, fz)
-    F.box(W + 0.4, 0.08, 0.36, P.glowOrange, 0, H + 0.94, fz, false)
-    // a stepped central gable over the entrance bay, gold-capped, with a pier + gold spire at each corner
-    F.put(boxUV(6.2, 1.3, 0.5, 1), brick.wall, 0, H + 1.1, fz - 0.05)
-    F.box(6.5, 0.12, 0.62, P.gold, 0, H + 1.81, fz - 0.05)
-    F.put(boxUV(3.8, 1.0, 0.42, 1), brick.wall, 0, H + 2.37, fz - 0.05)
-    F.box(4.1, 0.12, 0.54, P.gold, 0, H + 2.93, fz - 0.05)
-    for (const sx of [-1, 1]) {
-      F.put(boxUV(0.8, 1.7, 0.8, 1), brick.trim, sx * (W / 2 - 0.2), H + 0.95, fz - 0.4)
-      F.put(new THREE.ConeGeometry(0.55, 0.8, 4).rotateY(Math.PI / 4), P.gold, sx * (W / 2 - 0.2), H + 2.2, fz - 0.4)
-    }
-    // layered facade: stone quoins up both corners and a string course between the floors
-    for (let i = 0; i < 13; i++) for (const sx of [-1, 1]) F.box(i % 2 ? 0.95 : 0.65, 0.5, 0.14, brick.trim, sx * (W / 2 - (i % 2 ? 0.475 : 0.325)), 0.55 + i * 0.53, fz + 0.04)
-    for (const sx of [-1, 1]) F.box(3.3, 0.26, 0.2, brick.trim, sx * 3.3, 3.95, fz + 0.06)
-    // ground floor: dark steel + glass curtain either side of the portal, interior silhouettes behind
-    const gymInside = displayMaterial(T, '#ff7a1a', 'racks')
-    for (const sx of [-1, 1]) {
-      const cx = sx * 3.05
-      F.put(new THREE.PlaneGeometry(2.9, 2.6), gymInside, cx, 1.7, fz - 0.3, 0, 0, 0, false)
-      F.put(new THREE.PlaneGeometry(3.1, 2.8), glass, cx, 1.75, fz - 0.06, 0, 0, 0, false)
-      for (const [bw, bh, bx, by] of [[3.3, 0.14, 0, 3.2], [3.3, 0.14, 0, 0.36], [0.14, 2.9, -1.6, 1.75], [0.14, 2.9, 1.6, 1.75], [0.08, 2.8, 0, 1.75]] as const) F.box(bw, bh, 0.16, darkMetal, cx + bx, by, fz)
-      F.box(3.7, 0.3, 0.26, brick.trim, cx, 3.42, fz + 0.08) // stone lintel
-      F.box(0.4, 0.42, 0.3, P.gold, cx, 3.45, fz + 0.1) // gold keystone
-      F.box(3.7, 0.2, 0.34, brick.trim, cx, 0.12 + 0.3, fz + 0.12) // sill
-      for (const jx of [-1, 1]) F.box(0.2, 2.8, 0.2, brick.trim, cx + jx * 1.75, 1.75, fz + 0.06)
-    }
-    // the entrance: a deep stone portico — piers, an entablature with a gold cornice, the glass doors recessed inside
-    for (const sx of [-1, 1]) F.box(0.7, 3.6, 0.3, brick.trim, sx * 1.45, 1.8, fz + 0.1) // jambs
-    F.box(3.6, 0.7, 0.3, brick.trim, 0, 3.25, fz + 0.1) // lintel
-    F.box(2.2, 2.9, 0.1, darkMetal, 0, 1.45, fz - 0.2)
-    F.put(new THREE.PlaneGeometry(2.0, 2.7), gymInside, 0, 1.4, fz - 0.12, 0, 0, 0, false) // the lit gym beyond the doors
-    for (const dx of [-0.52, 0.52]) {
-      F.put(new THREE.PlaneGeometry(0.96, 2.6), gymInside, dx, 1.4, fz + 0.16, 0, 0, 0, false)
-      F.box(0.05, 1.0, 0.06, P.gold, dx - Math.sign(dx) * 0.38, 1.3, fz + 0.2) // pull handles
-    }
-    for (const sx of [-1, 1]) {
-      F.put(boxUV(0.8, 3.9, 1.2, 1.2), brick.trim, sx * 1.9, 1.95, fz + 0.6)
-      F.box(0.98, 0.2, 1.38, P.gold, sx * 1.9, 3.95, fz + 0.6) // pier cap
-      F.box(1.0, 0.3, 1.4, brick.trim, sx * 1.9, 0.15, fz + 0.6) // pier base
-      T.colliders.push({ kind: 'box', minX: GYM.x - fz - 1.2, maxX: GYM.x - fz, minZ: GYM.z + sx * 1.9 - 0.4, maxZ: GYM.z + sx * 1.9 + 0.4, h: 4 })
-    }
-    F.put(boxUV(5.0, 0.6, 1.5, 1.2), brick.trim, 0, 4.3, fz + 0.65) // entablature
-    F.box(5.3, 0.1, 1.7, P.gold, 0, 4.64, fz + 0.65) // gold cornice
-    F.box(3.4, 0.04, 1.2, lightStrip, 0, 3.97, fz + 0.65, false)
-    F.put(boxUV(4.2, 0.05, 2.0, 1), P.stoneLight, 0, 0.03, fz + 0.9, 0, 0, 0, false) // threshold slab
-    // upper floor: tall framed windows either side, then a raised gold PUMP GYM sign on a framed band
-    for (const sx of [-3.95, 3.95]) {
-      F.put(new THREE.PlaneGeometry(1.5, 2.0), glass, sx, 5.6, fz + 0.005, 0, 0, 0, false)
-      for (const [bw, bh, bx, by] of [[1.7, 0.12, 0, 6.65], [1.7, 0.12, 0, 4.55], [0.12, 2.2, -0.8, 5.6], [0.12, 2.2, 0.8, 5.6], [0.06, 2.0, 0, 5.6]] as const) F.box(bw, bh, 0.12, darkMetal, sx + bx, by, fz + 0.03)
-      F.box(1.95, 0.12, 0.28, brick.trim, sx, 4.45, fz + 0.1)
-      F.box(1.95, 0.26, 0.26, brick.trim, sx, 6.88, fz + 0.1)
-      F.box(0.32, 0.36, 0.3, P.gold, sx, 6.9, fz + 0.12)
-    }
-    F.box(5.8, 1.35, 0.12, darkMetal, 0, 5.5, fz + 0.08)
-    for (const dy of [-0.72, 0.72]) F.box(6.0, 0.1, 0.2, P.gold, 0, 5.5 + dy, fz + 0.12) // gold rails
-    for (const sx of [-1, 1]) F.box(0.12, 1.55, 0.2, brick.trim, sx * 2.95, 5.5, fz + 0.1) // stone end posts
-    for (const sx of [-2.2, 2.2]) {
-      F.put(tube(V(sx, 6.4, fz + 0.1), V(sx, 6.85, fz + 0.6), 0.025, 6), darkMetal) // sign lamp arms
-      F.box(0.5, 0.06, 0.12, lightStrip, sx, 6.84, fz + 0.62, false)
-    }
-    channelLetters(F.sub(0, 5.1, fz + 0.2), 'PUMP GYM', 0.76, 0.22, goldLetters)
-    // side (south, courtyard) facade: a row of tall framed windows
-    const S = Frame.at(T.batch, GYM.x, 0, GYM.z + W / 2, 0)
-    for (const lx of [-2.8, 0, 2.8]) {
-      S.put(new THREE.PlaneGeometry(1.9, 2.4), glass, lx, 2.0, 0.01, 0, 0, 0, false)
-      for (const [bw, bh, bx, by] of [[2.1, 0.12, 0, 3.25], [2.1, 0.12, 0, 0.75], [0.12, 2.6, -1.0, 2.0], [0.12, 2.6, 1.0, 2.0]] as const) S.box(bw, bh, 0.12, darkMetal, lx + bx, by, 0.04)
-      S.box(2.3, 0.1, 0.3, brick.trim, lx, 0.66, 0.12)
-    }
-    T.colliders.push({ kind: 'box', minX: GYM.x - Dd / 2, maxX: GYM.x + Dd / 2, minZ: GYM.z - W / 2, maxZ: GYM.z + W / 2, h: H })
-    // forecourt: paving + two planters + a bench + a small sign board
-    const g = new THREE.PlaneGeometry(5.2, 9).rotateX(-Math.PI / 2)
-    const u = g.attributes.uv as THREE.BufferAttribute
-    for (let i = 0; i < u.count; i++) u.setXY(i, (u.getX(i) * 5.2) / 3, (u.getY(i) * 9) / 3)
-    T.batch.put(g, P.cobble, GYM.x - Dd / 2 - 2.6, 0.026, GYM.z, 0, 1, 1, 1, { cast: false })
-    // a stone carpet from the street to the portico, edged in gold
-    T.batch.put(boxUV(4.4, 0.03, 2.6, 1), P.stoneLight, GYM.x - Dd / 2 - 2.6 + 0.0, 0.045, GYM.z, 0, 1, 1, 1, { cast: false })
-    for (const sz of [-1.35, 1.35]) T.batch.put(new THREE.BoxGeometry(4.4, 0.035, 0.07), P.gold, GYM.x - Dd / 2 - 2.6, 0.05, GYM.z + sz, 0, 1, 1, 1, { cast: false })
-    // planters flank the portico; the beds beyond them are shrubbed, with topiary
-    const shrub = (x: number, y: number, z: number, r: number) => T.batch.put(new THREE.SphereGeometry(r, 10, 8).scale(1, 0.85, 1), leafMat, x, y, z)
-    for (const dz of [-3.6, 3.6]) {
-      planterBox(T, brick.trim, GYM.x - Dd / 2 - 1.0, GYM.z + dz, 1.4, 1.6)
-      shrub(GYM.x - Dd / 2 - 1.0, 1.0, GYM.z + dz, 0.6)
-      T.batch.put(new THREE.ConeGeometry(0.28, 0.8, 8), leafMat, GYM.x - Dd / 2 - 1.0, 1.65, GYM.z + dz)
-    }
-    for (const dz of [-4.6, 4.6]) {
-      planterBox(T, brick.trim, GYM.x - Dd / 2 - 0.6, GYM.z + dz, 0.9, 1.8)
-      shrub(GYM.x - Dd / 2 - 0.6, 0.85, GYM.z + dz - 0.4, 0.4)
-      shrub(GYM.x - Dd / 2 - 0.6, 0.85, GYM.z + dz + 0.4, 0.4)
-    }
-  }
+  /* ═════════ PUMP GYM exterior (the interior + its door interaction are unchanged): see gymExterior.ts ═════════ */
+  gymExterior(T, stoneTex)
 
   /* ═════════ the outdoor training yard (south of the gym) ═════════ */
   {
