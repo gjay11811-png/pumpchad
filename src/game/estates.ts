@@ -17,7 +17,7 @@ export type Gate = 'w' | 'e' | 'n' | 's'
 export type Plot = { id: string; name: string; x0: number; z0: number; gate: Gate; row?: string }
 /**
  * The ORIGINAL four plots (A–D) keep their ids and positions forever (saves point at them). CHADVILLE HEIGHTS is the new district west of
- * them: four rows of 13 plots either side of two lanes (a spine lane joins the old estate lane), 49 sellable plots + the 3 show-home sites.
+ * them: four rows of 13 plots either side of two lanes (a spine lane joins the old estate lane), 48 sellable plots + the 3 show-home sites + the parkour yard's entrance.
  * Ids are H01…H49 in row-major order (row 1 west→east is skipped at the show-home sites), so a plot's id never changes if the art does.
  */
 export const HEIGHTS = {
@@ -34,16 +34,17 @@ export const HEIGHTS = {
   showSlots: 3,
 }
 const plotX0 = (slot: number) => HEIGHTS.firstX1 - HEIGHTS.pitch * slot - 12
-const ROWS_DEF: { z0: number; gate: Gate; row: string; skip: number }[] = [
-  { z0: 26, gate: 's', row: 'North row', skip: HEIGHTS.showSlots },
-  { z0: 40, gate: 'n', row: 'Lane A south', skip: 0 },
-  { z0: 50, gate: 's', row: 'Lane B north', skip: 0 },
-  { z0: 64, gate: 'n', row: 'South row', skip: 0 },
+// the north row's WEST-most slot is the Parkour Yard's entrance (a 12 m gap, not a plot)
+const ROWS_DEF: { z0: number; gate: Gate; row: string; skip: number; trim: number }[] = [
+  { z0: 26, gate: 's', row: 'North row', skip: HEIGHTS.showSlots, trim: 1 },
+  { z0: 40, gate: 'n', row: 'Lane A south', skip: 0, trim: 0 },
+  { z0: 50, gate: 's', row: 'Lane B north', skip: 0, trim: 0 },
+  { z0: 64, gate: 'n', row: 'South row', skip: 0, trim: 0 },
 ]
 const heightsPlots = (): Plot[] => {
   const out: Plot[] = []
   let n = 1
-  for (const r of ROWS_DEF) for (let i = r.skip; i < HEIGHTS.slots; i++) out.push({ id: `H${String(n).padStart(2, '0')}`, name: `Heights ${String(n++).padStart(2, '0')}`, x0: plotX0(i), z0: r.z0, gate: r.gate, row: r.row })
+  for (const r of ROWS_DEF) for (let i = r.skip; i < HEIGHTS.slots - r.trim; i++) out.push({ id: `H${String(n).padStart(2, '0')}`, name: `Heights ${String(n++).padStart(2, '0')}`, x0: plotX0(i), z0: r.z0, gate: r.gate, row: r.row })
   return out
 }
 export const PLOTS: Plot[] = [

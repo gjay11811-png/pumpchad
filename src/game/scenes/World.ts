@@ -17,6 +17,9 @@ import { CASTLE_Z, ROADS, buildGround, castle, clutter, fence, lampPosts, poles,
 import { BENCHES, kingdom, mountains } from './world/kingdom'
 import { GARDEN, SPAWN, VALLEY_GATE, bridgeHeight, clampToCity } from './world/city'
 import { EXPANSION_OPEN, SAFE_ARRIVAL, isLocked } from '../launch'
+import { COURSES, PLATFORMS, SECRET, YARD, fmtMs, type CourseId } from '../parkour'
+import { ParkourRun, planTraverse, platformFloor, platformResolve, travAt, type RunResult, type TravFrame, type TravPlan } from '../parkourSystem'
+import { parkourYard, type ParkourBuild } from './world/parkourYard'
 import { PANEL, boardTexture } from './world/signs'
 import { citySkyline } from './world/skyline'
 import { GYM_SHRUBS } from './world/gymExterior'
@@ -94,6 +97,8 @@ export type WorldEvents = {
   onInteract(id: string): void
   /** a place reached on foot (Discover Chad City): 'visit_square' | 'visit_gym' | 'visit_citadel' */
   onDiscover?(id: string): void
+  /** a timed parkour run was finished: save the best, pay the coins, return the result for the card */
+  onParkourFinish?(id: CourseId, ms: number, falls: number): RunResult
 }
 
 /** six hidden pumpkins: fair, reachable spots (no climbing), one per district */
@@ -126,6 +131,7 @@ const ZONES: { id: string; inside: (x: number, z: number) => boolean }[] = [
   { id: 'visit_landing', inside: (x, z) => x > 49 && x < 80 && z > 418 && z < 454 },
   { id: 'visit_bridge', inside: (x, z) => x > 2 && x < 44 && Math.abs(z - 415) < 4 },
   { id: 'visit_manor', inside: (x, z) => Math.hypot(x - 142, z - 516) < 30 },
+  { id: 'visit_parkour', inside: (x, z) => x < -170 && x > -243 && z < 26 && z > -20 },
   { id: 'visit_estates', inside: (x, z) => (x < -30 && x > -66 && z > 44) || (x < -66 && x > -245 && z > 24) },
 ]
 
@@ -232,6 +238,14 @@ export class World implements GameScene {
   seats: BenchSpot[] = [...BASE_SEATS]
   /** movement locked while a full-body action plays (picking up a seed) */
   private lockT = 0
+  /** Chad Parkour Yard: the live run, the vault / mantle in progress, and the yard's builder handle */
+  private pkRun = new ParkourRun()
+  private pkBuild: ParkourBuild | null = null
+  private trav: { plan: TravPlan; t: number; f: TravFrame } | null = null
+  private pkHudT = 0
+  private pkSecretTaken = false
+  /** QA: the last traversal decision (why a vault / mantle did or did not start) */
+  travLog: { kind: string; why: string; at: number } | null = null
   private pendingHide: { g: THREE.Object3D; t: number } | null = null
   /** sparkle markers over the not-yet-found talking pumpkins */
   private gourdMarks = new Map<string, THREE.Object3D>()
@@ -260,6 +274,8 @@ export class World implements GameScene {
     s.environmentIntensity = 0.5
     this.bloom = this.night ? 0.6 : 0.22 // night: windows, lanterns, the moon and the fires halo; day: only glints
     this.buildTown(quality)
+    window.addEventListener('chad-parkour-cmd', this.onParkourCmd)
+    window.addEventListener('keydown', this.onParkourKey)
     this.camYaw = this.playerYaw + Math.PI
   }
 
@@ -370,6 +386,7 @@ export class World implements GameScene {
     this.quest = guardianLanterns(T)
     estatesDistrict(T)
     this.estate = new EstateView(T, this.colliders)
+    this.pkBuild = parkourYard(T)
     greenery.potted = [...citadelShrubs, ...GATE_SHRUBS, ...GYM_SHRUBS, ...WORKSHOP_SHRUBS]
     lawns(T, SM.trim, extraSeats, greenery)
     this.seats.push(...extraSeats)
@@ -647,7 +664,7 @@ export class World implements GameScene {
   /** is (x, z) clear, plain ground for a prop (inside the village, level, off every collider and every sellable estate plot)? */
   private plainGround(x: number, z: number) {
     if (isLocked(x, z) || !insideCity(x, z, 0.8) || inCanal(x, z, 1) || Math.abs(groundHeight(x, z)) > 0.35) return false
-    if ((x < -29 && z > 40) || (x < -62 && z > 24)) return false // Chadville Estates + Heights (plots to buy and build on)
+    if ((x < -29 && z > 40) || (x < -62 && z > 24) || (x < -165 && x > -245 && z > -22)) return false // Chadville Estates + Heights (plots to buy and build on)
     if (Math.hypot(x, z) < 8) return false // the fountain
     for (const c of this.colliders) {
       if (c.kind === 'circle' ? Math.hypot(x - c.x, z - c.z) < c.r + 0.5 : x > c.minX - 0.5 && x < c.maxX + 0.5 && z > c.minZ - 0.5 && z < c.maxZ + 0.5) return false
@@ -726,6 +743,8 @@ export class World implements GameScene {
     this.seats.forEach((b, i) => add(`bench_${i}`, b.label, b.x + Math.sin(b.ry) * 0.75, b.z + Math.cos(b.ry) * 0.75, 1.1, 'activity'))
     add('rush', 'Play Pumpkin Rush', RUSH_CART.x, RUSH_CART.z + 1.3, 1.5, 'activity')
     add('events', 'Read the Events Board', 6.5, 9.5, 2.5, 'activity')
+    // the Chad Parkour Yard: a start pad for each course (and the Golden Pumpkin once you find the hidden room)
+    for (const c of Object.values(COURSES)) add(`pk:${c.id}`, `Start ${c.name} · ${c.blurb}`, c.start.x, c.start.z, c.start.r, 'activity')
     add('wardrobe', 'Browse the wardrobe stall', -24, 5.0, 1.3, 'info')
     add('lookout', 'Look out over the canal', -5.4, 32.4, 1.5, 'info')
     for (const g of GOURDS) add(g.id, `Talk to the ${g.name}`, g.x, g.z, 1.35, 'talk')
@@ -1024,6 +1043,118 @@ export class World implements GameScene {
     }
   }
 
+  /* ───────── Chad Parkour Yard ───────── */
+  private onParkourCmd = (e: Event) => this.parkourCmd((e as CustomEvent<string>).detail)
+  private onParkourKey = (e: KeyboardEvent) => {
+    if (!this.pkRun.run || this.paused || e.repeat) return
+    const k = e.key.toLowerCase()
+    if (k === 'r') this.parkourCmd('checkpoint')
+    else if (k === 't') this.parkourCmd('restart')
+    else if (k === 'x') this.parkourCmd('exit')
+  }
+  /** is a solid body at (x, z) for feet at feetY? (tall colliders the feet are below) */
+  private solidAt(x: number, z: number, feetY: number) {
+    for (const c of this.colliders) {
+      if (c.h !== undefined && c.h <= LOW_OBSTACLE && feetY >= c.h - 0.12) continue
+      if (c.kind === 'circle' ? Math.hypot(x - c.x, z - c.z) < c.r + 0.3 : x > c.minX - 0.3 && x < c.maxX + 0.3 && z > c.minZ - 0.3 && z < c.maxZ + 0.3) return true
+    }
+    return false
+  }
+  private stepTravel(dt: number) {
+    const tr = this.trav!
+    tr.t += dt
+    const f = travAt(tr.plan, tr.t / tr.plan.dur)
+    tr.f = f
+    this.playerPos.x = f.x
+    this.playerPos.z = f.z
+    this.jumper.y = f.y
+    this.jumper.vy = 0
+    this.playerVel.set(0, 0, 0)
+    this.playerYaw = tr.plan.yaw
+    if (f.done) {
+      // land / stand: the surface under the feet is the new floor; carry a little forward momentum so a vault flows into the next step
+      this.jumper.y = tr.plan.to.y
+      this.jumper.floor = tr.plan.to.y
+      const v = tr.plan.kind === 'vault' ? 3.4 : 1.2
+      this.playerVel.set(Math.sin(tr.plan.yaw) * v, 0, Math.cos(tr.plan.yaw) * v)
+      this.jumper.landed = true
+      this.trav = null
+    }
+  }
+  startParkour(id: CourseId) {
+    this.pkRun.start(id)
+    this.pkHudT = 0
+    this.emitParkour()
+    for (const it of this.interactables) if (it.id === `pk:${id}`) it.label = `Restart ${COURSES[id].name}`
+  }
+  private parkourCmd(cmd: string) {
+    const r = this.pkRun.run
+    if (!r) return
+    if (cmd === 'exit') {
+      this.pkRun.cancel()
+      this.emitParkour()
+      for (const it of this.interactables) if (it.id.startsWith('pk:')) it.label = `Start ${COURSES[it.id.slice(3) as CourseId].name} · ${COURSES[it.id.slice(3) as CourseId].blurb}`
+    } else if (cmd === 'restart') {
+      const id = r.course.id
+      this.pkRun.start(id)
+      const s = r.course.start
+      this.teleport(s.x, s.z, s.yaw, s.y)
+    } else if (cmd === 'checkpoint' && !r.done) {
+      const c = this.pkRun.respawn()
+      this.teleport(c.x, c.z, c.yaw, c.y)
+    }
+  }
+  private updateParkour(dt: number) {
+    const r = this.pkRun.run
+    if (!r) return
+    const px = this.playerPos.x
+    const pz = this.playerPos.z
+    // wandering out of the yard ends the run
+    if (px < YARD.x0 - 2 || px > YARD.x1 + 2 || pz < YARD.z0 - 2 || pz > YARD.z1 + 1) {
+      this.parkourCmd('exit')
+      return
+    }
+    if (r.done) return
+    const ev = this.pkRun.update(dt, px, pz, this.jumper.y, this.jumper.grounded && !this.trav)
+    if (ev.type === 'fall') this.teleport(ev.to.x, ev.to.z, ev.to.yaw, ev.to.y)
+    else if (ev.type === 'finish') {
+      r.result = this.events.onParkourFinish?.(r.course.id, Math.round(r.ms), r.falls)
+      this.emitParkour()
+    }
+    this.pkHudT -= dt
+    if (this.pkHudT <= 0 || ev.type !== 'none') {
+      this.pkHudT = 0.1
+      this.emitParkour()
+    }
+  }
+  private emitParkour() {
+    const r = this.pkRun.run
+    window.dispatchEvent(
+      new CustomEvent('chad-parkour', {
+        detail: r ? { state: r.done ? 'done' : 'run', id: r.course.id, name: r.course.name, ms: Math.round(r.ms), text: fmtMs(r.ms), cp: r.cp + 1, cps: r.course.checkpoints.length, falls: r.falls, result: r.result ?? null, medals: r.course.medals } : { state: 'idle' },
+      }),
+    )
+  }
+  /** the save says whether the Golden Pumpkin has been taken */
+  setParkour(secretTaken: boolean) {
+    this.pkSecretTaken = secretTaken
+    this.pkBuild?.setSecretTaken(secretTaken)
+    this.interactables = this.interactables.filter((i) => i.id !== SECRET.id)
+    if (!secretTaken) this.interactables.push({ id: SECRET.id, label: 'Take the Golden Pumpkin', pos: new THREE.Vector3(SECRET.x, 0, SECRET.z), radius: 1.3, kind: 'collect' })
+  }
+  /** QA */
+  parkourState() {
+    const r = this.pkRun.run
+    return {
+      run: r ? { id: r.course.id, ms: Math.round(r.ms), cp: r.cp, falls: r.falls, done: r.done, result: r.result ?? null } : null,
+      trav: this.trav ? { kind: this.trav.plan.kind, t: +this.trav.t.toFixed(2), pitch: +this.trav.f.pitch.toFixed(2), roll: +this.trav.f.roll.toFixed(2), y: +this.trav.f.y.toFixed(2) } : null,
+      travLog: this.travLog,
+      y: +this.jumper.y.toFixed(2),
+      grounded: this.jumper.grounded,
+      secretTaken: this.pkSecretTaken,
+    }
+  }
+
   /** QA */
   animState() {
     return { emote: this.emoter.active, busy: this.emoter.busy, airborne: this.jumper.airborne, jumpY: +this.jumper.y.toFixed(3), speed: +Math.hypot(this.playerVel.x, this.playerVel.z).toFixed(3) }
@@ -1144,7 +1275,7 @@ export class World implements GameScene {
       const inside = c.kind === 'circle' ? Math.hypot(x - c.x, z - c.z) < c.r : x > c.minX && x < c.maxX && z > c.minZ && z < c.maxZ
       if (inside) best = h
     }
-    return best
+    return Math.max(best, platformFloor(x, z, y))
   }
 
   /** a low obstacle straight ahead that a plain jump cannot clear but a vault can: returns the apex to ask for, else 0 */
@@ -1162,6 +1293,7 @@ export class World implements GameScene {
   }
 
   private resolve(p: THREE.Vector3, r: number, feetY = 0) {
+    platformResolve(p, r, feetY)
     for (const c of this.colliders) {
       // feet above a LOW obstacle's top (a hop over a wall, standing on a bench): it does not push you out
       if (c.h !== undefined && c.h <= LOW_OBSTACLE && feetY >= c.h - 0.12) continue
@@ -1402,6 +1534,23 @@ export class World implements GameScene {
       mv = { x: 0, z: 0, run: false, analog: false }
       jumpReq = false
     }
+    // vault / mantle: a jump pressed in front of a vaultable or climbable face starts the traversal (validated), else it is an ordinary jump
+    if (this.trav) {
+      mv = { x: 0, z: 0, run: false, analog: false }
+      jumpReq = false
+    } else if (jumpReq && !this.paused && !this.seat && this.jumper.grounded) {
+      const r = planTraverse(this.playerPos.x, this.playerPos.z, this.jumper.y, this.playerYaw, (x, z, fy) => !insideCity(x, z, 0.5) || isLocked(x, z) || this.solidAt(x, z, fy), PLATFORMS, 1.5 + 0.1 * Math.hypot(this.playerVel.x, this.playerVel.z))
+      if (r.why !== 'no-obstacle') this.travLog = { kind: r.plan?.kind ?? 'none', why: r.why, at: +this.t.toFixed(2) }
+      if (r.plan) {
+        this.trav = { plan: r.plan, t: 0, f: travAt(r.plan, 0) }
+        this.playerYaw = r.plan.yaw
+        this.emoter.cancel(p)
+        jumpReq = false
+        mv = { x: 0, z: 0, run: false, analog: false }
+      }
+    }
+    if (this.trav) this.stepTravel(dt)
+    else {
     const fwd = new THREE.Vector3(-Math.sin(this.camYaw), 0, -Math.cos(this.camYaw))
     const right = new THREE.Vector3(-fwd.z, 0, fwd.x)
     const wish = fwd.multiplyScalar(mv.z).add(right.multiplyScalar(mv.x))
@@ -1428,6 +1577,7 @@ export class World implements GameScene {
     }
     const gy = groundHeight(this.playerPos.x, this.playerPos.z)
     this.playerPos.y += (gy - this.playerPos.y) * (1 - Math.exp(-dt * 18))
+    }
 
     const speed = Math.hypot(this.playerVel.x, this.playerVel.z)
     const yaw0 = this.playerYaw
@@ -1449,6 +1599,11 @@ export class World implements GameScene {
       p.root.position.copy(this.playerPos)
       p.root.position.y += this.jumper.y
       p.root.rotation.y = this.playerYaw
+      // a vault / mantle leans the body (pitch over the hands, a roll through the hips); order YXZ so the lean is about the body, not the world
+      p.root.rotation.order = 'YXZ'
+      p.root.rotation.x = this.trav ? this.trav.f.pitch : 0
+      p.root.rotation.z = this.trav ? this.trav.f.roll : 0
+      if (this.trav) p.setGrounded?.(false)
       this.pet?.update(dt, this.playerPos, this.playerYaw, groundHeight, (q) => this.resolve(q, 0.2))
       p.speed = speed / SPEED_UNIT
       p.pose = this.seat && this.seat.phase !== 'exit' ? 'sit' : this.emoter.pose() ?? (speed > 0.1 ? 'walk' : 'idle')
@@ -1496,7 +1651,8 @@ export class World implements GameScene {
     if (this.input.takeAction() && this.prompt && !this.paused && this.actionCooldown === 0) {
       audio.play('interact')
       if (this.prompt.id.startsWith('bench_')) this.sit(+this.prompt.id.slice(6))
-      this.events.onInteract(this.prompt.id)
+      if (this.prompt.id.startsWith('pk:')) this.startParkour(this.prompt.id.slice(3) as CourseId)
+      else this.events.onInteract(this.prompt.id)
     }
 
     // ambience
@@ -1515,6 +1671,7 @@ export class World implements GameScene {
     // fountain splash gets louder as you walk up to it
     audio.setWater(1 - Math.min(1, Math.max(0, (Math.hypot(this.playerPos.x, this.playerPos.z) - 5) / 13)))
     if (!this.paused) this.rush?.update(dt, this.playerPos, groundHeight)
+    if (!this.paused) this.updateParkour(dt)
     if (!this.paused) this.eventDir?.update(dt, this.playerPos)
     if (!this.paused) this.range?.update(dt)
     let mi = 0
@@ -1628,7 +1785,7 @@ export class World implements GameScene {
     this.camera.fov = o?.fov ?? (this.camera.aspect < 1 ? 66 : 55)
     this.camera.updateProjectionMatrix()
   }
-  teleport(x: number, z: number, yaw?: number) {
+  teleport(x: number, z: number, yaw?: number, feetY = 0) {
     if (isLocked(x, z)) {
       x = SAFE_ARRIVAL.x
       z = SAFE_ARRIVAL.z
@@ -1636,13 +1793,17 @@ export class World implements GameScene {
     }
     this.playerPos.set(x, groundHeight(x, z), z)
     this.playerVel.set(0, 0, 0)
+    this.trav = null
+    this.jumper.reset()
+    this.jumper.y = feetY
+    this.jumper.floor = feetY
     // QA jump: finish any full-body action (seed pick-up) instantly so prompts come straight back
     this.lockT = 0
     if (this.pendingHide) {
       this.pendingHide.g.visible = false
       this.pendingHide = null
     }
-    this.resolve(this.playerPos, PLAYER_R)
+    this.resolve(this.playerPos, PLAYER_R, feetY)
     if (yaw !== undefined) {
       this.playerYaw = yaw
       this.camYaw = yaw + Math.PI
@@ -1652,6 +1813,8 @@ export class World implements GameScene {
 
   dispose() {
     this.disposed = true
+    window.removeEventListener('chad-parkour-cmd', this.onParkourCmd)
+    window.removeEventListener('keydown', this.onParkourKey)
     this.pet?.dispose()
     this.estate?.dispose()
     this.rush?.dispose()

@@ -37,6 +37,7 @@ export const LANDMARKS: Landmark[] = [
   { id: 'lake', name: 'Moonlight Lake', x: 98, z: 31, kind: 'place', visit: 'visit_lake', spawn: { x: 74, z: 36.25, yaw: Math.PI / 2 } },
   { id: 'estates', name: 'Chadville Estates', x: -47, z: 60, kind: 'place', visit: 'visit_estates', spawn: { x: -34, z: 47, yaw: -Math.PI / 2 } },
   { id: 'heights', name: 'Chadville Heights', x: -150, z: 50, kind: 'place', visit: 'visit_estates', spawn: { x: -68, z: 42, yaw: -Math.PI / 2 } },
+  { id: 'parkour', name: 'Chad Parkour Yard', x: -206, z: 3, kind: 'place', visit: 'visit_parkour', spawn: { x: -234, z: 30, yaw: Math.PI } },
   { id: 'downtown', name: 'Chad City', x: -47, z: 430, kind: 'place', visit: 'visit_downtown', spawn: { x: -10, z: 415, yaw: -Math.PI / 2 } },
   { id: 'overlook-road', name: 'Valley Overlook', x: 14, z: 88, kind: 'place', visit: 'visit_overlook', spawn: { x: 8, z: 89, yaw: 0 } },
   { id: 'castle-road', name: 'Castle Road', x: -110, z: 410, kind: 'place', visit: 'visit_castleroad', spawn: { x: -110, z: 417, yaw: Math.PI } },

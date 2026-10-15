@@ -48,6 +48,8 @@ import { homeSpec } from './scenes/interiors/home'
 import { FishingPanel, type FishingResult } from './ui/FishingPanel'
 import { fishingXp, type Catch } from './minigames/fishing'
 import { ITEM, coinsForXp } from './economy'
+import { COURSES, runCoins, medalFor, type CourseId } from './parkour'
+import type { RunResult } from './parkourSystem'
 
 type Phase = 'boot' | 'title' | 'creator' | 'world' | 'gym' | 'interior' | 'error'
 type Overlay = null | 'pause' | 'settings' | 'achievements' | 'profile' | 'board' | 'welltoss' | 'photo' | 'intro' | 'shop' | 'map' | 'fishing' | 'estate'
@@ -220,6 +222,7 @@ export function GameApp() {
   const handleInteractRef = useRef<(id: string) => void>(() => {})
   /** Discover Chad Village: one step found (zone reached or place inspected) → toast + City Explorer at 5/5 */
   const cityStepRef = useRef<(id: string) => void>(() => {})
+  const finishParkourRef = useRef<(id: CourseId, ms: number, falls: number) => RunResult>(() => ({ ms: 0, falls: 0, medal: 0, coins: 0, newBest: false, best: 0, xp: 0 }))
   cityStepRef.current = (id: string) => {
     if (saveRef.current.progress.discoveries.includes(id)) return
     discover(id)
@@ -229,6 +232,7 @@ export function GameApp() {
       visit_motor: ['Motor Row', 'Chad Pets · Chad Motors'],
       visit_haunted: ['Haunted Quarter', 'Mind the ghosts · the forest lies north'],
       visit_estates: ['Chadville Estates', 'Plots for sale · build a place of your own'],
+      visit_parkour: ['Chad Parkour Yard', 'Rookie Run and the Rooftop Run · vault, climb, race the clock'],
     }
     if (wilds[id]) {
       notify(`Discovered: ${wilds[id][0]}`, `${wilds[id][1]} · +25 XP`, 'discover')
@@ -278,12 +282,13 @@ export function GameApp() {
       audio.setAmbience('menu')
     } else if (next === 'world' && app) {
       showroom.current = null
-      const w = new World(e, input.current!, { onPrompt: setPrompt, onInteract: (id) => handleInteractRef.current(id), onDiscover: (id) => cityStepRef.current(id) }, saveRef.current.settings.quality)
+      const w = new World(e, input.current!, { onPrompt: setPrompt, onInteract: (id) => handleInteractRef.current(id), onDiscover: (id) => cityStepRef.current(id), onParkourFinish: (id, ms, falls) => finishParkourRef.current(id, ms, falls) }, saveRef.current.settings.quality)
       w.cameraSensitivity = saveRef.current.settings.cameraSensitivity
       // load + compile behind the portal overlay; the previous scene keeps rendering until the swap
       await w.populate(app, opts.spawn ?? 'start', saveRef.current.progress.discoveries)
       w.setPet(petKind())
       w.setEstate(saveRef.current.progress.estate, saveRef.current.character?.name ?? '')
+      w.setParkour(saveRef.current.progress.discoveries.includes('pk_secret'))
       await e.precompile(w)
       e.setScene(w)
       if (saveRef.current.progress.discoveries.includes('stash')) w.revealStash()
@@ -483,6 +488,16 @@ export function GameApp() {
           notify(`Talking pumpkin ${n}/3`, n === 3 ? 'The whole Gourd Council. They will never stop talking now.' : 'More of them are hiding around the kingdom.')
           if (n >= 3) unlock('gourd_council')
         }
+        break
+      }
+      case 'pk_secret': {
+        if (saveRef.current.progress.discoveries.includes('pk_secret')) break
+        discover('pk_secret')
+        w.setParkour(true)
+        setSave((s) => ({ ...s, progress: { ...s.progress, coins: s.progress.coins + 75, xp: s.progress.xp + 60 } }))
+        audio.play('perfect')
+        notify('The Golden Pumpkin', 'The hidden room under the rooftops · +75 coins', 'discover')
+        unlock('parkour_secret')
         break
       }
       case 'hp_1':
@@ -843,6 +858,21 @@ export function GameApp() {
     return { xp: r.xp, mult: r.mult, wins: (p0.records[key] ?? 0) + (st.won ? 1 : 0), best }
   }
 
+  /** a finished parkour run: the personal best (lowest ms), coins for the clear and each NEW medal tier, XP (a quarter on repeats), achievements */
+  finishParkourRef.current = (id: CourseId, ms: number, falls: number): RunResult => {
+    const c = COURSES[id]
+    const key = id === 'rookie' ? 'parkour_rookie' : 'parkour_roof'
+    const p0 = saveRef.current.progress
+    const prev = p0.records[key] ?? 0
+    const rc = runCoins(c, prev, ms)
+    const xp = prev > 0 ? Math.round(c.xp / 4) : c.xp
+    const best = prev > 0 ? Math.min(prev, ms) : ms
+    setSave((s) => ({ ...s, progress: { ...s.progress, xp: s.progress.xp + xp, coins: s.progress.coins + rc.coins, records: { ...s.progress.records, [key]: best } } }))
+    unlock(id === 'rookie' ? 'parkour_rookie' : 'parkour_roof')
+    if (medalFor(c, ms) === 3) unlock('parkour_gold')
+    return { ms, falls, medal: rc.medal, coins: rc.coins, newBest: rc.newBest, best, xp }
+  }
+
   /** a finished Pumpkin Toss: XP (daily fatigue), personal best, achievement */
   const finishToss = (st: TossStats): TossResult => {
     const p0 = saveRef.current.progress
@@ -911,7 +941,8 @@ export function GameApp() {
       phase,
       save: () => saveRef.current,
       world: () => world.current?.debug() ?? null,
-      teleport: (x: number, z: number, yaw?: number) => world.current?.teleport(x, z, yaw),
+      teleport: (x: number, z: number, yaw?: number, y?: number) => world.current?.teleport(x, z, yaw, y),
+      parkour: () => world.current?.parkourState() ?? null,
       shotCam: (o: Parameters<World['setShotCam']>[0]) => world.current?.setShotCam(o),
       stats: () => engine.current?.stats,
       integrity: () => world.current?.integrity() ?? null,
