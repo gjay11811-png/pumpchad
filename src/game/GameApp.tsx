@@ -981,6 +981,7 @@ export function GameApp() {
       rush: () => (world.current?.rush ? { phase: world.current.rush.phase, timeLeft: +world.current.rush.timeLeft.toFixed(2), combo: world.current.rush.combo, ...world.current.rush.stats, targets: world.current.rush.targetsInfo() } : null),
       rushGame: () => world.current?.rush ?? null,
       events: () => world.current?.eventDir?.info() ?? null,
+      eventOpen: (x: number, z: number) => world.current?.eventDir?.isOpen(x, z) ?? 0,
       character: () => (world.current?.player ?? null)?.kind ?? null,
       showroom: () => showroom.current,
     }

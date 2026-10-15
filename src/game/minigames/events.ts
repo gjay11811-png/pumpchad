@@ -45,8 +45,8 @@ export const EVENT_DEFS: Record<EventId, { name: string; blurb: string; rules: s
   race: {
     name: 'Square Time Trial',
     blurb: 'A sprint through six gates around the square, against the clock.',
-    rules: ['Run through the glowing gate — only the next one is lit.', 'Clear all six in order inside 45 seconds. Sprint with Shift / the far stick.', 'Your fastest clear is kept.'],
-    duration: 45,
+    rules: ['Run through the glowing gate — only the next one is lit.', 'Clear all six in order before the clock runs out — the limit fits the course (about 35 s): hold Shift to sprint (or push the stick firmly to jog). A stroll will not make it.', 'Your fastest clear is kept.'],
+    duration: 36,
     goal: 6,
     lives: 0,
     xp: 35,
@@ -88,6 +88,8 @@ export class EventDirector {
   private flash = 0
   /** a race can lose gates to blocked ground: the goal is what was actually placed */
   goalOverride = 0
+  /** the round's time limit (the race derives it from its course; the other events use their definition) */
+  limit = 0
   private flashLight: THREE.HemisphereLight
   private rain: THREE.LineSegments
   private rainPos: Float32Array
@@ -97,6 +99,7 @@ export class EventDirector {
   constructor(
     scene: THREE.Scene,
     private valid: (x: number, z: number) => boolean,
+    private walk: (x: number, z: number) => boolean,
     private ground: (x: number, z: number) => number,
     private area: { r: number },
   ) {
@@ -143,6 +146,7 @@ export class EventDirector {
     this.goalOverride = 0
     const d = EVENT_DEFS[id]
     this.timeLeft = d.duration
+    this.limit = d.duration
     this.score = 0
     this.lives = d.lives
     this.countdown = 3
@@ -177,9 +181,14 @@ export class EventDirector {
     ;(this.rain.material as THREE.Material).dispose()
   }
 
+  /** QA: is (x, z) open ground for an event marker (and does it have room around it)? */
+  isOpen(x: number, z: number) {
+    return this.valid(x, z) ? (this.roomAround(x, z, 2.2) ? 2 : 1) : 0
+  }
+
   /** what the QA hook and the HUD show */
   info() {
-    return { phase: this.phase, id: this.id, score: this.score, goal: this.goal, lives: this.lives, timeLeft: +this.timeLeft.toFixed(1), marks: this.marks.map((m) => ({ x: +m.x.toFixed(1), z: +m.z.toFixed(1) })) }
+    return { phase: this.phase, id: this.id, score: this.score, goal: this.goal, lives: this.lives, timeLeft: +this.timeLeft.toFixed(1), limit: this.limit, marks: this.marks.map((m) => ({ x: +m.x.toFixed(1), z: +m.z.toFixed(1) })) }
   }
 
   private clear() {
@@ -231,28 +240,62 @@ export class EventDirector {
     this.add(g, p[0], p[1])
   }
 
-  /** six gates in a ring (clockwise from the player's side); only the next is lit */
+  private roomAround(x: number, z: number, r: number) {
+    for (let k = 0; k < 8; k++) if (!this.valid(x + Math.cos((k / 8) * Math.PI * 2) * r, z + Math.sin((k / 8) * Math.PI * 2) * r)) return false
+    return true
+  }
+
+  /** is the straight run a→b walkable all the way (player-width clearance, `walk`)? */
+  private runClear(ax: number, az: number, bx: number, bz: number) {
+    const n = Math.max(2, Math.ceil(Math.hypot(bx - ax, bz - az) / 0.5))
+    for (let i = 1; i < n; i++) if (!this.walk(ax + ((bx - ax) * i) / n, az + ((bz - az) * i) / n)) return false
+    return true
+  }
+
+  /**
+   * six gates round the square. The course is searched from the open ground so EVERY leg (start → gate 1 → … → gate 6) is a clear
+   * straight run — no leg is blocked by a prop, building or the fountain — with gates 9–20 m apart and not bunched together. The time
+   * limit comes from the course length: a steady jog clears it with time to spare, a stroll does not.
+   */
   private placeGates(player: THREE.Vector3) {
-    const a0 = Math.atan2(player.z, player.x)
-    for (let i = 1; i <= 6; i++) {
-      for (let k = 0; k < 14; k++) {
-        const a = a0 + (i / 6) * Math.PI * 2 + (k % 2 ? 1 : -1) * Math.floor(k / 2) * 0.09
-        const r = 19 - Math.floor(k / 4)
-        const x = Math.cos(a) * r
-        const z = Math.sin(a) * r
-        if (!this.valid(x, z)) continue
-        const g = new THREE.Group()
-        const ring = new THREE.Mesh(this.geo.gate, this.mats.race)
-        ring.position.y = 1.3
-        ring.rotation.y = Math.PI / 2 - a
-        const b = new THREE.Mesh(this.geo.beam, this.mats.raceBeam)
-        g.add(ring, b)
-        g.visible = this.marks.length === 0
-        this.add(g, x, z)
-        break
+    const cand: [number, number][] = []
+    for (let x = -26; x <= 26; x += 2) for (let z = -26; z <= 26; z += 2) if (Math.hypot(x, z) <= 27 && this.valid(x, z)) cand.push([x, z])
+    let best: { pts: [number, number][]; len: number } | null = null
+    for (let t = 0; t < 400 && !(best && t > 80); t++) {
+      const pts: [number, number][] = []
+      let cx = player.x
+      let cz = player.z
+      let len = 0
+      for (let i = 0; i < 6; i++) {
+        const opts = cand.filter(([x, z]) => {
+          const d = Math.hypot(x - cx, z - cz)
+          return d >= 9 && d <= 20 && !pts.some((p) => Math.hypot(p[0] - x, p[1] - z) < 8) && Math.hypot(x - player.x, z - player.z) > 4 && this.runClear(cx, cz, x, z)
+        })
+        if (!opts.length) break
+        const pick = opts[Math.floor(Math.random() * opts.length)]
+        len += Math.hypot(pick[0] - cx, pick[1] - cz)
+        pts.push(pick)
+        cx = pick[0]
+        cz = pick[1]
       }
+      if (pts.length < 6) continue
+      if (!best || Math.abs(len - 105) < Math.abs(best.len - 105)) best = { pts, len }
     }
+    const pts = best?.pts ?? []
+    pts.forEach(([x, z], i) => {
+      const g = new THREE.Group()
+      const ring = new THREE.Mesh(this.geo.gate, this.mats.race)
+      ring.position.y = 1.3
+      const px = i ? pts[i - 1][0] : player.x
+      const pz = i ? pts[i - 1][1] : player.z
+      ring.rotation.y = Math.PI / 2 - Math.atan2(z - pz, x - px) // the hoop faces the runner coming in
+      g.add(ring, new THREE.Mesh(this.geo.beam, this.mats.raceBeam))
+      g.visible = i === 0
+      this.add(g, x, z)
+    })
     this.goalOverride = this.marks.length
+    this.limit = Math.max(25, Math.round((best?.len ?? 90) / 2.9))
+    this.timeLeft = this.limit
     this.hint = 'Run through the lit gate'
   }
 
@@ -298,7 +341,7 @@ export class EventDirector {
     this.root.visible = false
     this.flashLight.intensity = 0
     this.onHit?.(won ? 'win' : 'lose')
-    this.onEnd?.({ id: this.id, won, score: this.score, goal: this.goal, lives: this.lives, timeLeft: Math.max(0, this.timeLeft), time: this.def.duration - Math.max(0, this.timeLeft) })
+    this.onEnd?.({ id: this.id, won, score: this.score, goal: this.goal, lives: this.lives, timeLeft: Math.max(0, this.timeLeft), time: this.limit - Math.max(0, this.timeLeft) })
   }
 
   private collect(i: number, player: THREE.Vector3) {

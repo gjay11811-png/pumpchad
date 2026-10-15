@@ -676,7 +676,7 @@ export class World implements GameScene {
     add('pumpkin', 'Poke the suspicious pumpkin', -9.6, 10.4, 2.1, 'info')
     this.seats.forEach((b, i) => add(`bench_${i}`, b.label, b.x + Math.sin(b.ry) * 0.75, b.z + Math.cos(b.ry) * 0.75, 1.1, 'activity'))
     add('rush', 'Play Pumpkin Rush', RUSH_CART.x, RUSH_CART.z + 1.3, 1.5, 'activity')
-    add('events', 'Read the Events Board', 6.5, 9.5, 1.6, 'activity')
+    add('events', 'Read the Events Board', 6.5, 9.5, 2.5, 'activity')
     add('wardrobe', 'Browse the wardrobe stall', -24, 5.0, 1.3, 'info')
     add('lookout', 'Look out over the canal', -5.4, 32.4, 1.5, 'info')
     for (const g of GOURDS) add(g.id, `Talk to the ${g.name}`, g.x, g.z, 1.35, 'talk')
@@ -689,7 +689,15 @@ export class World implements GameScene {
       return true
     }
     this.rush = new RushGame(this.scene, open, { r: 29 })
-    this.eventDir = new EventDirector(this.scene, open, groundHeight, { r: 29 })
+    // the same test with player-width clearance and curb-height tolerance: what a runner can actually pass
+    const walk = (x: number, z: number) => {
+      if (Math.hypot(x, z) > 29.5 || Math.abs(groundHeight(x, z)) > 0.6) return false
+      for (const c of this.colliders) {
+        if (c.kind === 'circle' ? Math.hypot(x - c.x, z - c.z) < c.r + 0.62 : x > c.minX - 0.62 && x < c.maxX + 0.62 && z > c.minZ - 0.62 && z < c.maxZ + 0.62) return false
+      }
+      return true
+    }
+    this.eventDir = new EventDirector(this.scene, open, walk, groundHeight, { r: 29 })
     for (const r of RESIDENTS) if (r.talk) add(r.id, r.talk, r.talkAt?.[0] ?? r.x, r.talkAt?.[1] ?? r.z, r.talkAt ? 1.6 : 2.2, 'talk')
 
     // the Events Board: two posts and a lit notice, where the village events are started

@@ -60,7 +60,7 @@ export function EventPanel({
       if (scoreRef.current) scoreRef.current.textContent = `${director.score} / ${director.goal}`
       if (livesRef.current) livesRef.current.textContent = d.lives ? '♥'.repeat(Math.max(0, director.lives)) + '♡'.repeat(Math.max(0, d.lives - director.lives)) : ''
       if (hintRef.current) hintRef.current.textContent = director.hint
-      if (barRef.current) barRef.current.style.width = `${(Math.max(0, director.timeLeft) / d.duration) * 100}%`
+      if (barRef.current) barRef.current.style.width = `${(Math.max(0, director.timeLeft) / Math.max(1, director.limit || d.duration)) * 100}%`
       raf = requestAnimationFrame(loop)
     }
     raf = requestAnimationFrame(loop)
