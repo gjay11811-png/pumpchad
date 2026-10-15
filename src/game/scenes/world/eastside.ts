@@ -153,13 +153,14 @@ export function eastside(T: Town, stoneTex: THREE.Texture) {
     for (let i = 0; i < u.count; i++) u.setXY(i, (u.getX(i) * (xb - xa)) / 3, (u.getY(i) * 6.4) / 3)
     T.batch.put(g, P.cobble, (xa + xb) / 2, 0.025, z, 0, 1, 1, 1, { cast: false })
     for (const s of [-1, 1]) T.batch.put(boxUV(xb - xa, 0.14, 0.28, 1), P.stoneLight, (xa + xb) / 2, 0.07, z + s * 3.34, 0, 1, 1, 1, { cast: false })
-    // shops: north side faces south (ry 0), south side faces north (ry π)
+    // shops: north side faces south (ry 0), south side faces north (ry π). The two nearest the arcade stand 2.3 m further back and 1.4 m narrower than they
+    // used to, so the arcade has an open forecourt of its own (~9 m deep) instead of being pinched at the end of the street
     const awnA = std({ color: '#e8641a', roughness: 0.75, side: THREE.DoubleSide })
     const awnB = std({ color: '#5b2a86', roughness: 0.75, side: THREE.DoubleSide })
-    shop(T, render, { x: 34, z: 12.2, w: 6.4, d: 6, floors: 2, ry: 0, roof: 'pitched', name: 'PUMP SUPPLY', sub: 'straps · chalk · shakers', sign: 'ornate', crest: 'crown', greenery: true, panel: PANEL.green, awning: awnA, display: displayMaterial(T, '#5fae6a', 'shelves') })
-    shop(T, brick, { x: 41.4, z: 12.0, w: 7.4, d: 6.2, floors: 2, ry: 0, roof: 'mansard', name: 'CHAD SNACKS', sign: 'ornate', crest: 'pumpkin', greenery: true, display: displayMaterial(T, '#ffb24a', 'shelves'), balcony: true }, orangeLetters)
-    shop(T, stone, { x: 34, z: 26.0, w: 6.4, d: 6, floors: 2, ry: Math.PI, roof: 'parapet', name: 'CHAD CUTS', sub: 'fades · beards · confidence', sign: 'ornate', crest: 'crown', greenery: true, panel: PANEL.cream, display: displayMaterial(T, '#b8c4d6', 'shelves') })
-    shop(T, render, { x: 41.4, z: 26.0, w: 7.4, d: 6, floors: 2, ry: Math.PI, roof: 'pitched', name: 'CHAD FITS', sub: 'tees · hoodies · caps', sign: 'ornate', crest: 'crown', greenery: true, panel: PANEL.purple, awning: awnB, display: displayMaterial(T, '#9b6bff', 'racks'), balcony: true })
+    shop(T, render, { x: 32.9, z: 12.2, w: 5.8, d: 6, floors: 2, ry: 0, roof: 'pitched', name: 'PUMP SUPPLY', sub: 'straps · chalk · shakers', sign: 'ornate', crest: 'crown', greenery: true, panel: PANEL.green, awning: awnA, display: displayMaterial(T, '#5fae6a', 'shelves') })
+    shop(T, brick, { x: 39.1, z: 12.0, w: 6.0, d: 6.2, floors: 2, ry: 0, roof: 'mansard', name: 'CHAD SNACKS', sign: 'ornate', crest: 'pumpkin', greenery: true, display: displayMaterial(T, '#ffb24a', 'shelves'), balcony: true }, orangeLetters)
+    shop(T, stone, { x: 32.9, z: 26.0, w: 5.8, d: 6, floors: 2, ry: Math.PI, roof: 'parapet', name: 'CHAD CUTS', sub: 'fades · beards · confidence', sign: 'ornate', crest: 'crown', greenery: true, panel: PANEL.cream, display: displayMaterial(T, '#b8c4d6', 'shelves') })
+    shop(T, render, { x: 39.1, z: 26.0, w: 6.0, d: 6, floors: 2, ry: Math.PI, roof: 'pitched', name: 'CHAD FITS', sub: 'tees · hoodies · caps', sign: 'ornate', crest: 'crown', greenery: true, panel: PANEL.purple, awning: awnB, display: displayMaterial(T, '#9b6bff', 'racks'), balcony: true })
     // planters + benches along the street, lamp posts handled by the caller
     for (const px of [10, 18, 26]) for (const s of [-1, 1]) planterBox(T, P.stoneLight, px, z + s * 4.3, 1.6, 0.8)
   }

@@ -550,7 +550,7 @@ export const HOUSES: HouseSpec[] = [
   {
     id: 'supply',
     name: 'Pump Supply',
-    door: { x: 34, z: 12.2, face: 0, half: 3.0, out: 0.85 },
+    door: { x: 32.9, z: 12.2, face: 0, half: 3.0, out: 0.85 },
     room: { w: 7.4, d: 7, h: 3.6 },
     look: { wall: ['plaster', '#dfe8dc', '#c8d8c4'], floor: { tiles: ['#2a2a2e', '#3a3a3e'] }, trim: '#1e3a2a', ceiling: '#f2f2ee' },
     mood: 'bright',
@@ -572,7 +572,7 @@ export const HOUSES: HouseSpec[] = [
   {
     id: 'snacks',
     name: 'Chad Snacks',
-    door: { x: 41.4, z: 12.0, face: 0, half: 3.1, out: 0.85 },
+    door: { x: 39.1, z: 12.0, face: 0, half: 3.1, out: 0.85 },
     room: { w: 8.2, d: 7, h: 3.6 },
     look: { wall: ['stripe', '#f2e2c0', '#e8b46a'], floor: { tiles: ['#e8e0cc', '#7a2a1a'] }, trim: '#7a2a1a', ceiling: '#f6eedc' },
     mood: 'bright',
@@ -599,7 +599,7 @@ export const HOUSES: HouseSpec[] = [
   {
     id: 'cuts',
     name: 'Chad Cuts',
-    door: { x: 34, z: 26.0, face: Math.PI, half: 3.0, out: 0.85 },
+    door: { x: 32.9, z: 26.0, face: Math.PI, half: 3.0, out: 0.85 },
     room: { w: 7.4, d: 7, h: 3.6 },
     look: { wall: ['stripe', '#e8ecf0', '#c8d0dc'], floor: { tiles: ['#efeae0', '#1a1a1e'] }, trim: '#1a1a1e', ceiling: '#f6f6f2' },
     mood: 'bright',
@@ -631,7 +631,7 @@ export const HOUSES: HouseSpec[] = [
   {
     id: 'fits',
     name: 'Chad Fits',
-    door: { x: 41.4, z: 26.0, face: Math.PI, half: 3.0, out: 0.85 },
+    door: { x: 39.1, z: 26.0, face: Math.PI, half: 3.0, out: 0.85 },
     room: { w: 8.2, d: 7, h: 3.6 },
     look: { wall: ['plaster', '#2a2230', '#3a2a44'], floor: '#8a6a4a', trim: '#9b6bff', ceiling: '#2a2230' },
     keeper: {

@@ -49,7 +49,7 @@ export const LANDMARKS: Landmark[] = [
   { id: 'bridge', name: 'Moonspan Bridge', x: 20, z: 415, kind: 'place', visit: 'visit_bridge', spawn: { x: 56, z: 415, yaw: -Math.PI / 2 } },
   { id: 'landing', name: 'Lakeside Landing', x: 64, z: 436, kind: 'place', visit: 'visit_landing', spawn: { x: 58, z: 430, yaw: -Math.PI / 2 } },
   { id: 'manor', name: 'Mooncrest Manor', x: 150, z: 516, kind: 'place', visit: 'visit_manor', spawn: { x: 128, z: 516, yaw: Math.PI / 2 } },
-  { id: 'fits', name: 'Chad Fits', x: 41.4, z: 26, kind: 'shop' },
+  { id: 'fits', name: 'Chad Fits', x: 39.1, z: 26, kind: 'shop' },
   { id: 'pets', name: 'Chad Pets', x: 38, z: 47.5, kind: 'shop' },
   { id: 'motors', name: 'Chad Motors', x: 54, z: 50.5, kind: 'shop', below: true },
   { id: 'shakes', name: 'Pump Shakes', x: -38.5, z: 2.5, kind: 'shop' },

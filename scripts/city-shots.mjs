@@ -22,6 +22,8 @@ const VIEWS = {
   'estates-arch': { cam: [[-22, 2.2, 47], [-34, 2.4, 47], 55] },
   'estates-aerial': { cam: [[-28, 30, 86], [-47, 0, 60], 50] },
   'estates-lane': { play: [-47, 50, 0, -10, 0] },
+  'arcade-forecourt': { cam: [[40, 2.4, 19.2], [52, 3.4, 19.2], 62] },
+  'arcade-high': { cam: [[30, 14, 19.2], [52, 3, 19.2], 56] },
   'lantern-demo': { cam: [[3.6, 1.7, 67.2], [3.6, 1.7, 62.4], 48] },
   'lantern-demo-close': { cam: [[3.6, 2.3, 65.0], [3.6, 2.0, 62.4], 36] },
   'lantern-spawn': { play: [0, 64.5, Math.PI, -4, 0] },
