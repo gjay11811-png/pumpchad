@@ -27,7 +27,10 @@ const LAKE_RUNS: [number, number, number][] = (() => {
   }
   return out
 })()
-const VB = { x: -150, z: -100, w: 320, h: 720 }
+const VB_FULL = { x: -150, z: -100, w: 320, h: 720 }
+/** the first release shows the village only; the veiled strip below the gate stands for the closed expansion */
+const VB_VILLAGE = { x: -112, z: -76, w: 250, h: 232 }
+const VB = EXPANSION_OPEN ? VB_FULL : VB_VILLAGE
 const KIND_COLOR: Record<MapKind, string> = { place: '#e9e4da', shop: '#ffd25a', quest: '#ff9a3c', activity: '#7affb0' }
 
 /**
@@ -120,7 +123,7 @@ export function MapJournal({
                 <g data-testid="map-locked" pointerEvents="none">
                   <rect x={VB.x} y={GATE_LINE_Z} width={VB.w} height={VB.z + VB.h - GATE_LINE_Z} fill="#0d0b14" opacity={0.62} />
                   <line x1={VB.x} x2={VB.x + VB.w} y1={GATE_LINE_Z} y2={GATE_LINE_Z} stroke="#ffd25a" strokeWidth={0.8} strokeDasharray="4 3" />
-                  <text x={VB.x + VB.w / 2} y={GATE_LINE_Z + 18} textAnchor="middle" fontSize={7} fill="#ffd25a" style={{ fontFamily: 'ui-monospace, monospace', letterSpacing: 0.6 }}>
+                  <text x={VB.x + VB.w / 2} y={GATE_LINE_Z + 30} textAnchor="middle" fontSize={6.2} fill="#ffd25a" style={{ fontFamily: 'ui-monospace, monospace', letterSpacing: 0.6 }}>
                     CHAD CITY · THE VALLEY — NEXT UPDATE
                   </text>
                 </g>
@@ -168,6 +171,20 @@ export function MapJournal({
               )}
             </svg>
           </div>
+
+          {/* the closed expansion, listed (it is veiled / off the cropped map): selectable, never travel targets */}
+          {!EXPANSION_OPEN && (
+            <div className="mt-2" data-testid="map-locked-list">
+              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#ffd25a]">Next update · not open yet</p>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {LANDMARKS.filter(isLockedLandmark).map((l) => (
+                  <button key={l.id} type="button" onClick={() => setSel(l)} data-landmark-locked={l.id} className="min-h-8 rounded-full px-3 font-mono text-[10px] uppercase tracking-[0.12em] text-ash ring-1 ring-bone/15 hover:bg-bone/10">
+                    ◌ {l.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* filters */}
           <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Map filters">

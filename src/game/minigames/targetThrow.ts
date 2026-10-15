@@ -94,11 +94,11 @@ export class TargetRange {
       this.disposables.push(g)
       return new THREE.Mesh(g, mat)
     }
-    // the throw line: a counter, two posts, a lit sign
-    put(box(3.4, 0.9, 0.5, wood), 0, 1.0, 0.45)
-    put(box(3.6, 0.08, 0.7, dark), 0, 1.0, 0.92)
-    for (const s of [-1, 1]) put(box(0.12, 2.3, 0.12, wood), s * 1.7, 1.0, 1.15)
-    put(box(3.5, 0.55, 0.08, paper), 0, 1.0, 2.1)
+    // the throw line: a low counter rail and two short posts (nothing tall in the line of sight to the boards), a small lit notice on the left post
+    put(box(3.4, 0.7, 0.4, wood), 0, 1.0, 0.35)
+    put(box(3.6, 0.07, 0.6, dark), 0, 1.0, 0.72)
+    for (const s of [-1, 1]) put(box(0.12, 1.5, 0.12, wood), s * 1.7, 1.0, 0.75)
+    put(box(0.9, 0.5, 0.06, paper), -1.7, 1.0, 1.5)
     // a painted throw line on the ground
     const line = box(3.4, 0.02, 0.12, new THREE.MeshBasicMaterial({ color: 0xf6c870 }))
     this.disposables.push(line.material as THREE.Material)

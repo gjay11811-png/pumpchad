@@ -1,5 +1,5 @@
-﻿// Activity cards, HUDs and touch transitions on a landscape phone profile. SIMULATED (Chrome DevTools touch events on an
-// emulated iPhone 13 landscape, 844x390) â€” NOT a real phone.
+// Activity cards, HUDs and touch transitions on a landscape phone profile. SIMULATED (Chrome DevTools touch events on an
+// emulated iPhone 13 landscape, 844x390) — NOT a real phone.
 import { chromium, devices } from 'playwright'
 const URL = process.env.URL || 'http://localhost:4318/chadverse/'
 const b = await chromium.launch({ executablePath: process.env.LOCALAPPDATA + '/ms-playwright/chromium-1228/chrome-win64/chrome.exe' })

@@ -80,7 +80,7 @@ await p.keyboard.press('m')
 await p.waitForSelector('[data-testid=map]', { timeout: 5000 })
 check((await p.locator('[data-testid=map-locked]').count()) === 1, 'the map shows the locked "next update" veil')
 for (const id of ['downtown', 'castle', 'manor', 'hamlet', 'southshore', 'overlook-road']) {
-  await p.locator(`[data-landmark=${id}]`).click({ force: true })
+  await p.locator(`[data-landmark-locked=${id}]`).click()
   const txt = await p.locator('[data-testid=map-selected]').textContent()
   const travel = await p.locator('[data-testid=map-travel]').count()
   check(/next update/i.test(txt) && travel === 0, `map: ${id} is labelled next update, with no Travel button`)

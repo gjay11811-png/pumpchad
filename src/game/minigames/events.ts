@@ -138,6 +138,7 @@ export class EventDirector {
     this.geo.pumpkin = new THREE.SphereGeometry(0.34, 14, 10).scale(1, 0.82, 1)
     this.geo.beam = new THREE.CylinderGeometry(0.14, 0.38, 6, 10, 1, true).translate(0, 3, 0)
     this.geo.ghost = new THREE.CapsuleGeometry(0.42, 0.7, 4, 10)
+    this.geo.eye = new THREE.SphereGeometry(0.07, 8, 6)
     this.geo.crystal = new THREE.OctahedronGeometry(0.42)
     this.geo.lantern = new THREE.SphereGeometry(0.4, 12, 10)
     this.geo.pole = new THREE.CylinderGeometry(0.05, 0.07, 2.6, 6).translate(0, 1.3, 0)
@@ -360,8 +361,21 @@ export class EventDirector {
       const mat = new THREE.MeshBasicMaterial({ color: EVENT_DEFS.ghosthunt.color, transparent: true, opacity: 0 })
       this.temp.push(mat)
       const body = new THREE.Mesh(this.geo.ghost, mat)
-      body.position.y = 1.2
+      body.position.y = 1.3
+      body.scale.set(1.25, 1.25, 1.25)
       g.add(body)
+      // a face: two dark eyes and a round mouth on the side that turns toward you (the group yaws to face the player each frame)
+      const dark = new THREE.MeshBasicMaterial({ color: 0x0a1418, transparent: true, opacity: 0 })
+      this.temp.push(dark)
+      for (const sx of [-0.17, 0.17]) {
+        const eye = new THREE.Mesh(this.geo.eye, dark)
+        eye.position.set(sx, 1.62, 0.5)
+        g.add(eye)
+      }
+      const mouth = new THREE.Mesh(this.geo.eye, dark)
+      mouth.position.set(0, 1.3, 0.52)
+      mouth.scale.set(1.2, 1.6, 0.6)
+      g.add(mouth)
       g.visible = false
       this.add(g, x, z, { seen: 0, cap: 0 })
     }
@@ -482,7 +496,10 @@ export class EventDirector {
         m.seen = Math.max(0, Math.min(1, (m.seen ?? 0) + (want ? dt * 1.4 : -dt * 0.8)))
         m.group.visible = m.seen > 0.02
         mat.opacity = 0.7 * m.seen * (1 - (m.cap ?? 0) * 0.8)
-        m.group.children[0].position.y = 1.2 + Math.sin(this.t * 2 + m.born) * 0.12
+        const face = m.group.children[1] as THREE.Mesh | undefined
+        if (face) (face.material as THREE.MeshBasicMaterial).opacity = Math.min(0.9, mat.opacity * 1.4)
+        m.group.rotation.y = Math.atan2(player.x - m.x, player.z - m.z)
+        m.group.children[0].position.y = 1.3 + Math.sin(this.t * 2 + m.born) * 0.12
         if (want && !m.born) m.born = this.t
         if (d < 1.9 && m.seen > 0.6) {
           m.cap = Math.min(1, (m.cap ?? 0) + dt / 1.1)

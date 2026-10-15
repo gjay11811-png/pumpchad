@@ -1,4 +1,4 @@
-﻿import { AnimatePresence, m } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import { useEffect, useRef, useState } from 'react'
 import { audio } from '../audio'
 import { MAX_TOSS_SCORE, TOSS, type TargetRange, type TossStats } from '../minigames/targetThrow'
@@ -8,7 +8,7 @@ export type TossResult = { xp: number; mult: number; best: number; newBest: bool
 type Phase = 'ready' | 'run' | 'done'
 
 /**
- * Pumpkin Toss: instructions â†’ ten throws (click or tap a board; a reticle follows the pointer) â†’ results â†’ throw again.
+ * Pumpkin Toss: instructions → ten throws (click or tap a board; a reticle follows the pointer) → results → throw again.
  * Movement is locked while the round runs and returns when it ends or is quit. Personal best is local to this device.
  */
 export function TargetPanel({
@@ -148,7 +148,7 @@ export function TargetPanel({
                   </button>
                 </div>
               </div>
-              <p className="mt-1.5 text-[12px] text-bone/65 [@media(max-height:480px)]:hidden">Click or tap a board to throw. Bullseye 50 Â· inner 25 Â· outer 10 â€” far boards Ã—1.5, the sliding board Ã—2.</p>
+              <p className="mt-1.5 text-[12px] text-bone/65 [@media(max-height:480px)]:hidden">Click or tap a board to throw. Bullseye 50 · inner 25 · outer 10 — far boards ×1.5, the sliding board ×2.</p>
             </div>
             <div className="relative mt-2 h-10 text-center">
               <AnimatePresence mode="wait">
@@ -179,11 +179,11 @@ export function TargetPanel({
             </div>
             <p className="mt-1 font-display text-4xl uppercase leading-none">Pumpkin Toss</p>
             <ul className="mt-3 grid gap-1.5 text-[14px] text-bone/80">
-              <li>â€¢ {TOSS.throws} throws from the line. Click (mouse) or tap (touch) a board to throw a pumpkin at that spot.</li>
-              <li>â€¢ Bullseye 50 Â· inner ring 25 Â· outer ring 10. The far boards are worth Ã—1.5; the one sliding side to side is Ã—2 â€” time it.</li>
-              <li>â€¢ You stay on the line while the round runs. Esc or Quit ends it with no reward.</li>
+              <li>• {TOSS.throws} throws from the line. Click (mouse) or tap (touch) a board to throw a pumpkin at that spot.</li>
+              <li>• Bullseye 50 · inner ring 25 · outer ring 10. The far boards are worth ×1.5; the one sliding side to side is ×2 — time it.</li>
+              <li>• You stay on the line while the round runs. Esc or Quit ends it with no reward.</li>
             </ul>
-            <p className="mt-3 font-mono text-[11px] uppercase tracking-[0.2em] text-ash" data-testid="toss-best">Your best (this device): {best || 'â€”'}</p>
+            <p className="mt-3 font-mono text-[11px] uppercase tracking-[0.2em] text-ash" data-testid="toss-best">Your best (this device): {best || '—'}</p>
             <div className="sticky bottom-0 mt-5 flex gap-2 bg-ink/95 pb-1 pt-2">
               <Btn className="flex-1" size="lg" onClick={start} sound={null} data-testid="toss-start">
                 Start
@@ -198,7 +198,7 @@ export function TargetPanel({
               {result.s.score}
             </p>
             <p className={`mt-1 font-mono text-[11px] uppercase tracking-[0.2em] ${result.r.newBest ? 'text-chain' : 'text-ash'}`} data-testid="toss-record">
-              {result.r.newBest ? 'New personal best!' : `Best: ${result.r.best}`} Â· local to this device (max {MAX_TOSS_SCORE})
+              {result.r.newBest ? 'New personal best!' : `Best: ${result.r.best}`} · local to this device (max {MAX_TOSS_SCORE})
             </p>
             <div className="mt-4 grid grid-cols-3 gap-2 text-center">
               {(
@@ -217,7 +217,7 @@ export function TargetPanel({
             <p className="mt-4 text-center font-display text-2xl uppercase text-molten" data-testid="toss-xp">
               +{result.r.xp} XP
             </p>
-            {result.r.mult < 1 && <p className="mt-1 text-center font-mono text-[11px] uppercase tracking-[0.16em] text-ash">Tired arm Â· {Math.round(result.r.mult * 100)}% XP for more rounds today</p>}
+            {result.r.mult < 1 && <p className="mt-1 text-center font-mono text-[11px] uppercase tracking-[0.16em] text-ash">Tired arm · {Math.round(result.r.mult * 100)}% XP for more rounds today</p>}
             <div className="sticky bottom-0 mt-4 flex gap-2 bg-ink/95 pb-1 pt-2">
               <Btn className="flex-1" onClick={start} sound={null} data-testid="toss-again">
                 Throw again

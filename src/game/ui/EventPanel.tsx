@@ -1,4 +1,4 @@
-﻿import { AnimatePresence, m } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { audio } from '../audio'
@@ -8,7 +8,7 @@ import { Btn, Label } from './kit'
 export type EventResult = { xp: number; mult: number; wins: number; best?: number }
 type Phase = 'ready' | 'run' | 'done'
 
-/** The Events Board: pick an event â†’ 3-2-1 â†’ live HUD (timer / progress / lives / hint) â†’ result â†’ play again or back. */
+/** The Events Board: pick an event → 3-2-1 → live HUD (timer / progress / lives / hint) → result → play again or back. */
 export function EventPanel({
   director,
   player,
@@ -61,7 +61,7 @@ export function EventPanel({
       const d = director.def
       if (timeRef.current) timeRef.current.textContent = Math.max(0, director.timeLeft).toFixed(1)
       if (scoreRef.current) scoreRef.current.textContent = `${director.score} / ${director.goal}`
-      if (livesRef.current) livesRef.current.textContent = d.lives ? 'â™¥'.repeat(Math.max(0, director.lives)) + 'â™¡'.repeat(Math.max(0, d.lives - director.lives)) : ''
+      if (livesRef.current) livesRef.current.textContent = d.lives ? '♥'.repeat(Math.max(0, director.lives)) + '♡'.repeat(Math.max(0, d.lives - director.lives)) : ''
       if (hintRef.current) hintRef.current.textContent = director.hint
       if (barRef.current) barRef.current.style.width = `${(Math.max(0, director.timeLeft) / Math.max(1, director.limit || d.duration)) * 100}%`
       raf = requestAnimationFrame(loop)
@@ -165,11 +165,11 @@ export function EventPanel({
               <>
                 <ul className="mt-3 grid gap-1.5 text-[14px] text-bone/80">
                   {EVENT_DEFS[ids[0]].rules.map((r) => (
-                    <li key={r}>â€¢ {r}</li>
+                    <li key={r}>• {r}</li>
                   ))}
                 </ul>
                 <p className="mt-3 font-mono text-[11px] uppercase tracking-[0.2em] text-ash">
-                  {EVENT_DEFS[ids[0]].duration}s Â· cleared {wins[ids[0]] || 0}Ã— Â· local to this device
+                  {EVENT_DEFS[ids[0]].duration}s · cleared {wins[ids[0]] || 0}× · local to this device
                 </p>
                 <div className="sticky bottom-0 mt-4 flex gap-2 bg-ink/95 pb-1 pt-2">
                   <Btn className="flex-1" size="lg" onClick={() => start(ids[0])} sound={null} data-testid={`event-${ids[0]}`}>
@@ -184,7 +184,7 @@ export function EventPanel({
                   <p className="font-display text-xl uppercase leading-tight">{EVENT_DEFS[e].name}</p>
                   <p className="mt-1 text-[13px] text-bone/70 [@media(max-height:480px)]:hidden">{EVENT_DEFS[e].blurb}</p>
                   <p className="mt-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-ash">
-                    {EVENT_DEFS[e].duration}s Â· cleared {wins[e] || 0}Ã—
+                    {EVENT_DEFS[e].duration}s · cleared {wins[e] || 0}×
                   </p>
                 </button>
               ))}
@@ -198,13 +198,13 @@ export function EventPanel({
               {result.s.won ? 'Cleared!' : 'Not this time'}
             </p>
             <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.2em] text-ash">
-              {result.s.score} / {result.s.goal}{result.s.won && result.s.id === 'race' ? ` Â· ${result.s.time.toFixed(2)}s${result.r.best && result.s.time <= result.r.best / 100 + 0.005 ? ' Â· new best!' : ''}` : ''}
-              {d.lives > 0 ? ` Â· ${Math.max(0, result.s.lives)} lives left` : ''} Â· {result.s.timeLeft.toFixed(0)}s left
+              {result.s.score} / {result.s.goal}{result.s.won && result.s.id === 'race' ? ` · ${result.s.time.toFixed(2)}s${result.r.best && result.s.time <= result.r.best / 100 + 0.005 ? ' · new best!' : ''}` : ''}
+              {d.lives > 0 ? ` · ${Math.max(0, result.s.lives)} lives left` : ''} · {result.s.timeLeft.toFixed(0)}s left
             </p>
             <p className="mt-4 text-center font-display text-2xl uppercase text-molten" data-testid="event-xp">
               +{result.r.xp} XP
             </p>
-            {result.r.mult < 1 && <p className="mt-1 text-center font-mono text-[11px] uppercase tracking-[0.16em] text-ash">Tired legs Â· {Math.round(result.r.mult * 100)}% XP for more rounds today</p>}
+            {result.r.mult < 1 && <p className="mt-1 text-center font-mono text-[11px] uppercase tracking-[0.16em] text-ash">Tired legs · {Math.round(result.r.mult * 100)}% XP for more rounds today</p>}
             <div className="sticky bottom-0 mt-4 flex gap-2 bg-ink/95 pb-1 pt-2">
               <Btn className="flex-1" onClick={() => start(id)} sound={null} data-testid="event-again">
                 Play again

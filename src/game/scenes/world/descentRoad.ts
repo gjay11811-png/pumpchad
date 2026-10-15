@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { EXPANSION_OPEN } from '../../launch'
 import type { Town } from './buildings'
 import { boxUV, rng } from './kit'
 import { Frame, PANEL, channelLetters, panelTexture, postedBoard, type SignMats } from './signs'
@@ -156,6 +157,7 @@ export function descentRoad(T: Town, q: 'low' | 'medium' | 'high') {
   /* ── direction boards: the village gate, the overlook, the middle of the descent, the viaduct, the City Gateway ── */
   {
     const board = (s: number, side: number, title: string, sub: string, aspect = 2.2) => {
+      if (!EXPANSION_OPEN) return // the road's direction boards advertise Chad City, which is closed in the first release
       const p = DESCENT.pointAt(s)
       const ox = p.x - p.tz * side * (W / 2 + 1.6)
       const oz = p.z + p.tx * side * (W / 2 + 1.6)
