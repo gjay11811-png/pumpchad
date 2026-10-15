@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { setNpcTextureCap } from '../character/chad'
 import { Emoter, type EmoteId } from '../emotes'
-import { Jumper, OUTDOOR, SPEED_UNIT, leanFor, targetSpeed, turnRate, velocityRate } from '../movement'
+import { Jumper, KERB, LOW_OBSTACLE, OUTDOOR, SPEED_UNIT, STEP_UP, leanFor, targetSpeed, turnRate, velocityRate } from '../movement'
 import { buildCharacter } from '../character/build'
 import { createCharacter, disposeCharacter, type Character } from '../character/character'
 import type { Appearance } from '../character/types'
@@ -18,6 +18,7 @@ import { BENCHES, kingdom, mountains } from './world/kingdom'
 import { GARDEN, SPAWN, VALLEY_GATE, bridgeHeight, clampToCity } from './world/city'
 import { EXPANSION_OPEN, SAFE_ARRIVAL, isLocked } from '../launch'
 import { PANEL, boardTexture } from './world/signs'
+import { citySkyline } from './world/skyline'
 import { buildDaylight, isNight, skyPresetFromUrl } from './world/daylight'
 import { B4S_BENCH, PLAZA_BENCHES, SEAT_FWD } from './world/props'
 
@@ -377,6 +378,7 @@ export class World implements GameScene {
       castleRoad(L, q)
       summitCastle(L)
       if (EXPANSION_OPEN) downtown(L)
+      else citySkyline(L) // shells only: the view of Chad City from the overlook, none of its interiors, colliders, lights or NPCs
     })
     descentRoad(T, q)
     const valleySeats: BenchSpot[] = []
@@ -1118,8 +1120,39 @@ export class World implements GameScene {
 
   /* ───────── simulation ───────── */
 
-  private resolve(p: THREE.Vector3, r: number) {
+  /**
+   * The height of the surface under (x, z) for a walker whose feet are at height y: the top of the tallest LOW obstacle (<= LOW_OBSTACLE)
+   * whose footprint contains the point and whose top is within a step of the feet — else the terrain (0). Tall obstacles never support you.
+   */
+  private floorAt(x: number, z: number, y: number) {
+    let best = 0
     for (const c of this.colliders) {
+      const h = c.h
+      if (h === undefined || h > LOW_OBSTACLE || h <= KERB || h > y + STEP_UP + 1e-3 || h <= best) continue
+      const inside = c.kind === 'circle' ? Math.hypot(x - c.x, z - c.z) < c.r : x > c.minX && x < c.maxX && z > c.minZ && z < c.maxZ
+      if (inside) best = h
+    }
+    return best
+  }
+
+  /** a low obstacle straight ahead that a plain jump cannot clear but a vault can: returns the apex to ask for, else 0 */
+  private vaultApex() {
+    const ax = this.playerPos.x + Math.sin(this.playerYaw) * 0.85
+    const az = this.playerPos.z + Math.cos(this.playerYaw) * 0.85
+    let top = 0
+    for (const c of this.colliders) {
+      const h = c.h
+      if (h === undefined || h > LOW_OBSTACLE || h < 0.55 || h <= top) continue
+      const near = c.kind === 'circle' ? Math.hypot(ax - c.x, az - c.z) < c.r + 0.25 : ax > c.minX - 0.25 && ax < c.maxX + 0.25 && az > c.minZ - 0.25 && az < c.maxZ + 0.25
+      if (near) top = h
+    }
+    return top > 0.55 ? top + 0.22 : 0
+  }
+
+  private resolve(p: THREE.Vector3, r: number, feetY = 0) {
+    for (const c of this.colliders) {
+      // feet above a LOW obstacle's top (a hop over a wall, standing on a bench): it does not push you out
+      if (c.h !== undefined && c.h <= LOW_OBSTACLE && feetY >= c.h - 0.12) continue
       if (c.kind === 'circle') {
         const dx = p.x - c.x
         const dz = p.z - c.z
@@ -1363,9 +1396,9 @@ export class World implements GameScene {
     const mag = Math.min(1, wish.length())
     const targetVel = mag > 0.01 ? wish.normalize().multiplyScalar(targetSpeed(mag, mv.run, mv.analog, OUTDOOR)) : new THREE.Vector3()
     // jump (Space / touch button); moving or jumping ends an emote
-    if (jumpReq && !this.paused && this.jumper.tryJump(p)) this.emoter.cancel(p)
+    if (jumpReq && !this.paused && this.jumper.tryJump(p, this.vaultApex())) this.emoter.cancel(p)
     if (mag > 0.05 && this.emoter.busy) this.emoter.cancel(p)
-    this.jumper.update(dt, p)
+    this.jumper.update(dt, p, this.floorAt(this.playerPos.x, this.playerPos.z, this.jumper.y))
     this.emoter.update(dt)
     const nowSpeed = Math.hypot(this.playerVel.x, this.playerVel.z)
     this.playerVel.lerp(targetVel, 1 - Math.exp(-dt * velocityRate(mag > 0.01, nowSpeed, this.jumper.airborne)))
@@ -1373,7 +1406,7 @@ export class World implements GameScene {
     const pz = this.playerPos.z
     this.playerPos.addScaledVector(this.playerVel, dt)
     if (!this.seat) {
-      this.resolve(this.playerPos, PLAYER_R) // seated = inside the bench's collider on purpose
+      this.resolve(this.playerPos, PLAYER_R, this.jumper.y) // seated = inside the bench's collider on purpose
       // walls / hedges / NPCs eat velocity: slide along them instead of sprinting on the spot
       if (dt > 0) {
         const ax = (this.playerPos.x - px) / dt

@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
+import { barkTexture, growTree, needleTexture, type TreeGeo, type TreeKind } from './treegen'
 
 /**
  * Procedural foliage for Chad Kingdom: bushes, hedges and autumn trees that read as plants, not cubes.
@@ -95,11 +96,19 @@ export function flowerTexture(D: D) {
 /** smooth position-based value noise (same displacement for shared vertex positions → no cracks) */
 const lump = (x: number, y: number, z: number, s: number) => Math.sin(x * 3.1 + s) * Math.sin(y * 2.7 + s * 1.3) * Math.sin(z * 3.3 + s * 0.7)
 
+type GeoSet = { bark: THREE.BufferGeometry[]; leaves: THREE.BufferGeometry[]; needles: THREE.BufferGeometry[] }
+const CELL = 44
+/** distance (m) where a cell drops to its far version, and where it disappears into the fog */
+const LOD_NEAR = 75
+const LOD_FAR = 260
+
 export class FoliageBuilder {
   private cores: THREE.BufferGeometry[] = []
   private cards: THREE.BufferGeometry[] = []
   private bark: THREE.BufferGeometry[] = []
   private r: () => number
+  /** real trees and shrubs, bucketed into ~44 m cells so each cell can switch between a full and a far version by distance (THREE.LOD) */
+  private cells = new Map<string, { cx: number; cz: number; near: GeoSet; far: GeoSet }>()
   /** leaf-card density by quality (1 = high, fewer cards on medium / low phones) */
   constructor(seed = 1, private density = 1) {
     this.r = rngF(seed)
@@ -156,18 +165,36 @@ export class FoliageBuilder {
     }
   }
 
-  /** garden bush: 2–3 lumps + leaf shell */
-  bush(x: number, y: number, z: number, s: number, green: THREE.Color) {
-    const dark = green.clone().multiplyScalar(0.45)
-    const light = green.clone().multiplyScalar(1.15)
-    const n = 2 + Math.floor(this.r() * 2)
-    for (let i = 0; i < n; i++) {
-      const a = this.r() * Math.PI * 2
-      const d = i === 0 ? 0 : 0.35 * s
-      const r = (0.5 + this.r() * 0.25) * s
-      this.blob(x + Math.cos(a) * d, y + r * 0.75, z + Math.sin(a) * d, r, r * 0.85, r, dark, light)
-      this.leaves(x + Math.cos(a) * d, y + r * 0.75, z + Math.sin(a) * d, r, r * 0.85, r, 15, 0.5 * s, light, 0.24)
+  /**
+   * Grow a real tree or shrub (see treegen.ts) and file it in its cell: a full version for nearby, a far version (trunk, main limbs, a few big
+   * cards) for distance. `y` lifts it onto a planter. Detail follows the quality tier through `density`.
+   */
+  plant(kind: TreeKind, x: number, z: number, s: number, leaf: THREE.Color[], bark: THREE.Color, y = 0) {
+    const key = `${Math.floor(x / CELL)},${Math.floor(z / CELL)}`
+    let cell = this.cells.get(key)
+    if (!cell) {
+      cell = { cx: (Math.floor(x / CELL) + 0.5) * CELL, cz: (Math.floor(z / CELL) + 0.5) * CELL, near: { bark: [], leaves: [], needles: [] }, far: { bark: [], leaves: [], needles: [] } }
+      this.cells.set(key, cell)
     }
+    const seed = Math.floor(this.r() * 1e6)
+    const yaw = this.r() * Math.PI * 2
+    for (const far of [false, true]) {
+      const g: TreeGeo = growTree(kind, seed, { detail: this.density, far, leaf, bark })
+      const set = far ? cell.far : cell.near
+      for (const [part, list] of [[g.bark, set.bark], [g.leaves, set.leaves], [g.needles, set.needles]] as const) {
+        if (!part) continue
+        part.rotateY(yaw)
+        part.scale(s, s, s)
+        part.translate(x - cell.cx, y, z - cell.cz)
+        list.push(part)
+      }
+    }
+  }
+
+  /** garden shrub: a fan of thin stems, each carrying clumps of leaf cards — a varied outline, not a ball */
+  bush(x: number, y: number, z: number, s: number, green: THREE.Color) {
+    const palette = [green.clone().multiplyScalar(0.92), green.clone().multiplyScalar(1.12), green.clone().offsetHSL(0.02, 0, 0.04)]
+    this.plant('shrub', x, z, s * 1.15, palette, new THREE.Color('#3a2c22'), y)
   }
 
   /** clipped hedge: overlapping lumps along a line + a leafy skin; axis 'x' or 'z' */
@@ -188,86 +215,20 @@ export class FoliageBuilder {
     }
   }
 
-  /** autumn tree: tapered trunk, three branches, clustered canopies */
+  /** a broadleaf tree (oak, now and then a birch): branching limbs, layered leaf clumps */
   tree(x: number, z: number, s: number, palette: THREE.Color[], barkColor: THREE.Color) {
-    const trunkH = 2.6 * s
-    const trunk = new THREE.CylinderGeometry(0.14 * s, 0.3 * s, trunkH, 8, 3).toNonIndexed()
-    const tp = trunk.attributes.position as THREE.BufferAttribute
-    for (let i = 0; i < tp.count; i++) tp.setX(i, tp.getX(i) + Math.sin((tp.getY(i) / trunkH) * 2.4) * 0.12 * s) // gentle lean
-    trunk.translate(x, trunkH / 2, z)
-    this.colorize(trunk, barkColor)
-    this.bark.push(trunk)
-    const tops: THREE.Vector3[] = [new THREE.Vector3(x + 0.1 * s, trunkH + 0.9 * s, z)]
-    for (let b = 0; b < 4; b++) {
-      const a = b * 1.7 + this.r()
-      const len = (1.1 + this.r() * 0.5) * s
-      const from = new THREE.Vector3(x, trunkH * (0.55 + b * 0.12), z)
-      const to = from.clone().add(new THREE.Vector3(Math.cos(a) * len, len * 0.75, Math.sin(a) * len))
-      const br = new THREE.CylinderGeometry(0.05 * s, 0.11 * s, from.distanceTo(to), 6).toNonIndexed()
-      br.translate(0, from.distanceTo(to) / 2, 0)
-      br.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), to.clone().sub(from).normalize()))
-      br.translate(from.x, from.y, from.z)
-      this.colorize(br, barkColor)
-      this.bark.push(br)
-      tops.push(to)
-    }
-    tops.forEach((p, i) => {
-      const col = palette[(i + Math.floor(this.r() * palette.length)) % palette.length]
-      const r = (i === 0 ? 1.1 : 0.8 + this.r() * 0.22) * s
-      // a flattened lump plus two smaller satellites to the side: an irregular, layered crown instead of one ball
-      this.blob(p.x, p.y, p.z, r, r * 0.62, r, col.clone().multiplyScalar(0.45), col.clone().multiplyScalar(1.1))
-      this.leaves(p.x, p.y, p.z, r, r * 0.62, r, 22, 0.6 * s, col.clone().multiplyScalar(1.05), 0.26, -0.6)
-      for (let k = 0; k < 2; k++) {
-        const a = this.r() * Math.PI * 2
-        const sr = r * (0.45 + this.r() * 0.2)
-        const sx = p.x + Math.cos(a) * r * 0.85
-        const sz = p.z + Math.sin(a) * r * 0.85
-        const sy = p.y - r * 0.18 + this.r() * r * 0.3
-        const c2 = palette[(i + k + 1) % palette.length]
-        this.blob(sx, sy, sz, sr, sr * 0.65, sr, c2.clone().multiplyScalar(0.45), c2.clone().multiplyScalar(1.08))
-        this.leaves(sx, sy, sz, sr, sr * 0.65, sr, 9, 0.5 * s, c2.clone().multiplyScalar(1.05), 0.26, -0.6)
-      }
-    })
+    if (this.r() < 0.22) this.plant('birch', x, z, s, palette, new THREE.Color('#cfcbc0'))
+    else this.plant('oak', x, z, s, palette, barkColor)
   }
 
-  /** conifer: a slim trunk and five flaring tiers of needles, darkest at the base */
+  /** conifer: whorls of drooping branches with needle sprays, darkest at the base */
   conifer(x: number, z: number, s: number, green: THREE.Color, barkColor: THREE.Color) {
-    const trunk = new THREE.CylinderGeometry(0.1 * s, 0.22 * s, 3 * s, 7).toNonIndexed()
-    trunk.translate(x, 1.5 * s, z)
-    this.colorize(trunk, barkColor)
-    this.bark.push(trunk)
-    for (let k = 0; k < 5; k++) {
-      const u = k / 4
-      const r = (1.75 - u * 1.2) * s
-      const y = (1.7 + k * 1.15) * s
-      const col = green.clone().multiplyScalar(0.8 + u * 0.35)
-      this.blob(x, y, z, r, r * 0.5, r, col.clone().multiplyScalar(0.4), col.clone().multiplyScalar(1.05))
-      this.leaves(x, y, z, r, r * 0.5, r, 12 + (4 - k) * 2, 0.55 * s, col, 0.28, -0.5)
-    }
-    this.blob(x, (1.7 + 5 * 1.15) * s, z, 0.34 * s, 0.7 * s, 0.34 * s, green.clone().multiplyScalar(0.4), green.clone().multiplyScalar(1.1))
+    this.plant('pine', x, z, s, [green.clone().multiplyScalar(0.9), green.clone().multiplyScalar(1.1)], barkColor)
   }
 
-  /** poplar: a tall narrow column of overlapping lumps on a long trunk */
+  /** poplar: a tall narrow column of upward limbs */
   poplar(x: number, z: number, s: number, palette: THREE.Color[], barkColor: THREE.Color) {
-    const trunk = new THREE.CylinderGeometry(0.1 * s, 0.2 * s, 3.4 * s, 7).toNonIndexed()
-    trunk.translate(x, 1.7 * s, z)
-    this.colorize(trunk, barkColor)
-    this.bark.push(trunk)
-    for (let k = 0; k < 7; k++) {
-      const col = palette[(k + Math.floor(this.r() * palette.length)) % palette.length]
-      const r = (0.95 - Math.abs(k - 3.2) * 0.1) * s * (0.85 + this.r() * 0.3)
-      const px = x + (this.r() - 0.5) * 0.3 * s
-      const pz = z + (this.r() - 0.5) * 0.3 * s
-      const py = (2.1 + k * 0.85) * s
-      this.blob(px, py, pz, r * 0.85, r * 0.7, r * 0.85, col.clone().multiplyScalar(0.45), col.clone().multiplyScalar(1.1))
-      this.leaves(px, py, pz, r * 0.85, r * 0.7, r * 0.85, 11, 0.5 * s, col.clone().multiplyScalar(1.05), 0.26, -0.5)
-    }
-  }
-
-  private colorize(g: THREE.BufferGeometry, c: THREE.Color) {
-    const col: number[] = []
-    for (let i = 0; i < g.attributes.position.count; i++) col.push(c.r, c.g, c.b)
-    g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3))
+    this.plant('poplar', x, z, s, palette, barkColor)
   }
 
   /** merge into meshes: cores (smooth, vertex colours), leaf cards (alpha-tested), bark */
@@ -297,6 +258,38 @@ export class FoliageBuilder {
     this.cores = []
     this.cards = []
     this.bark = []
+    // the real trees + shrubs: one THREE.LOD per cell (full ≤ 75 m, far ≤ 260 m, then gone); the renderer updates it each frame
+    const barkMat = new THREE.MeshStandardMaterial({ map: barkTexture(D), vertexColors: true, roughness: 0.95 })
+    const leafMat = new THREE.MeshStandardMaterial({ map: leafMap, vertexColors: true, alphaTest: 0.5, alphaToCoverage: true, side: THREE.DoubleSide, roughness: 0.85 })
+    const needleMat = new THREE.MeshStandardMaterial({ map: needleTexture(D), vertexColors: true, alphaTest: 0.5, alphaToCoverage: true, side: THREE.DoubleSide, roughness: 0.85 })
+    D.push(barkMat, leafMat, needleMat)
+    const group = (set: GeoSet, cast: boolean) => {
+      const gr = new THREE.Group()
+      for (const [list, mat, casts] of [[set.bark, barkMat, cast], [set.leaves, leafMat, cast], [set.needles, needleMat, cast]] as const) {
+        if (!list.length) continue
+        const merged = mergeGeometries(list)!
+        list.forEach((g) => g.dispose())
+        merged.computeBoundingSphere()
+        const m = new THREE.Mesh(merged, mat)
+        m.castShadow = casts
+        m.receiveShadow = true
+        m.matrixAutoUpdate = false
+        gr.add(m)
+        D.push(merged)
+      }
+      return gr
+    }
+    for (const cell of this.cells.values()) {
+      const lod = new THREE.LOD()
+      lod.position.set(cell.cx, 0, cell.cz)
+      lod.addLevel(group(cell.near, shadows), 0)
+      lod.addLevel(group(cell.far, false), LOD_NEAR)
+      lod.addLevel(new THREE.Group(), LOD_FAR)
+      lod.updateMatrix()
+      lod.matrixAutoUpdate = false
+      parent.add(lod)
+    }
+    this.cells.clear()
     return out
   }
 }

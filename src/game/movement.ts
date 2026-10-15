@@ -39,37 +39,53 @@ export const turnRate = (speed: number) => THREE.MathUtils.lerp(16, 9, THREE.Mat
 
 /** Vertical state for a jumping character on the ground plane. */
 export class Jumper {
+  /** height of the feet above the terrain (0 on the ground, the surface's top when standing on something) */
   y = 0
   vy = 0
+  /** the surface currently under the feet (0 = terrain) */
+  floor = 0
+  /** true for the first frame after touching down (for landing sounds / dust) */
+  landed = false
   private crouch = -1
+  private launch = JUMP_V
 
   get grounded() {
-    return this.y <= 0 && this.vy <= 0 && this.crouch < 0
+    return this.y <= this.floor + 1e-3 && this.vy <= 0 && this.crouch < 0
   }
   get airborne() {
     return !this.grounded
   }
 
-  /** returns true if the jump started */
-  tryJump(p: Character | null) {
+  /**
+   * returns true if the jump started. `apex` (m above the feet) asks for a taller jump — a vault onto a low ledge:
+   * the take-off speed is whatever reaches that apex (capped so it is a hop, never a leap).
+   */
+  tryJump(p: Character | null, apex = 0) {
     if (!this.grounded) return false
     this.crouch = JUMP_CROUCH
+    this.launch = apex > 0 ? Math.min(JUMP_V_MAX, Math.sqrt(2 * GRAVITY * apex)) : JUMP_V
     p?.jump?.()
     return true
   }
 
-  update(dt: number, p: Character | null) {
+  /** `floorY` is the height of the surface under the feet this frame (terrain 0, or the top of a low obstacle you are over) */
+  update(dt: number, p: Character | null, floorY = 0) {
+    this.landed = false
+    this.floor = floorY
     if (this.crouch >= 0) {
       this.crouch -= dt
-      if (this.crouch < 0) this.vy = JUMP_V
+      if (this.crouch < 0) this.vy = this.launch
     }
-    if (this.vy !== 0 || this.y > 0) {
+    if (this.vy !== 0 || this.y > floorY + 1e-3) {
       this.vy -= GRAVITY * dt
       this.y += this.vy * dt
-      if (this.y <= 0) {
-        this.y = 0
+      if (this.y <= floorY && this.vy <= 0) {
+        this.y = floorY
         this.vy = 0
+        this.landed = true
       }
+    } else if (this.y < floorY) {
+      this.y = floorY // a step up onto a kerb-height surface
     }
     p?.setGrounded?.(this.grounded)
   }
@@ -77,9 +93,20 @@ export class Jumper {
   reset() {
     this.y = 0
     this.vy = 0
+    this.floor = 0
     this.crouch = -1
+    this.launch = JUMP_V
   }
 }
+
+/** obstacles up to this tall can be jumped onto / over (taller things always block) */
+export const LOW_OBSTACLE = 1.3
+/** the tallest take-off speed a vault may use (apex ~1.5 m) */
+export const JUMP_V_MAX = 6.7
+/** tops this low never block walking at all (kerbs, pavers) */
+export const KERB = 0.12
+/** the biggest rise a walker steps up without jumping */
+export const STEP_UP = 0.3
 
 /** body lean for the rig: into turns (scaled by speed) and with acceleration */
 export function leanFor(yawRate: number, accel: number, speed: number) {

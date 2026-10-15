@@ -4,6 +4,7 @@ import type { Town } from './buildings'
 import { DISTRICTS, LAKE, PIER, lakeR } from './city'
 import { waterMaterial } from './fountain'
 import { boxUV, rng } from './kit'
+import { FoliageBuilder, leafTexture } from './foliage'
 import { ornateSign } from './ornament'
 import { Frame } from './signs'
 import { fingerpost } from './wayfinding'
@@ -87,25 +88,6 @@ function instanced(T: Town, geo: THREE.BufferGeometry, mat: THREE.Material, mats
 
 const mtx = (x: number, y: number, z: number, ry: number, s: number, sy = s) =>
   new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromAxisAngle(UP, ry), new THREE.Vector3(s, sy, s))
-
-/** a lumpy canopy: a few jittered blobs merged into one geometry */
-function canopy(blobs: [number, number, number, number][], seed: number) {
-  const r = rng(seed)
-  const parts = blobs.map(([x, y, z, s]) => {
-    const g = new THREE.IcosahedronGeometry(s, 1)
-    const p = g.attributes.position as THREE.BufferAttribute
-    for (let i = 0; i < p.count; i++) {
-      const k = 1 + (r() - 0.5) * 0.22
-      p.setXYZ(i, p.getX(i) * k, p.getY(i) * k * 0.85, p.getZ(i) * k)
-    }
-    g.translate(x, y, z)
-    return g
-  })
-  const m = mergeGeometries(parts)!
-  parts.forEach((g) => g.dispose())
-  m.computeVertexNormals()
-  return m
-}
 
 function glowMat(T: Town, color = '#ffffff', k = 1) {
   const m = new THREE.MeshBasicMaterial({ color: new THREE.Color(color).multiplyScalar(k), toneMapped: false })
@@ -212,23 +194,31 @@ export function enchantedForest(T: Town, q: Quality, seats: BenchSpot[]) {
     trees.push([x, z])
   }
   {
-    const trunk = new THREE.CylinderGeometry(0.2, 0.36, 3.4, 7).translate(0, 1.7, 0)
-    const crown = canopy([[0, 4.3, 0, 1.7], [0.95, 3.7, 0.45, 1.15], [-0.85, 3.9, -0.5, 1.25], [0.1, 5.2, -0.2, 1.1]], 7)
-    const leaf = std({ color: '#ffffff', roughness: 0.9, flatShading: true, emissive: '#0a1214', emissiveIntensity: 1 })
-    const tints = ['#2e5a50', '#3a3a62', '#2c4a30', '#4a3a66', '#24504a'].map((c) => new THREE.Color(c))
-    const tm: THREE.Matrix4[] = []
-    const cm: THREE.Matrix4[] = []
-    const cc: THREE.Color[] = []
+    // real trees (treegen): oaks and birches with teal / violet / deep-green canopies, pines, a few dead snags — each its own individual;
+    // bucketed into cells that drop to a cheap far version by distance
+    const FB = new FoliageBuilder(901, q === 'high' ? 1 : q === 'medium' ? 0.7 : 0.45)
+    const cols = (hs: string[]) => hs.map((c) => new THREE.Color(c))
+    const oakCols = cols(['#2e5a50', '#3a3a62', '#2c4a30', '#4a3a66', '#24504a'])
+    const pineCols = cols(['#1f4a3a', '#26503a'])
+    const barkDark = new THREE.Color('#2a2220')
     for (const [x, z] of trees) {
       const s = 0.85 + R() * 0.75
-      const ry = R() * 6.28
-      tm.push(mtx(x, 0, z, ry, s * 1.1, s))
-      cm.push(mtx(x, 0, z, ry, s, s * (0.9 + R() * 0.3)))
-      cc.push(tints[Math.floor(R() * tints.length)].clone().multiplyScalar(0.85 + R() * 0.35))
+      const roll = R()
+      if (roll < 0.42) FB.plant('oak', x, z, s, oakCols, barkDark)
+      else if (roll < 0.66) FB.plant('pine', x, z, s * 1.05, pineCols, barkDark)
+      else if (roll < 0.82) FB.plant('birch', x, z, s, oakCols, new THREE.Color('#cfcbc0'))
+      else if (roll < 0.9) FB.plant('dead', x, z, s, [barkDark], new THREE.Color('#3a302a'))
+      else FB.plant('willow', x, z, s * 0.9, oakCols, barkDark)
       T.colliders.push({ kind: 'circle', x, z, r: 0.42 * s, h: 4 })
     }
-    instanced(T, trunk, P.bark, tm)
-    instanced(T, crown, leaf, cm, cc)
+    // undergrowth between the trunks: shrubs and ferns-by-another-name, never on the paths
+    for (let i = 0; i < (q === 'high' ? 90 : q === 'medium' ? 60 : 30); i++) {
+      const x = Fz.x0 + R() * (Fz.x1 - Fz.x0)
+      const z = Fz.z0 + R() * (Fz.z1 - Fz.z0)
+      if (!clear(x, z, 0.6) || trees.some(([tx, tz]) => Math.hypot(tx - x, tz - z) < 1.1)) continue
+      FB.bush(x, 0, z, 0.8 + R() * 0.7, new THREE.Color(R() < 0.5 ? '#2c4a3a' : '#3a3a58'))
+    }
+    FB.build(T.scene, leafTexture(T.disposables), T.disposables, false)
   }
 
   // ── the Elder Oak: a huge trunk on flaring roots, a glowing hollow, a canopy over the clearing ──
@@ -242,8 +232,10 @@ export function enchantedForest(T: Town, q: Quality, seats: BenchSpot[]) {
       F.put(root, P.bark, Math.cos(a) * 1.5, 0.35, Math.sin(a) * 1.5)
     }
     for (const [bx, by, a] of [[1.4, 5.6, -0.7], [-1.5, 6.0, 0.8], [0.2, 6.4, 0.1]] as const) F.put(new THREE.CylinderGeometry(0.22, 0.5, 3.4, 7).rotateZ(a), P.bark, bx, by, 0.3)
-    const crown = canopy([[0, 8.6, 0, 4.2], [3.4, 7.6, 1.0, 2.8], [-3.4, 7.8, -0.6, 3.0], [0.5, 7.4, 3.0, 2.6], [-0.4, 7.6, -3.0, 2.6]], 99)
-    F.put(crown, std({ color: '#3a6a5a', roughness: 0.9, flatShading: true, emissive: '#0c2420', emissiveIntensity: 1 }), 0, 0, 0)
+    // the great canopy: a real oak grown huge around the trunk (its own limbs emerge from the old trunk's flanks)
+    const FBo = new FoliageBuilder(7, q === 'high' ? 1 : q === 'medium' ? 0.8 : 0.55)
+    FBo.plant('oak', x, z, 2.6, [new THREE.Color('#3a6a5a'), new THREE.Color('#2e5a50'), new THREE.Color('#4a7a66')], new THREE.Color('#2a2220'))
+    FBo.build(T.scene, leafTexture(T.disposables), T.disposables, false)
     // the hollow, facing the clearing: dark rim, warm glow inside
     F.put(new THREE.CircleGeometry(0.62, 20).scale(1, 1.5, 1), glowMat(T, '#ffb84a', 1.8), 0, 1.6, 1.42, 0, 0, 0, false)
     F.put(new THREE.TorusGeometry(0.66, 0.1, 6, 20).scale(1, 1.5, 1), P.bark, 0, 1.6, 1.4)
@@ -545,29 +537,15 @@ export function moonlightLake(T: Town, waterNormal: THREE.Texture, q: Quality, s
       if (pts.some(([px, pz]) => Math.hypot(px - x, pz - z) < 5)) continue
       pts.push([x, z])
     }
-    const trunk = new THREE.CylinderGeometry(0.22, 0.34, 3.6, 7).translate(0, 1.8, 0)
-    const dome = canopy([[0, 4.2, 0, 2.0], [0.9, 3.9, 0.3, 1.3], [-0.9, 4.0, -0.3, 1.3]], 31)
-    const fringe = new THREE.CylinderGeometry(2.0, 2.4, 1.6, 20, 2, true).translate(0, 3.3, 0)
-    {
-      const p = fringe.attributes.position as THREE.BufferAttribute
-      for (let i = 0; i < p.count; i++) if (p.getY(i) < 3) p.setY(i, p.getY(i) + Math.sin(i * 2.7) * 0.3)
-      fringe.computeVertexNormals()
-    }
-    const leaf = std({ color: '#ffffff', roughness: 0.9, flatShading: true, emissive: '#081410', emissiveIntensity: 1, side: THREE.DoubleSide })
-    const tm: THREE.Matrix4[] = []
-    const cm: THREE.Matrix4[] = []
-    const cc: THREE.Color[] = []
+    // real willows (treegen): drooping limbs and long hanging leaf clumps
+    const FW = new FoliageBuilder(311, q === 'high' ? 1 : q === 'medium' ? 0.7 : 0.45)
+    const willowCols = [new THREE.Color('#6a9a5a'), new THREE.Color('#5a8a66'), new THREE.Color('#7aa860')]
     for (const [x, z] of pts) {
-      const s = 0.85 + R() * 0.4
-      const ry = R() * 6.28
-      tm.push(mtx(x, 0, z, ry, s))
-      cm.push(mtx(x, 0, z, ry, s))
-      cc.push(new THREE.Color(R() < 0.5 ? '#6a9a5a' : '#5a8a66').multiplyScalar(0.9 + R() * 0.3))
+      const s = 0.95 + R() * 0.45
+      FW.plant('willow', x, z, s, willowCols, new THREE.Color('#3a3026'))
       T.colliders.push({ kind: 'circle', x, z, r: 0.45 * s, h: 4 })
     }
-    instanced(T, trunk, P.bark, tm)
-    instanced(T, dome, leaf, cm, cc)
-    instanced(T, fringe, leaf, cm, cc)
+    FW.build(T.scene, leafTexture(T.disposables), T.disposables, false)
 
     // wildflower meadows + low bushes on the open grass between the willows
     const cards = new THREE.PlaneGeometry(0.42, 0.42).translate(0, 0.21, 0)

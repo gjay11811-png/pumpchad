@@ -79,7 +79,8 @@ export function fingerpost(T: Town, x: number, z: number, fingers: Finger[]) {
     const c = Math.cos(ry)
     const s = Math.sin(ry)
     // board centre sits off the post so its root end touches it
-    const off = L / 2 - 0.02
+    // (the post is 0.18 wide: the arm starts 0.07 out from the post's centre so the first letters are never behind the timber)
+    const off = L / 2 + 0.07
     const bx = x + c * off
     const bz = z - s * off
     T.batch.put(boxUV(L, BH, 0.05, 1), P.woodLight, bx, y, bz, ry)
@@ -87,7 +88,7 @@ export function fingerpost(T: Town, x: number, z: number, fingers: Finger[]) {
     const R = BH / 2 / Math.sin(Math.PI / 3)
     const tip = new THREE.CylinderGeometry(R, R, 0.05, 3)
     tip.rotateX(Math.PI / 2).rotateZ(Math.PI / 2) // one vertex → local +X
-    const td = L - 0.02 + R * 0.5 - 0.01
+    const td = L + 0.05 + R * 0.5 - 0.01
     T.batch.put(tip, P.woodLight, x + c * td, y, z - s * td, ry, 1, 1, 1, { cast: false })
     // label on both faces
     const front = labelPlane(L - 0.08, BH - 0.04, i, fingers.length).translate(0, 0, 0.028)

@@ -93,13 +93,13 @@ export function ChallengePanel({ open, save, notes, onClose }: { open: boolean; 
       {open && (
         <m.div key="challenges" className="absolute inset-0 z-40" initial={{ opacity: 0 }} animate={{ opacity: 1, pointerEvents: 'auto' }} exit={{ opacity: 0, pointerEvents: 'none' }} transition={{ duration: 0.16 }} data-no-look>
           {/* tap outside to close */}
-          <button type="button" aria-label="Close challenges" className="absolute inset-0 h-full w-full cursor-default bg-ink/30" onClick={onClose} tabIndex={-1} />
+          <button type="button" aria-label="Close challenges" className="absolute inset-0 h-full w-full cursor-default bg-ink/30 landscape:bg-ink/10" onClick={onClose} tabIndex={-1} />
           <m.div
             initial={{ y: 40 }}
             animate={{ y: 0 }}
             exit={{ y: 60, transition: { duration: 0.15 } }}
             transition={{ type: 'spring', stiffness: 420, damping: 36 }}
-            className="absolute inset-x-0 bottom-0 mx-auto w-full max-w-lg landscape:max-w-md"
+            className="absolute inset-x-0 bottom-0 mx-auto w-full max-w-lg landscape:inset-x-auto landscape:inset-y-0 landscape:bottom-auto landscape:right-0 landscape:mx-0 landscape:w-[min(46vw,22rem)] landscape:max-w-none"
           >
           {/* the drag (swipe-down) transform lives on this inner layer, so it never fights the open/close animation */}
           <div
@@ -107,13 +107,13 @@ export function ChallengePanel({ open, save, notes, onClose }: { open: boolean; 
             role="dialog"
             aria-label="Challenges"
             data-testid="challenge-panel"
-            className="panel flex max-h-[min(50dvh,30rem)] w-full touch-pan-y flex-col rounded-t-3xl pb-[env(safe-area-inset-bottom)] safe-x transition-transform duration-75 landscape:max-h-[78dvh]"
+            className="panel flex max-h-[min(50dvh,30rem)] w-full touch-pan-y flex-col rounded-t-3xl pb-[env(safe-area-inset-bottom)] safe-x transition-transform duration-75 landscape:h-full landscape:max-h-none landscape:rounded-none landscape:rounded-l-3xl landscape:pb-[max(0.5rem,env(safe-area-inset-bottom))] landscape:pt-[env(safe-area-inset-top)] landscape:pr-[max(0.5rem,env(safe-area-inset-right))]"
             onPointerMove={onMove}
             onPointerUp={onUp}
             onPointerCancel={onUp}
           >
             <div className="flex shrink-0 cursor-grab items-center gap-3 px-4 pb-2 pt-2.5 touch-none" onPointerDown={(e) => onDown(e, false)} data-testid="challenge-handle">
-              <div className="absolute left-1/2 top-1.5 h-1 w-10 -translate-x-1/2 rounded-full bg-bone/25" aria-hidden="true" />
+              <div className="absolute left-1/2 top-1.5 h-1 w-10 -translate-x-1/2 rounded-full bg-bone/25 landscape:hidden" aria-hidden="true" />
               <p className="mt-2 flex-1 font-display text-xl uppercase tracking-wide">Challenges</p>
               <button type="button" {...tap(onClose)} aria-label="Close" data-testid="challenge-close" className="mt-1 flex h-11 w-11 items-center justify-center rounded-full border border-bone/15 bg-ink/50 text-lg text-bone/80 active:scale-95">
                 ✕

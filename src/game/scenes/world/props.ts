@@ -169,14 +169,7 @@ export function vegetation(T: Town, q: Quality, avoid: (x: number, z: number) =>
     T.colliders.push({ kind: 'circle', x, z, r: 0.45, h: 5 })
   })
   for (const [x, z] of dead) {
-    T.batch.put(new THREE.CylinderGeometry(0.15, 0.38, 4.6, 7), P.bark, x, 2.3, z)
-    for (let k = 0; k < 4; k++) {
-      const br = new THREE.CylinderGeometry(0.04, 0.12, 2.2, 5)
-      br.translate(0, 1.1, 0)
-      br.rotateZ(0.9)
-      br.rotateY(k * 1.6 + x)
-      T.batch.put(br, P.bark, x, 2.6 + k * 0.45, z)
-    }
+    F.plant('dead', x, z, 0.95 + r() * 0.3, [barkCol], C('#4a3c30')) // a gnarled snag with real limbs
     T.colliders.push({ kind: 'circle', x, z, r: 0.45, h: 4 })
   }
   // garden bushes: lumpy cores + leaf shells, a few greens (and the odd autumn one)

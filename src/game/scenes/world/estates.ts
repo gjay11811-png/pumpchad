@@ -145,15 +145,21 @@ export class EstateView {
     const sz = g.z - 1.9
     const ry = p.gate === 'w' ? -Math.PI / 2 : Math.PI / 2
     const F = Frame.at(this.T.batch, sx, 0, sz, ry)
-    F.box(0.1, 1.6, 0.1, this.T.P.bark, 0, 0.8, 0)
+    // a proper sign: two posts at the board's edges, a top rail and a backing board — never a post through the lettering
+    for (const px of [-0.72, 0.72]) F.box(0.1, 1.75, 0.1, this.T.P.bark, px, 0.875, 0)
+    F.box(1.54, 0.07, 0.12, this.T.P.bark, 0, 1.72, 0)
+    F.box(1.28, 0.68, 0.05, this.T.P.timber, 0, 1.35, 0)
+    const nx = Math.sin(ry)
+    const nz = Math.cos(ry)
     const board = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.6), mat)
     this.disposables.push(board.geometry)
-    board.position.set(sx, 1.35, sz)
+    board.position.set(sx + nx * 0.032, 1.35, sz + nz * 0.032)
     board.rotation.y = ry
     const back = board.clone()
+    back.position.set(sx - nx * 0.032, 1.35, sz - nz * 0.032)
     back.rotation.y = ry + Math.PI
     this.T.scene.add(board, back)
-    this.T.colliders.push({ kind: 'circle', x: sx, z: sz, r: 0.15, h: 1.6 })
+    for (const px of [-0.72, 0.72]) this.T.colliders.push({ kind: 'circle', x: sx + Math.cos(ry) * px, z: sz - Math.sin(ry) * px, r: 0.12, h: 1.75 })
     this.signs.set(p.id, { mat, tex, ctx })
   }
 
