@@ -406,7 +406,7 @@ export class Gym implements GameScene {
     s.add(this.ring)
 
     // ═════════ 3. lighting: soft overhead key (the one shadow caster), warm zone fills, purple cardio wash ═════════
-    s.add(new THREE.HemisphereLight('#5a4a62', '#1a100a', 0.8))
+    s.add(new THREE.HemisphereLight('#6a5a72', '#241810', 1.05))
     const key = new THREE.SpotLight('#fff0dc', 80, 24, 1.05, 0.6, 1.3)
     key.position.set(0, HALL.H - 0.2, 1.2)
     key.castShadow = this.quality !== 'low'

@@ -279,6 +279,15 @@ export function buildHall(B: StaticBatch, s: THREE.Scene, D: D, M: GymMats, env:
     for (const dx of [-w / 2, -w / 6, w / 6, w / 2]) R.box(0.04, 2.48, 0.035, M.steel, dx, 1.55, 0.02, 0, 0, 0, false)
   }
 
+  // ── two mirror panels on the brick west wall (between the steel pilasters), like the strength floors in the reference photos ──
+  for (const z of [-3.2, 4.8]) {
+    const R = Place.at(B, x0 + 0.1, z, Math.PI / 2)
+    const w = 3.4
+    R.put(new THREE.PlaneGeometry(w, 2.4), mirrorMat, 0, 1.55, 0.012, 0, 0, 0, false)
+    for (const dy of [-1.22, 1.22]) R.box(w + 0.08, 0.05, 0.04, M.steel, 0, 1.55 + dy, 0.02, 0, 0, 0, false)
+    for (const dx of [-w / 2, 0, w / 2]) R.box(0.04, 2.48, 0.035, M.steel, dx, 1.55, 0.02, 0, 0, 0, false)
+  }
+
   // ── PUMP GYM: fabricated channel letters on a dark backer, purple halo, orange LED trim + tagline ──
   const sign = new THREE.Group()
   {

@@ -18,6 +18,18 @@ const SHOTS = {
     at: { x: 6.55, z: -2.35, yaw: -1.0, pose: 'flex' },
     cam: { wide: [[3.7, 1.75, -0.7], [7.4, 1.0, -2.75], 44], post: [[3.9, 1.7, -0.9], [7.3, 1.05, -2.7], 48], story: [[3.6, 1.7, -0.6], [7.2, 1.15, -2.6], 56] },
   },
+  plan: {
+    at: { x: 0.3, z: -0.4, yaw: 0.25, pose: 'idle' },
+    cam: { wide: [[0, 16, 1.2], [0, 0, 1.25], 66], post: [[0, 16, 1.2], [0, 0, 1.25], 66], story: [[0, 16, 1.2], [0, 0, 1.25], 66] },
+  },
+  entrance: {
+    at: { x: 0.3, z: 1.4, yaw: 0, pose: 'idle' },
+    cam: { wide: [[-3.5, 1.7, 7.0], [0, 1.5, -3], 70], post: [[-3.5, 1.7, 7.0], [0, 1.5, -3], 70], story: [[-3.5, 1.7, 7.0], [0, 1.5, -3], 70] },
+  },
+  left: {
+    at: { x: 0.3, z: 1.4, yaw: 0, pose: 'idle' },
+    cam: { wide: [[7.5, 2.2, 5.5], [-8, 1.6, -1], 70], post: [[7.5, 2.2, 5.5], [-8, 1.6, -1], 70], story: [[7.5, 2.2, 5.5], [-8, 1.6, -1], 70] },
+  },
   wide: {
     at: { x: 0.3, z: -0.4, yaw: 0.25, pose: 'flex' },
     cam: { wide: [[-7.9, 3.9, 6.9], [1.2, 0.9, -2.6], 50], post: [[-7.9, 4.2, 6.9], [0.8, 0.8, -2.4], 54], story: [[-7.9, 4.4, 6.9], [0.4, 0.7, -2.2], 62] },
@@ -30,10 +42,10 @@ for (const fmt of formats) {
   p.on('pageerror', (e) => errs.push(e.message))
   p.on('console', (m) => m.type() === 'error' && errs.push(m.text().slice(0, 200)))
   await p.goto(process.env.URL || 'http://localhost:4318/chadverse/', { waitUntil: 'networkidle' })
-  await p.evaluate(() => {
+  await p.evaluate((q) => {
     localStorage.clear()
-    localStorage.setItem('pumpchad.chadverse.save', JSON.stringify({ version: 1, character: null, progress: {}, settings: { quality: 'high', muted: true } }))
-  })
+    localStorage.setItem('pumpchad.chadverse.save', JSON.stringify({ version: 1, character: null, progress: {}, settings: { quality: q, muted: true } }))
+  }, process.env.Q || 'high')
   await p.reload({ waitUntil: 'networkidle' })
   await p.click('[data-testid=enter-muted]')
   await p.waitForSelector('[role=tablist]')
