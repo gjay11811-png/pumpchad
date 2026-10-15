@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { isLocked } from '../../launch'
 import { createCharacter, disposeCharacter, type Character } from '../../character/character'
 import { createVillager, type VillagerLook } from '../../character/villager'
 import type { Appearance } from '../../character/types'
@@ -111,7 +112,9 @@ export class Crowd {
   async load(scene: THREE.Scene, quality: 'low' | 'medium' | 'high', heightAt: (x: number, z: number) => number, night = false) {
     this.quality = quality
     const allowed = (m?: 'low' | 'medium' | 'high') => !m || (m === 'high' ? quality === 'high' : m === 'medium' ? quality !== 'low' : true)
-    const defs: (ResidentDef | WalkerDef)[] = [...RESIDENTS.filter((r) => allowed(r.minQuality)), ...WALKERS.filter((w) => allowed(w.minQuality) && (!w.when || w.when === (night ? 'night' : 'day')))]
+    // anyone whose post or beat lies in the locked expansion stays out of the first release (their data stays defined for the next update)
+    const reachable = (d: ResidentDef | WalkerDef) => !('path' in d ? d.path : [[d.x, d.z] as [number, number]]).some(([x, z]) => isLocked(x, z))
+    const defs: (ResidentDef | WalkerDef)[] = [...RESIDENTS.filter((r) => allowed(r.minQuality) && reachable(r)), ...WALKERS.filter((w) => allowed(w.minQuality) && reachable(w) && (!w.when || w.when === (night ? 'night' : 'day')))]
     const chars = await Promise.all(defs.map((d) => (d.v ? createVillager(d.v) : createCharacter(d.a!))))
     if (this.disposed) return chars.forEach(disposeCharacter)
     defs.forEach((def, i) => {

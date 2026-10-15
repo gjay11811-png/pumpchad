@@ -7,8 +7,9 @@ import type { SaveData } from './save'
 import { LANTERNS, SIGIL } from './scenes/world/lanterns'
 import { FOREST } from './scenes/world/wilds'
 import { SPECIES } from './minigames/fishing'
+import { EXPANSION_OPEN, inExpansionArea } from './launch'
 
-export type MapKind = 'place' | 'shop' | 'quest'
+export type MapKind = 'place' | 'shop' | 'quest' | 'activity'
 export type Landmark = {
   id: string
   name: string
@@ -50,9 +51,15 @@ export const LANDMARKS: Landmark[] = [
   { id: 'pets', name: 'Chad Pets', x: 38, z: 47.5, kind: 'shop' },
   { id: 'motors', name: 'Chad Motors', x: 54, z: 50.5, kind: 'shop', below: true },
   { id: 'shakes', name: 'Pump Shakes', x: -38.5, z: 2.5, kind: 'shop' },
+  // activities you can complete in the first release (each starts at the marker; no fast travel needed)
+  { id: 'act_rush', name: 'Pumpkin Rush', x: 10.2, z: 11.7, kind: 'activity', spawn: { x: 8.5, z: 14, yaw: Math.PI } },
+  { id: 'act_events', name: 'Events Board', x: 6.5, z: 9.5, kind: 'activity', spawn: { x: 7.5, z: 13, yaw: Math.PI } },
+  { id: 'act_fishing', name: 'Pier Fishing', x: 98, z: 33.2, kind: 'activity', visit: 'visit_lake', spawn: { x: 98, z: 44, yaw: Math.PI } },
 ]
 
-export const canTravel = (l: Landmark, save: SaveData) => !!l.spawn && (!l.visit || save.progress.discoveries.includes(l.visit))
+/** a landmark in the closed expansion (shown on the map as "Next update"; never a fast-travel target) */
+export const isLockedLandmark = (l: Landmark) => !EXPANSION_OPEN && inExpansionArea(l.x, l.z)
+export const canTravel = (l: Landmark, save: SaveData) => !!l.spawn && !isLockedLandmark(l) && (!l.visit || save.progress.discoveries.includes(l.visit))
 
 /** the one objective the map tracks (mirrors the HUD objective): a point + a label, or null */
 export function objectiveTarget(save: SaveData): { x: number; z: number; label: string } | null {

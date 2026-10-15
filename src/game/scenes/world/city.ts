@@ -16,6 +16,7 @@ export type Rect = { x0: number; x1: number; z0: number; z1: number }
 import { CASTLE_AT, GATE_PLAZA, castleTerrain, clampToCastle, inCastleWalk } from './mountain'
 import { VALLEY_Y, clampToDescent, descentTerrain, inDescentWalk } from './descent'
 import { clampToValley, inValleyWalk, valleyTerrain } from './valley'
+import { EXPANSION_DISTRICTS, EXPANSION_OPEN } from '../../launch'
 
 export const DISTRICTS: Record<'south' | 'east' | 'west' | 'overlook' | 'haunted' | 'motor' | 'forest' | 'lake' | 'estates' | 'downtown' | 'plaza' | 'southshore' | 'millrow', Rect> = {
   south: { x0: -32, x1: 32, z0: 20, z1: 75 },
@@ -52,7 +53,10 @@ export function inLake(x: number, z: number, m = 0) {
 }
 /** the valley districts stand on the basin floor, not on the village plateau */
 export const VALLEY_KEYS = ['downtown', 'plaza'] as const
-const RECTS = Object.values(DISTRICTS)
+/** the walkable district rectangles: the expansion's (Downtown, Plaza, Southshore, Mill Row) only count once the expansion is open */
+const RECTS = Object.entries(DISTRICTS)
+  .filter(([k]) => EXPANSION_OPEN || !(EXPANSION_DISTRICTS as readonly string[]).includes(k))
+  .map(([, r]) => r)
 const PLATEAU_RECTS = Object.entries(DISTRICTS)
   .filter(([k]) => !(VALLEY_KEYS as readonly string[]).includes(k))
   .map(([, r]) => r)
@@ -87,7 +91,7 @@ const inRect = (x: number, z: number, r: Rect, m = 0) => x > r.x0 + m && x < r.x
 export function insideCity(x: number, z: number, m = 0) {
   if (Math.hypot(x, z) < CORE_R - m) return true
   if (m >= 0 && inLake(x, z, m)) return false
-  if (z > 56 && (inDescentWalk(x, z, m) || inValleyWalk(x, z, m) || (z > 200 && inCastleWalk(x, z, m)))) return true
+  if (EXPANSION_OPEN && z > 56 && (inDescentWalk(x, z, m) || inValleyWalk(x, z, m) || (z > 200 && inCastleWalk(x, z, m)))) return true
   return RECTS.some((r) => inRect(x, z, r, m))
 }
 
@@ -127,19 +131,19 @@ export function clampToCity(p: { x: number; z: number }, m: number) {
     const d = Math.hypot(p.x - cx, p.z - cz)
     if (d < bd) [bx, bz, bd] = [cx, cz, d]
   }
-  if (p.z > 56) {
+  if (EXPANSION_OPEN && p.z > 56) {
     const q = { x: p.x, z: p.z }
     clampToDescent(q, m)
     const d = Math.hypot(p.x - q.x, p.z - q.z)
     if (d < bd) [bx, bz, bd] = [q.x, q.z, d]
   }
-  if (p.z > 150) {
+  if (EXPANSION_OPEN && p.z > 150) {
     const q = { x: p.x, z: p.z }
     clampToValley(q, m)
     const d = Math.hypot(p.x - q.x, p.z - q.z)
     if (d < bd) [bx, bz, bd] = [q.x, q.z, d]
   }
-  if (p.z > 200) {
+  if (EXPANSION_OPEN && p.z > 200) {
     const q = { x: p.x, z: p.z }
     clampToCastle(q, m)
     const d = Math.hypot(p.x - q.x, p.z - q.z)

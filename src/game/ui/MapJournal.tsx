@@ -2,11 +2,12 @@ import { SUMMIT_WORLD, castleRoadWorld } from '../scenes/world/mountain'
 import { DESCENT } from '../scenes/world/descent'
 import { MANOR_PAD, inLakeWater } from '../scenes/world/valley'
 import { useMemo, useState } from 'react'
-import { LANDMARKS, canTravel, journal, objectiveTarget, type Landmark, type MapKind } from '../atlas'
+import { LANDMARKS, canTravel, isLockedLandmark, journal, objectiveTarget, type Landmark, type MapKind } from '../atlas'
 import type { SaveData } from '../save'
 import { BRIDGES, CANAL, CORE_R, DISTRICTS, LAKE, PIER } from '../scenes/world/city'
 import { LANTERNS } from '../scenes/world/lanterns'
 import { Btn, Segmented } from './kit'
+import { EXPANSION_OPEN, GATE_LINE_Z } from '../launch'
 import { Header, Overlay, useEsc } from './Menus'
 
 /** world bounds drawn by the map (x right = east, z down = south, so north is up) */
@@ -27,7 +28,7 @@ const LAKE_RUNS: [number, number, number][] = (() => {
   return out
 })()
 const VB = { x: -150, z: -100, w: 320, h: 720 }
-const KIND_COLOR: Record<MapKind, string> = { place: '#e9e4da', shop: '#ffd25a', quest: '#ff9a3c' }
+const KIND_COLOR: Record<MapKind, string> = { place: '#e9e4da', shop: '#ffd25a', quest: '#ff9a3c', activity: '#7affb0' }
 
 /**
  * Map + journal. The map is drawn from the same layout the world is built from (walkable districts, the canal,
@@ -47,7 +48,7 @@ export function MapJournal({
 }) {
   useEsc(onBack)
   const [tab, setTab] = useState<'map' | 'journal'>('map')
-  const [show, setShow] = useState<Record<MapKind, boolean>>({ place: true, shop: true, quest: true })
+  const [show, setShow] = useState<Record<MapKind, boolean>>({ place: true, shop: true, quest: true, activity: true })
   const [sel, setSel] = useState<Landmark | null>(null)
   const target = objectiveTarget(save)
   const entries = useMemo(() => journal(save), [save])
@@ -114,20 +115,34 @@ export function MapJournal({
                 !d.includes('q1_sigil') &&
                 LANTERNS.filter((l) => !d.includes(`q1_lantern_${l.id}`)).map((l) => <rect key={l.id} x={l.x - 1.6} y={l.z - 1.6} width={3.2} height={3.2} transform={`rotate(45 ${l.x} ${l.z})`} fill="#ffd25a" />)}
 
+              {/* the closed expansion: the valley, Chad City and the castle are drawn but veiled */}
+              {!EXPANSION_OPEN && (
+                <g data-testid="map-locked" pointerEvents="none">
+                  <rect x={VB.x} y={GATE_LINE_Z} width={VB.w} height={VB.z + VB.h - GATE_LINE_Z} fill="#0d0b14" opacity={0.62} />
+                  <line x1={VB.x} x2={VB.x + VB.w} y1={GATE_LINE_Z} y2={GATE_LINE_Z} stroke="#ffd25a" strokeWidth={0.8} strokeDasharray="4 3" />
+                  <text x={VB.x + VB.w / 2} y={GATE_LINE_Z + 18} textAnchor="middle" fontSize={7} fill="#ffd25a" style={{ fontFamily: 'ui-monospace, monospace', letterSpacing: 0.6 }}>
+                    CHAD CITY · THE VALLEY — NEXT UPDATE
+                  </text>
+                </g>
+              )}
+
               {/* landmarks */}
               {LANDMARKS.filter((l) => show[l.kind]).map((l) => {
                 const open = canTravel(l, save)
-                const known = !l.visit || d.includes(l.visit)
+                const locked = isLockedLandmark(l)
+                const known = locked || !l.visit || d.includes(l.visit)
                 return (
                   <g key={l.id} onClick={() => setSel(l)} className="cursor-pointer" data-landmark={l.id}>
                     <circle cx={l.x} cy={l.z} r={7} fill="transparent" />
                     {l.kind === 'shop' ? (
                       <rect x={l.x - 1.8} y={l.z - 1.8} width={3.6} height={3.6} rx={0.8} fill={KIND_COLOR.shop} />
+                    ) : l.kind === 'activity' ? (
+                      <path d={`M${l.x} ${l.z - 3} L${l.x + 2.6} ${l.z} L${l.x} ${l.z + 3} L${l.x - 2.6} ${l.z} Z`} fill={KIND_COLOR.activity} />
                     ) : (
-                      <circle cx={l.x} cy={l.z} r={2.4} fill={known ? KIND_COLOR.place : '#6a6478'} stroke={open && l.visit ? '#ffd25a' : 'none'} strokeWidth={0.8} />
+                      <circle cx={l.x} cy={l.z} r={2.4} fill={locked ? 'none' : known ? KIND_COLOR.place : '#6a6478'} stroke={locked ? '#8a8498' : open && l.visit ? '#ffd25a' : 'none'} strokeWidth={locked ? 0.9 : 0.8} strokeDasharray={locked ? '1.2 1' : undefined} />
                     )}
                     <text x={l.x} y={l.below ? l.z + 7 : l.z - 4} textAnchor="middle" fontSize={4.2} fill={known ? '#e9e4da' : '#8a8498'} style={{ fontFamily: 'ui-monospace, monospace', letterSpacing: 0.2 }}>
-                      {known ? l.name : '???'}
+                      {locked ? `${l.name} · next update` : known ? l.name : '???'}
                     </text>
                   </g>
                 )
@@ -156,7 +171,7 @@ export function MapJournal({
 
           {/* filters */}
           <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Map filters">
-            {(['place', 'shop', 'quest'] as const).map((k) => (
+            {(['place', 'shop', 'activity', 'quest'] as const).map((k) => (
               <button
                 key={k}
                 type="button"
@@ -165,7 +180,7 @@ export function MapJournal({
                 data-filter={k}
                 className={`min-h-9 rounded-full px-3.5 font-mono text-[11px] uppercase tracking-[0.15em] ring-1 ${show[k] ? 'bg-bone/10 text-bone ring-bone/30' : 'text-ash ring-bone/10'}`}
               >
-                <span style={{ color: KIND_COLOR[k] }}>●</span> {k === 'place' ? 'Places' : k === 'shop' ? 'Shops' : 'Quest'}
+                <span style={{ color: KIND_COLOR[k] }}>●</span> {k === 'place' ? 'Places' : k === 'shop' ? 'Shops' : k === 'activity' ? 'Activities' : 'Quest'}
               </button>
             ))}
           </div>
@@ -174,10 +189,10 @@ export function MapJournal({
           {sel && (
             <div className="mt-3 flex items-center gap-3 rounded-2xl bg-bone/[0.05] p-3 ring-1 ring-bone/10" data-testid="map-selected">
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[14px] font-semibold">{!sel.visit || d.includes(sel.visit) ? sel.name : 'Undiscovered'}</p>
+                <p className="truncate text-[14px] font-semibold">{isLockedLandmark(sel) || !sel.visit || d.includes(sel.visit) ? sel.name : 'Undiscovered'}</p>
                 <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ash">
                   {dist(sel.x, sel.z) !== null ? `${dist(sel.x, sel.z)} m away` : ''}
-                  {sel.spawn && !canTravel(sel, save) ? ' · reach it on foot to unlock travel' : ''}
+                  {isLockedLandmark(sel) ? ' · opens in the next update — no travel yet' : sel.spawn && !canTravel(sel, save) ? ' · reach it on foot to unlock travel' : ''}
                   {!sel.spawn ? ' · a shop' : ''}
                 </p>
               </div>

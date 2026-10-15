@@ -25,7 +25,7 @@ export function challengeCards(save: SaveData): Card[] {
   const d = save.progress.discoveries
   const n = (p: string) => d.filter((x) => x.startsWith(p)).length
   const cards: Card[] = [
-    { id: 'city', title: 'Discover Chad City', done: CITY_STEPS.filter(([k]) => d.includes(k)).length, total: 5, steps: CITY_STEPS.map(([k, label]) => ({ label, done: d.includes(k) })) },
+    { id: 'city', title: 'Discover Chad Village', done: CITY_STEPS.filter(([k]) => d.includes(k)).length, total: 5, steps: CITY_STEPS.map(([k, label]) => ({ label, done: d.includes(k) })) },
     { id: 'pumpkins', title: 'Hidden pumpkins', detail: 'Six hidden around the city — fair spots, no climbing.', done: n('hp_'), total: 6 },
     { id: 'seeds', title: 'Golden seeds', detail: 'Sparkling seeds tucked away in the old town.', done: n('seed_'), total: 5 },
     { id: 'gourds', title: 'The talking gourds', detail: 'Find and talk to all three.', done: n('gourd_'), total: 3 },

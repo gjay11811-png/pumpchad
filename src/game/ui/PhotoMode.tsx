@@ -4,7 +4,7 @@ import { Btn } from './kit'
 
 /**
  * Photo mode: the HUD steps aside, you keep full control (drag to frame, WASD / stick to move), and the bar at
- * the bottom captures the canvas — with an optional small PUMPCHAD · CHAD CITY watermark — to a PNG download, or
+ * the bottom captures the canvas — with an optional small PUMPCHAD · CHAD VILLAGE watermark — to a PNG download, or
  * the device share sheet where the browser supports sharing files. Esc (or Done) puts everything back.
  */
 export function PhotoMode({ capture, onExit, touch }: { capture: () => string | null; onExit: () => void; touch: boolean }) {
@@ -41,7 +41,7 @@ export function PhotoMode({ capture, onExit, touch }: { capture: () => string | 
     g.drawImage(img, 0, 0)
     if (mark) {
       const s = Math.max(1, c.width / 1600)
-      const text = 'PUMPCHAD · CHAD CITY'
+      const text = 'PUMPCHAD · CHAD VILLAGE'
       g.font = `400 ${Math.round(22 * s)}px Anton, Impact, sans-serif`
       const tw = g.measureText(text).width
       const pad = 12 * s
@@ -80,7 +80,7 @@ export function PhotoMode({ capture, onExit, touch }: { capture: () => string | 
     const nav = navigator as Navigator & { canShare?: (d: unknown) => boolean }
     if (touch && nav.canShare?.({ files: [file] })) {
       try {
-        await nav.share({ files: [file], title: 'Chad City' })
+        await nav.share({ files: [file], title: 'Chad Village' })
         setStatus('Shared.')
         return
       } catch {
@@ -149,7 +149,7 @@ export function IntroOverlay({ onSkip }: { onSkip: () => void }) {
     <m.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="pointer-events-none absolute inset-0 z-40" data-testid="intro">
       <div className="absolute inset-x-0 top-[12%] text-center">
         <p className="font-mono text-[11px] uppercase tracking-[0.4em] text-moon drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]">Welcome to</p>
-        <p className="font-display text-5xl uppercase tracking-wide text-bone drop-shadow-[0_3px_12px_rgba(0,0,0,0.65)] sm:text-6xl">Chad City</p>
+        <p className="font-display text-5xl uppercase tracking-wide text-bone drop-shadow-[0_3px_12px_rgba(0,0,0,0.65)] sm:text-6xl">Chad Village</p>
       </div>
       <button
         type="button"

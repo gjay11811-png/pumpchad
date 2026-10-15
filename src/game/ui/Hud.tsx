@@ -24,20 +24,20 @@ export function objectiveFor(save: SaveData) {
     return 'Read the moonstone in the forest glade'
   }
   const seeds = d.filter((x) => x.startsWith('seed_')).length
-  if (seeds < 5) return `Explore Chad City · Golden seeds ${seeds}/5`
+  if (seeds < 5) return `Explore Chad Village · Golden seeds ${seeds}/5`
   const got = save.progress.achievements.length
   const total = Object.keys(ACHIEVEMENTS).length
-  if (got < total) return `Explore Chad City — ${total - got} secret${total - got === 1 ? '' : 's'} left`
+  if (got < total) return `Explore Chad Village — ${total - got} secret${total - got === 1 ? '' : 's'} left`
   return 'All achievements unlocked. Absolute chad.'
 }
 
-/** compact optional-activity line: Discover Chad City n/5 · Hidden pumpkins n/6 (hidden once both are done) */
+/** compact optional-activity line: Discover Chad Village n/5 · Hidden pumpkins n/6 (hidden once both are done) */
 export function cityProgress(save: SaveData) {
   const d = save.progress.discoveries
   const steps = ['visit_square', 'visit_gym', 'visit_arcade', 'visit_citadel', 'visit_rides'].filter((k) => d.includes(k)).length
   const hp = d.filter((x) => x.startsWith('hp_')).length
   const parts: string[] = []
-  if (steps < 5) parts.push(`Discover Chad City ${steps}/5`)
+  if (steps < 5) parts.push(`Discover Chad Village ${steps}/5`)
   if (hp < 6) parts.push(`Hidden pumpkins ${hp}/6`)
   return parts.join(' · ')
 }
@@ -285,7 +285,7 @@ export function Toasts({ toasts, compact = false }: { toasts: Toast[]; compact?:
               <Icon.trophy />
             </span>
             <span className="min-w-0">
-              <span className="block font-mono text-[10px] uppercase tracking-[0.22em] text-moon">{t.kind === 'collect' ? 'Collectible found' : t.kind === 'discover' ? 'Chad City' : 'Achievement unlocked'}</span>
+              <span className="block font-mono text-[10px] uppercase tracking-[0.22em] text-moon">{t.kind === 'collect' ? 'Collectible found' : t.kind === 'discover' ? 'Chad Village' : 'Achievement unlocked'}</span>
               <span className="block truncate font-display text-lg uppercase leading-tight">{t.title}</span>
               <span className="block truncate text-[12px] text-bone/60">{t.desc}</span>
             </span>

@@ -15,7 +15,8 @@ import { StaticBatch, makePalette } from './world/kit'
 import { Crowd, RESIDENTS } from './world/npcs'
 import { CASTLE_Z, ROADS, buildGround, castle, clutter, fence, lampPosts, poles, stringLights, vegetation } from './world/props'
 import { BENCHES, kingdom, mountains } from './world/kingdom'
-import { GARDEN, SPAWN, bridgeHeight, clampToCity } from './world/city'
+import { GARDEN, SPAWN, VALLEY_GATE, bridgeHeight, clampToCity } from './world/city'
+import { EXPANSION_OPEN, SAFE_ARRIVAL, isLocked } from '../launch'
 import { buildDaylight, isNight, skyPresetFromUrl } from './world/daylight'
 import { B4S_BENCH, PLAZA_BENCHES, SEAT_FWD } from './world/props'
 
@@ -351,7 +352,7 @@ export class World implements GameScene {
     perimeter(T, SM.stone, SM.trim, rail)
     // districts: gym frontage + yard, Arcade Street + PUMP ARCADE (east); social corner, garden, overlook (west)
     eastside(T, tex.stone)
-    southshore(T, tex.stone)
+    if (EXPANSION_OPEN) southshore(T, tex.stone) // Southshore: next update
     const extraSeats: BenchSpot[] = []
     const greenery = westside(T, SM.stone, SM.trim, stripes[1], extraSeats)
     hauntedQuarter(T, SM.stone, SM.trim)
@@ -366,18 +367,23 @@ export class World implements GameScene {
     this.seats.push(...extraSeats)
     chadRides(T, SM.trim)
     // the valley city (Downtown, the Gate Plaza, the castle mountain) is built in its own frame, 52 m below the village
+    // FIRST RELEASE: the valley stays as distant scenery only (the castle on its mountain, the descending road, the lake + bridge seen from the
+    // overlook edge). Chad City (Downtown), the hamlet, woodland trail, watchtower and Mooncrest Manor — buildings, colliders, lights,
+    // interiors, NPCs — are built only when the expansion is open (see launch.ts).
     inFrame(T, CASTLE_AT, q !== 'low', (L) => {
       castleRoad(L, q)
       summitCastle(L)
-      downtown(L)
+      if (EXPANSION_OPEN) downtown(L)
     })
     descentRoad(T, q)
     const valleySeats: BenchSpot[] = []
     valleyLake(T, wn, q, valleySeats, tex.stone)
-    woodland(T, q)
-    hamlet(T, q, tex.stone, valleySeats)
-    watchtower(T)
-    manor(T, q, tex.stone, valleySeats)
+    if (EXPANSION_OPEN) {
+      woodland(T, q)
+      hamlet(T, q, tex.stone, valleySeats)
+      watchtower(T)
+      manor(T, q, tex.stone, valleySeats)
+    }
     this.seats.push(...valleySeats)
     squareExtras(T, SM.trim)
     // street trees + bushes for the south + east districts
@@ -633,7 +639,12 @@ export class World implements GameScene {
   }
 
   private buildInteractables(T: Town) {
-    const add = (id: string, label: string, x: number, z: number, radius: number, kind: Interactable['kind']) => this.interactables.push({ id, label, pos: new THREE.Vector3(x, 0, z), radius, kind })
+    // anything in the locked expansion is not offered (the data stays for the next update)
+    const add = (id: string, label: string, x: number, z: number, radius: number, kind: Interactable['kind']) => {
+      if (isLocked(x, z)) return
+      this.interactables.push({ id, label, pos: new THREE.Vector3(x, 0, z), radius, kind })
+    }
+    if (!EXPANSION_OPEN) add('valley_gate', 'Read the notice at the Valley Gate', VALLEY_GATE.x, VALLEY_GATE.z - 1.6, 2.3, 'info')
     add('statue', 'Read the fountain plaque', 0, 6.7, 1.6, 'info')
     // Moonlight Lake: fishing off the end of the pier
     add('fishing', 'Fish off the pier', 98, 33.2, 1.6, 'activity')
@@ -924,6 +935,8 @@ export class World implements GameScene {
   }
 
   spawn(where: SpawnAt) {
+    // never arrive inside the locked expansion (an old exit point, a stale link): back to the arrival gate
+    if (typeof where === 'object' && isLocked(where.x, where.z)) where = { x: SAFE_ARRIVAL.x, z: SAFE_ARRIVAL.z, yaw: SAFE_ARRIVAL.yaw }
     if (typeof where === 'object') {
       // back out of a house: on the step outside its door, facing the street
       this.playerPos.set(where.x, 0, where.z)
@@ -1483,6 +1496,11 @@ export class World implements GameScene {
     this.camera.updateProjectionMatrix()
   }
   teleport(x: number, z: number, yaw?: number) {
+    if (isLocked(x, z)) {
+      x = SAFE_ARRIVAL.x
+      z = SAFE_ARRIVAL.z
+      yaw = SAFE_ARRIVAL.yaw
+    }
     this.playerPos.set(x, groundHeight(x, z), z)
     this.playerVel.set(0, 0, 0)
     // QA jump: finish any full-body action (seed pick-up) instantly so prompts come straight back

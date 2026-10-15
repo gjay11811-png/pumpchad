@@ -1,6 +1,8 @@
 import * as THREE from 'three'
 import { isNight } from './daylight'
 import type { Town } from './buildings'
+import { EXPANSION_OPEN, LOCKED_SIGN } from '../../launch'
+import { lampPosts } from './props'
 import { ARCADE, BRIDGES, CANAL, COURTYARD, DISTRICTS, GARDEN, GATEWAY, OVERLOOK, RIDES, SOCIAL, SPAWN, VALLEY_GATE } from './city'
 import { Cloth } from './fx'
 import { boxUV } from './kit'
@@ -345,8 +347,9 @@ export function arrival(T: Town, stone: THREE.Material, trim: THREE.Material) {
     for (const s of [-1, 1]) {
       T.batch.put(boxUV(1.2, 3.6, 1.2, 1.4), stone, vx + s * 3.7, 1.8, vz)
       T.batch.put(boxUV(1.45, 0.25, 1.45, 1), trim, vx + s * 3.7, 3.72, vz)
-      T.batch.put(new THREE.SphereGeometry(0.35, 14, 10), P.gold, vx + s * 3.7, 4.15, vz)
+      if (EXPANSION_OPEN) T.batch.put(new THREE.SphereGeometry(0.35, 14, 10), P.gold, vx + s * 3.7, 4.15, vz)
       T.colliders.push({ kind: 'box', minX: vx + s * 3.7 - 0.7, maxX: vx + s * 3.7 + 0.7, minZ: vz - 0.7, maxZ: vz + 0.7, h: 3.6 })
+      if (!EXPANSION_OPEN) continue
       // the gate leaf, swung open against its pier: frame, vertical bars with spear tips, a crown boss
       const L = Frame.at(T.batch, vx + s * 3.2, 0, vz + 0.3, 0)
       for (const y of [0.25, 1.5, 2.6]) L.box(0.08, 0.08, 3.0, darkMetal, 0, y, 1.5)
@@ -358,7 +361,65 @@ export function arrival(T: Town, stone: THREE.Material, trim: THREE.Material) {
       }
       L.put(new THREE.CylinderGeometry(0.22, 0.22, 0.06, 18).rotateZ(Math.PI / 2), P.gold, -s * 0.05, 1.5, 1.5)
     }
+    if (!EXPANSION_OPEN) closedValleyGate(T, vx, vz, stone, darkMetal)
     // …and the way through is open: the valley road starts here
   }
   return { planters }
+}
+
+
+/**
+ * The CLOSED valley gate (first release): a pair of wrought-iron leaves meeting in the middle between the existing piers, warm lanterns on the
+ * piers and a pair of lamp posts, a hedge + planter flank, and a plaque reading CHAD CITY — NEXT UPDATE. Bars are open so the road beyond
+ * stays visible: the way down is a glimpse of the next update, not a wall. Solid collision across the whole opening.
+ */
+function closedValleyGate(T: Town, vx: number, vz: number, stone: THREE.Material, iron: THREE.Material) {
+  const P = T.P
+  const warm = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffc46a').multiplyScalar(1.5), toneMapped: false })
+  T.disposables.push(warm)
+  for (const s of [-1, 1]) {
+    // a lantern on each pier (open frame + warm glass), standing on the cap
+    const lx = vx + s * 3.7
+    T.batch.put(new THREE.BoxGeometry(0.34, 0.46, 0.34), warm, lx, 4.15, vz, 0, 1, 1, 1, { cast: false })
+    T.batch.put(new THREE.ConeGeometry(0.3, 0.26, 4).rotateY(Math.PI / 4), iron, lx, 4.5, vz, 0, 1, 1, 1, { cast: false })
+    T.batch.put(new THREE.BoxGeometry(0.4, 0.05, 0.4), iron, lx, 3.9, vz, 0, 1, 1, 1, { cast: false })
+    T.batch.put(new THREE.SphereGeometry(0.06, 8, 6), P.gold, lx, 4.68, vz, 0, 1, 1, 1, { cast: false })
+    // each leaf: from the pier's inner face to the centre line
+    const F = Frame.at(T.batch, vx, 0, vz, 0)
+    const x0 = s * 3.1
+    const x1 = s * 0.03
+    const w = Math.abs(x1 - x0)
+    const mid = (x0 + x1) / 2
+    for (const y of [0.22, 0.9, 2.45]) F.box(w, 0.09, 0.09, iron, mid, y, 0)
+    F.box(w, 0.05, 0.05, iron, mid, 1.65, 0)
+    F.box(0.1, 2.9, 0.1, iron, x0 - s * 0.05, 1.45, 0)
+    F.box(0.1, 2.9, 0.1, iron, x1, 1.45, 0)
+    const bars = 11
+    for (let k = 0; k <= bars; k++) {
+      const bx = x0 + ((x1 - x0) * k) / bars
+      const top = 2.45 + 0.35 * Math.sin((k / bars) * Math.PI)
+      F.box(0.04, top - 0.1, 0.04, iron, bx, (top - 0.1) / 2 + 0.1, 0)
+      F.put(new THREE.ConeGeometry(0.05, 0.17, 4), P.gold, bx, top + 0.06, 0)
+    }
+    // scrollwork ring in each leaf + a gold boss at the meeting stile
+    F.put(new THREE.TorusGeometry(0.42, 0.025, 6, 20), P.gold, mid, 1.65, 0)
+    F.put(new THREE.CylinderGeometry(0.2, 0.2, 0.08, 16).rotateX(Math.PI / 2), P.gold, s * 0.12, 1.65, 0)
+    // pier-flank hedge and stone planters, north of the gate
+    for (let k = 0; k < 3; k++) {
+      const hz = vz - 1.0 - k * 1.1
+      T.batch.put(boxUV(1.3, 0.5, 1.0, 1), stone, vx + s * 3.7, 0.25, hz)
+      T.batch.put(new THREE.SphereGeometry(0.62, 10, 8), P.foliageDark, vx + s * 3.7, 0.9, hz, 0, 1.05, 0.9, 1)
+    }
+    T.colliders.push({ kind: 'box', minX: vx + s * 3.7 - 0.65, maxX: vx + s * 3.7 + 0.65, minZ: vz - 3.6, maxZ: vz - 0.4, h: 1.2 })
+  }
+  // a plinth-rail under the gate + the unbroken collision across the opening (pier to pier)
+  T.batch.put(boxUV(6.4, 0.16, 0.5, 1), stone, vx, 0.08, vz)
+  T.colliders.push({ kind: 'box', minX: vx - 3.2, maxX: vx + 3.2, minZ: vz - 0.4, maxZ: vz + 0.45, h: 3.4 })
+  lampPosts(T, [[vx - 5.5, vz - 0.9], [vx + 5.5, vz - 0.9]])
+  // the plaque, hung between the piers above the leaves, facing the village
+  const board = new THREE.MeshStandardMaterial({ map: boardTexture(LOCKED_SIGN, ['The valley road opens in the next update'], 5, PANEL.dark, T.disposables), roughness: 0.7 })
+  T.disposables.push(board)
+  const BF = Frame.at(T.batch, vx, 0, vz - 0.25, Math.PI)
+  BF.box(5.8, 0.12, 0.12, iron, 0, 3.45, 0)
+  BF.put(new THREE.PlaneGeometry(4.6, 0.92), board, 0, 3.0, 0.02)
 }

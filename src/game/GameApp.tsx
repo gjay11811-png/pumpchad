@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { castleRoadWorld } from './scenes/world/mountain'
 import { VALLEY_DISCOVERIES } from './scenes/world/valley'
 import { insideCity, inCanal, terrainHeight } from './scenes/world/city'
+import { EXPANSION_OPEN, RELOCATION_NOTICE, isExpansionDiscovery } from './launch'
 import { objectiveTarget } from './atlas'
 import { DESCENT } from './scenes/world/descent'
 import { AnimatePresence, LazyMotion, MotionConfig, domAnimation } from 'framer-motion'
@@ -435,6 +436,9 @@ export function GameApp() {
         w.markTalked(id)
         setDialogue(DIALOGUE[id])
         break
+      case 'valley_gate':
+        setDialogue(DIALOGUE.valley_gate)
+        break
       case 'statue':
         // first read of the plaque is a lore discovery
         if (!saveRef.current.progress.discoveries.includes('lore_fountain')) {
@@ -657,6 +661,16 @@ export function GameApp() {
       world.current?.cooldown()
     })
   }, [phase, discover])
+
+  /* ── launch scope: a player who already explored the (now closed) expansion is welcomed back at the arrival gate, once ── */
+  useEffect(() => {
+    if (phase !== 'world' || EXPANSION_OPEN || !world.current) return
+    const d = saveRef.current.progress.discoveries
+    if (d.includes('launch_notice_v1') || !d.some(isExpansionDiscovery)) return
+    // nothing is removed or reset: the discoveries (visit_downtown, disc:*, …) stay in the save for the next update
+    discover('launch_notice_v1')
+    notify(RELOCATION_NOTICE[0], RELOCATION_NOTICE[1], 'discover')
+  }, [phase, discover, notify])
 
   /* ── pause world while any UI is up ── */
   useEffect(() => {

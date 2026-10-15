@@ -1,3 +1,4 @@
+import { LOCKED_LINES, LOCKED_SIGN, LOCKED_TITLE } from './launch'
 export type DialogueOption = { label: string; action: 'close' | 'gym' | 'wardrobe' | 'welltoss' | 'q1_accept' | 'q2_accept' | 'buy_plot' }
 export type Dialogue = { speaker: string; role: string; lines: string[]; options?: DialogueOption[] }
 
@@ -84,6 +85,7 @@ export const QUEST2_STONE: Dialogue = {
 }
 
 export const DIALOGUE: Record<string, Dialogue> = {
+  valley_gate: { speaker: LOCKED_TITLE, role: LOCKED_SIGN, lines: LOCKED_LINES },
   hamlet_rowan: {
     speaker: 'Rowan',
     role: 'Gardener · Lantern Hamlet',
@@ -154,7 +156,7 @@ export const DIALOGUE: Record<string, Dialogue> = {
     role: 'Chad Square · south side',
     lines: [
       'The Pump Canal slides past below the railing. CHAD BRIDGE carries the avenue over it; two footbridges loop round to the forecourt.',
-      'Beyond the water stands the CHAD CITY gateway — and, down the valley, the towers of Chad City.',
+      'Beyond the water stands the CHAD VILLAGE gateway — and past the Valley Gate, the road that will lead to Chad City in the next update.',
       'The benches here are free. The ducks are imaginary.',
     ],
   },
@@ -201,7 +203,7 @@ export const DIALOGUE: Record<string, Dialogue> = {
   overlook: {
     speaker: 'Chad View',
     role: 'Scenic overlook',
-    lines: ['From the terrace you can see it all: the gold crown on the gateway, the canal glinting, the citadel’s towers — and down the valley, the hazy towers of downtown.', 'A good place for a photo. Or a sit. Or both.'],
+    lines: ['From the terrace you can see it all: the gold crown on the gateway, the canal glinting, the citadel’s towers — and down the valley, the mountain castle waiting for the next update.', 'A good place for a photo. Or a sit. Or both.'],
   },
   lore_citadel: {
     speaker: 'Citadel Plaque',
