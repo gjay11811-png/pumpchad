@@ -156,3 +156,14 @@ Valley road: 727 m, drop 52 m, ~7.2 % grade; walking 5.5 min, jogging 140 s, spr
 - **Gym bench context loss**: does **not** reproduce with ~0.8–1 GB free RAM (low/medium/high-ish runs, 0 losses); it happened only when free RAM was a few hundred MB. Working conclusion: memory starvation of the headless software-GL browser, not a game defect. Not proven on a real GPU/device.
 - **Performance (headless software GL, medium, free RAM ~0.9 GB; compare spots only)**: overlook 19.9 ms (50 fps); descent mid 20.8 ms; city entrance 18.5 ms with one 117 ms first-arrival hitch; square (NPC-dense) 29 ms. Some spots read a flat 16.7 ms, which looks like a render cap, so treat those as unverified.
 - **Still pending (unchanged)**: hamlet cottages (closed), Downtown / Southshore / Mill Row shop interiors, workshop interior, waterfall.
+
+## LAUNCH DECISION — 2026-10-15
+
+**FIRST RELEASE: CHAD VILLAGE. NEXT UPDATE: CHAD CITY AND THE VALLEY EXPANSION.**
+- The Valley Gate is the launch boundary; it is closed (iron gates, sign "CHAD CITY — NEXT UPDATE", short explanatory interaction). Everything beyond it is the **expansion**: descent road, valley, Chad City, Moonspan Bridge, lake + waterfront, hamlet, woodland, watchtower, Mooncrest Manor, mountain castle. All of it is preserved (code, assets, tests) and checkpointed for the next update; none of it is deleted.
+- One central switch (`EXPANSION_OPEN`, `src/game/launch.ts`) is read by walking bounds, fast travel, map, quests, save recovery and world building. Opening the expansion later = flip that switch.
+- Existing saves are never reset: players saved in the expansion are moved to a safe village arrival (once, with a one-time notice); all progress and expansion data is kept for the future return.
+- Priority: polished village, reliable activities, clear progression, working saves, usable mobile controls. Nothing pushed or deployed.
+- Map size claims: the **full development world** is 55,516 m² connected (~6.5× the original ~8,500 m², includes walkable meadow and woodland). The valley expansion is **not available** in the first release; the launch-accessible area is measured separately below once the boundary is applied.
+- Gym bench context loss: **Not reproduced in three runs with approximately 1 GB free RAM; real-device verification pending.**
+- Still tracked (deferred, not removed): remaining activities (target throw, ghost hunt, escape rooms, parkour, maze, dungeon, farming, treasure hunts, vehicle racing after reliable driving); Castle chapter 3 + Castle District interiors; hamlet cottage interiors; Downtown / Southshore / Mill Row shop interiors; workshop interior; waterfall; restoration, Festival Grounds, collection, housing features; accessibility, audio, save export/import, performance. **BLOCKED until a backend exists:** accounts, multiplayer, trading, online leaderboards, shared events.
