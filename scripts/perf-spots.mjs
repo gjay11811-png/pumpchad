@@ -11,7 +11,7 @@ await p.getByRole('tab', { name: 'Name' }).click()
 await p.fill('#chad-name', 'Explorer')
 await p.getByRole('button', { name: /Enter Chad Square/ }).click()
 await p.waitForFunction(() => window.__chadverse?.phase === 'world' && window.__chadverse.world(), null, { timeout: 120000 })
-const SPOTS = { warmup: [0, 8, 0], 'warmup-city': [-60, 470, 0], square: [0, 8, 0], overlook: [12, 90, 0], 'descent-mid': [58, 330, 3.14], 'city-entrance': [-6, 415, -1.57], 'city-boulevard': [-60, 470, 0], manor: [100, 508, 0.67] }
+const SPOTS = JSON.parse(process.env.SPOTS || '{"square":[0,8,0]}')
 for (const [name, [x, z, yaw]] of Object.entries(SPOTS)) {
   await p.evaluate(([x, z, yaw]) => window.__chadverse.teleport(x, z, yaw), [x, z, yaw])
   await p.waitForTimeout(6000)

@@ -13,17 +13,62 @@ export const MAX_PIECES = 30
 export const PLOT_PRICE = 120
 
 /** world rects (x0..x1, z0..z1) + which side faces the lane (the gate + sign) */
-export type Plot = { id: string; name: string; x0: number; z0: number; gate: 'w' | 'e' }
+export type Gate = 'w' | 'e' | 'n' | 's'
+export type Plot = { id: string; name: string; x0: number; z0: number; gate: Gate; row?: string }
+/**
+ * The ORIGINAL four plots (A–D) keep their ids and positions forever (saves point at them). CHADVILLE HEIGHTS is the new district west of
+ * them: four rows of 13 plots either side of two lanes (a spine lane joins the old estate lane), 49 sellable plots + the 3 show-home sites.
+ * Ids are H01…H49 in row-major order (row 1 west→east is skipped at the show-home sites), so a plot's id never changes if the art does.
+ */
+export const HEIGHTS = {
+  /** the district's walkable rectangle (also in city.ts as DISTRICTS.heights) */
+  rect: { x0: -242, x1: -64, z0: 26, z1: 78 },
+  spine: { x0: -70, x1: -66, z0: 26, z1: 74 },
+  laneA: { x0: -242, x1: -70, z0: 36, z1: 40 },
+  laneB: { x0: -242, x1: -70, z0: 60, z1: 64 },
+  /** plot slots along each row: pitch 13 m, plot 12 m wide, the first starts 1 m off the spine */
+  slots: 13,
+  pitch: 13,
+  firstX1: -71,
+  /** the three show homes stand on row 1's first three slots (not sellable) */
+  showSlots: 3,
+}
+const plotX0 = (slot: number) => HEIGHTS.firstX1 - HEIGHTS.pitch * slot - 12
+const ROWS_DEF: { z0: number; gate: Gate; row: string; skip: number }[] = [
+  { z0: 26, gate: 's', row: 'North row', skip: HEIGHTS.showSlots },
+  { z0: 40, gate: 'n', row: 'Lane A south', skip: 0 },
+  { z0: 50, gate: 's', row: 'Lane B north', skip: 0 },
+  { z0: 64, gate: 'n', row: 'South row', skip: 0 },
+]
+const heightsPlots = (): Plot[] => {
+  const out: Plot[] = []
+  let n = 1
+  for (const r of ROWS_DEF) for (let i = r.skip; i < HEIGHTS.slots; i++) out.push({ id: `H${String(n).padStart(2, '0')}`, name: `Heights ${String(n++).padStart(2, '0')}`, x0: plotX0(i), z0: r.z0, gate: r.gate, row: r.row })
+  return out
+}
 export const PLOTS: Plot[] = [
   { id: 'A', name: 'Plot A', x0: -44, z0: 51, gate: 'w' },
   { id: 'B', name: 'Plot B', x0: -62, z0: 51, gate: 'e' },
   { id: 'C', name: 'Plot C', x0: -44, z0: 65, gate: 'w' },
   { id: 'D', name: 'Plot D', x0: -62, z0: 65, gate: 'e' },
+  ...heightsPlots(),
+]
+export type ShowHome = { id: 'cottage' | 'contemporary' | 'premium'; name: string; blurb: string; x: number; z: number; face: 's' }
+/** the three show homes: look-and-walk-round models, not for sale and not buildable */
+export const SHOW_HOMES: ShowHome[] = [
+  { id: 'cottage', name: 'The Cottage', blurb: 'A timber-framed starter home', x: plotX0(0) + 6, z: 26 + 5, face: 's' },
+  { id: 'contemporary', name: 'The Contemporary', blurb: 'Flat roof, glass and a cantilever', x: plotX0(1) + 6, z: 26 + 5, face: 's' },
+  { id: 'premium', name: 'The Premium', blurb: 'Two storeys, columns and a balcony', x: plotX0(2) + 6, z: 26 + 5, face: 's' },
 ]
 export const PLOT = (id: string) => PLOTS.find((p) => p.id === id)
 export const plotSize = { w: COLS * CELL, d: ROWS * CELL }
 /** where the plot's gate + sign stand (on the lane side, mid-depth) */
-export const plotGate = (p: Plot) => ({ x: p.gate === 'w' ? p.x0 - 0.9 : p.x0 + plotSize.w + 0.9, z: p.z0 + plotSize.d / 2 })
+export const plotGate = (p: Plot) => {
+  const { w, d } = plotSize
+  if (p.gate === 'n') return { x: p.x0 + w / 2, z: p.z0 - 0.9 }
+  if (p.gate === 's') return { x: p.x0 + w / 2, z: p.z0 + d + 0.9 }
+  return { x: p.gate === 'w' ? p.x0 - 0.9 : p.x0 + w + 0.9, z: p.z0 + d / 2 }
+}
 
 export type PieceKind = 'cottage' | 'tower' | 'hedge' | 'fence' | 'lamp' | 'bench' | 'tree' | 'flowers' | 'pumpkins' | 'fountain' | 'path'
 export type PieceDef = { kind: PieceKind; name: string; w: number; d: number; price: number; solid: boolean; color: string }

@@ -22,6 +22,15 @@ const VIEWS = {
   'estates-arch': { cam: [[-22, 2.2, 47], [-34, 2.4, 47], 55] },
   'estates-aerial': { cam: [[-28, 30, 86], [-47, 0, 60], 50] },
   'estates-lane': { play: [-47, 50, 0, -10, 0] },
+  'heights-plan': { cam: [[-153, 200, 52], [-153, 0, 52.1], 55] },
+  'heights-aerial': { cam: [[-60, 38, 100], [-120, 0, 48], 55] },
+  'heights-spine': { play: [-68, 42, -PI / 2, -6, 0] },
+  'heights-lane': { play: [-76, 38, -PI / 2, -8, 0] },
+  'heights-far': { play: [-225, 38, PI / 2, -8, 0] },
+  'show-homes': { cam: [[-96, 3.2, 46], [-92, 3, 30], 62] },
+  'show-cottage': { cam: [[-77, 2.2, 40], [-77, 2.4, 30], 50] },
+  'show-contemporary': { cam: [[-90, 2.2, 40.5], [-90, 2.8, 30], 50] },
+  'show-premium': { cam: [[-103, 2.6, 41], [-103, 3.0, 30], 50] },
   'forest-gate': { cam: [[-80, 2.2, -8], [-80, 2.6, -22], 55] },
   'forest-path': { play: [-79, -27, PI, -10, 0] },
   'forest-clearing': { cam: [[-70, 3.2, -41], [-70, 2.4, -56], 55] },
@@ -162,7 +171,7 @@ for (const [name, v] of Object.entries(VIEWS)) {
     }
   }
   await p.waitForTimeout(900)
-  await p.screenshot({ path: `${out}/${tag}-${name}.jpg`, quality: 82, timeout: 60000 })
+  await p.screenshot({ path: `${out}/${tag}-${name}.jpg`, quality: 82, timeout: 150000 })
   console.log('shot', name)
 }
 console.log('stats', JSON.stringify(await p.evaluate(() => [window.__chadverse.stats(), window.__chadverse.world()])))

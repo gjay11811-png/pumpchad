@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import type { Town } from './buildings'
-import { CELL, PIECE, PLOTS, PLOT_PRICE, plotGate, plotSize, pieceWorld, type Estate, type Piece, type Plot } from '../../estates'
+import { CELL, HEIGHTS, PIECE, PLOTS, PLOT_PRICE, plotGate, plotSize, pieceWorld, type Estate, type Piece, type Plot } from '../../estates'
+import { showHomes } from './showHomes'
 import { boxUV } from './kit'
 import { ornateSign } from './ornament'
 import { Frame } from './signs'
@@ -17,7 +18,12 @@ export const ESTATES = {
   laneEW: { x0: -64, x1: -30, z0: 45, z1: 49 },
   laneNS: { x0: -50, x1: -44, z0: 49, z1: 77 },
 }
-export const ESTATE_LAMPS: [number, number][] = [[-36, 44.6], [-56, 44.6], [-44.5, 57], [-49.5, 57], [-44.5, 71], [-49.5, 71]]
+/** lamps: the old estate's six + Chadville Heights' lanes (every 26 m, alternating sides) and spine */
+export const ESTATE_LAMPS: [number, number][] = [
+  [-36, 44.6], [-56, 44.6], [-44.5, 57], [-49.5, 57], [-44.5, 71], [-49.5, 71],
+  ...[0, 1, 2, 3, 4, 5, 6].flatMap((i): [number, number][] => [[-78 - i * 26, i % 2 ? 35.6 : 40.4], [-78 - i * 26, i % 2 ? 59.6 : 64.4]]),
+  [-68, 31], [-68, 54], [-68, 70],
+]
 
 export function estatesDistrict(T: Town) {
   const P = T.P
@@ -30,21 +36,43 @@ export function estatesDistrict(T: Town) {
   const { laneEW: a, laneNS: b } = ESTATES
   pave(a.x0, a.x1, a.z0, a.z1, P.cobble)
   pave(b.x0, b.x1, b.z0, b.z1, P.cobble)
+  // CHADVILLE HEIGHTS: the spine, two lanes and a short link to the old estate lane
+  for (const l of [HEIGHTS.spine, HEIGHTS.laneA, HEIGHTS.laneB]) pave(l.x0, l.x1, l.z0, l.z1, P.cobble)
+  pave(-66.2, -63.8, 45, 49, P.cobble)
+  showHomes(T)
   const lawn = new THREE.MeshStandardMaterial({ map: P.ground.map, color: '#8aa86a', roughness: 1 })
   T.disposables.push(lawn)
   for (const p of PLOTS) {
     const { w, d } = plotSize
     pave(p.x0, p.x0 + w, p.z0, p.z0 + d, lawn, 0.012)
-    // a low stone kerb round the plot, open at the gate
+    // a low stone kerb round the plot, open at the gate (the gate can face any side)
     const g = plotGate(p)
-    const kerb = (x0: number, z0: number, x1: number, z1: number) => T.batch.put(boxUV(Math.max(0.25, x1 - x0), 0.22, Math.max(0.25, z1 - z0), 1), P.stoneLight, (x0 + x1) / 2, 0.11, (z0 + z1) / 2, 0, 1, 1, 1, { cast: false })
-    kerb(p.x0, p.z0 - 0.12, p.x0 + w, p.z0 + 0.12)
-    kerb(p.x0, p.z0 + d - 0.12, p.x0 + w, p.z0 + d + 0.12)
-    const far = p.gate === 'w' ? p.x0 + w : p.x0
-    kerb(far - 0.12, p.z0, far + 0.12, p.z0 + d)
-    const near = p.gate === 'w' ? p.x0 : p.x0 + w
-    kerb(near - 0.12, p.z0, near + 0.12, g.z - 1.4)
-    kerb(near - 0.12, g.z + 1.4, near + 0.12, p.z0 + d)
+    const kerb = (x0: number, z0: number, x1: number, z1: number) => {
+      if (x1 - x0 < 0.05 || z1 - z0 < 0.05) return
+      T.batch.put(boxUV(Math.max(0.25, x1 - x0), 0.22, Math.max(0.25, z1 - z0), 1), P.stoneLight, (x0 + x1) / 2, 0.11, (z0 + z1) / 2, 0, 1, 1, 1, { cast: false })
+    }
+    const X1 = p.x0 + w
+    const Z1 = p.z0 + d
+    const gx = [g.x - 1.4, g.x + 1.4]
+    const gz = [g.z - 1.4, g.z + 1.4]
+    // north / south edges
+    if (p.gate === 'n') {
+      kerb(p.x0, p.z0 - 0.12, gx[0], p.z0 + 0.12)
+      kerb(gx[1], p.z0 - 0.12, X1, p.z0 + 0.12)
+    } else kerb(p.x0, p.z0 - 0.12, X1, p.z0 + 0.12)
+    if (p.gate === 's') {
+      kerb(p.x0, Z1 - 0.12, gx[0], Z1 + 0.12)
+      kerb(gx[1], Z1 - 0.12, X1, Z1 + 0.12)
+    } else kerb(p.x0, Z1 - 0.12, X1, Z1 + 0.12)
+    // west / east edges
+    if (p.gate === 'w') {
+      kerb(p.x0 - 0.12, p.z0, p.x0 + 0.12, gz[0])
+      kerb(p.x0 - 0.12, gz[1], p.x0 + 0.12, Z1)
+    } else kerb(p.x0 - 0.12, p.z0, p.x0 + 0.12, Z1)
+    if (p.gate === 'e') {
+      kerb(X1 - 0.12, p.z0, X1 + 0.12, gz[0])
+      kerb(X1 - 0.12, gz[1], X1 + 0.12, Z1)
+    } else kerb(X1 - 0.12, p.z0, X1 + 0.12, Z1)
     for (const [cx, cz] of [[p.x0, p.z0], [p.x0 + w, p.z0], [p.x0, p.z0 + d], [p.x0 + w, p.z0 + d]]) T.batch.put(boxUV(0.4, 0.5, 0.4, 1), P.stone, cx, 0.25, cz)
   }
   // the entrance: two stone pillars, an iron arch, the ornate sign both ways, and a fingerpost
@@ -60,6 +88,7 @@ export function estatesDistrict(T: Town) {
     for (const ry of [Math.PI / 2, -Math.PI / 2]) ornateSign(T, Frame.at(T.batch, x + (ry > 0 ? 0.07 : -0.07), 3.75, z, ry), 'CHADVILLE ESTATES', { h: 0.56, crest: 'crown' })
     fingerpost(T, x + 2.8, z - 3.6, [
       { label: 'CHADVILLE ESTATES', to: [-47, 60] },
+      { label: 'CHADVILLE HEIGHTS', to: [-120, 38] },
       { label: 'CHAD VIEW', to: [-53, 38.5] },
       { label: 'CANAL · GATEWAY', to: [0, 50] },
     ])
@@ -141,9 +170,11 @@ export class EstateView {
     this.disposables.push(tex, mat)
     const g = plotGate(p)
     // post + board facing the lane
-    const sx = g.x + (p.gate === 'w' ? -0.2 : 0.2)
-    const sz = g.z - 1.9
-    const ry = p.gate === 'w' ? -Math.PI / 2 : Math.PI / 2
+    // beside the gate, on the lane side, facing the lane
+    const ry = { w: -Math.PI / 2, e: Math.PI / 2, n: Math.PI, s: 0 }[p.gate]
+    const side = p.gate === 'w' || p.gate === 'e' ? { x: p.gate === 'w' ? -0.2 : 0.2, z: -1.9 } : { x: 1.9, z: p.gate === 'n' ? -0.2 : 0.2 }
+    const sx = g.x + side.x
+    const sz = g.z + side.z
     const F = Frame.at(this.T.batch, sx, 0, sz, ry)
     // a proper sign: two posts at the board's edges, a top rail and a backing board — never a post through the lettering
     for (const px of [-0.72, 0.72]) F.box(0.1, 1.75, 0.1, this.T.P.bark, px, 0.875, 0)

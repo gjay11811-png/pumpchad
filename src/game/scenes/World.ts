@@ -126,7 +126,7 @@ const ZONES: { id: string; inside: (x: number, z: number) => boolean }[] = [
   { id: 'visit_landing', inside: (x, z) => x > 49 && x < 80 && z > 418 && z < 454 },
   { id: 'visit_bridge', inside: (x, z) => x > 2 && x < 44 && Math.abs(z - 415) < 4 },
   { id: 'visit_manor', inside: (x, z) => Math.hypot(x - 142, z - 516) < 30 },
-  { id: 'visit_estates', inside: (x, z) => x < -30 && x > -66 && z > 44 },
+  { id: 'visit_estates', inside: (x, z) => (x < -30 && x > -66 && z > 44) || (x < -66 && x > -245 && z > 24) },
 ]
 
 /** the Pumpkin Rush cart (start point of the mini-game) on the plaza */
@@ -424,6 +424,7 @@ export class World implements GameScene {
       if (x < -58) return true // the Haunted Quarter dresses its own ground
       if (x > 64 || (x < -40 && z < -18) || (x < -10 && z > 74)) return true // so do Moonlight Lake + the Enchanted Forest
       if (x < -30 && x > -66 && z > 43) return true // and Chadville Estates (lanes + plots stay clear)
+      if (x < -62 && z > 24) return true // and Chadville Heights (the big housing district)
       if (x > 28 && z > 29 && z < 58 && (Math.abs(z - 36.25) < 3 || z > 38)) return true // Motor Row: street, forecourts, shops
       for (const r of ROADS) {
         const dx = r.x1 - r.x0, dz = r.z1 - r.z0
@@ -646,7 +647,7 @@ export class World implements GameScene {
   /** is (x, z) clear, plain ground for a prop (inside the village, level, off every collider and every sellable estate plot)? */
   private plainGround(x: number, z: number) {
     if (isLocked(x, z) || !insideCity(x, z, 0.8) || inCanal(x, z, 1) || Math.abs(groundHeight(x, z)) > 0.35) return false
-    if (x < -29 && z > 40) return false // Chadville Estates (plots to buy and build on)
+    if ((x < -29 && z > 40) || (x < -62 && z > 24)) return false // Chadville Estates + Heights (plots to buy and build on)
     if (Math.hypot(x, z) < 8) return false // the fountain
     for (const c of this.colliders) {
       if (c.kind === 'circle' ? Math.hypot(x - c.x, z - c.z) < c.r + 0.5 : x > c.minX - 0.5 && x < c.maxX + 0.5 && z > c.minZ - 0.5 && z < c.maxZ + 0.5) return false

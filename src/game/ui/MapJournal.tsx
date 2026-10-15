@@ -29,7 +29,7 @@ const LAKE_RUNS: [number, number, number][] = (() => {
 })()
 const VB_FULL = { x: -150, z: -100, w: 320, h: 720 }
 /** the first release shows the village only; the veiled strip below the gate stands for the closed expansion */
-const VB_VILLAGE = { x: -112, z: -76, w: 250, h: 232 }
+const VB_VILLAGE = { x: -250, z: -76, w: 388, h: 232 } // (widened west for Chadville Heights)
 const VB = EXPANSION_OPEN ? VB_FULL : VB_VILLAGE
 const KIND_COLOR: Record<MapKind, string> = { place: '#e9e4da', shop: '#ffd25a', quest: '#ff9a3c', activity: '#7affb0' }
 

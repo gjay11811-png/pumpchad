@@ -81,7 +81,8 @@ export function EstateEditor({
   }
 
   const selPiece = sel !== null ? pieces[sel] : null
-  const laneLeft = plot.gate === 'w'
+  const laneFirst = plot.gate === 'w' || plot.gate === 'n' // the lane strip comes before the grid (left / above)
+  const sideways = plot.gate === 'n' || plot.gate === 's' // the lane runs along the top / bottom edge
   return (
     <Overlay label="Build on your plot" wide>
       <Header title={plot.name} onBack={onBack} />
@@ -94,8 +95,8 @@ export function EstateEditor({
         </span>
       </div>
 
-      <div className="mt-3 flex items-stretch justify-center gap-2">
-        {laneLeft && <LaneStrip />}
+      <div className={`mt-3 flex justify-center gap-2 ${sideways ? "flex-col items-center" : "items-stretch"}`}>
+        {laneFirst && <LaneStrip horizontal={sideways} />}
         <svg viewBox={`-0.05 -0.05 ${COLS + 0.1} ${ROWS + 0.1}`} className="block h-[40svh] w-auto min-w-0 max-w-[calc(100%-2rem)] touch-manipulation rounded-xl bg-[#3a5236]" role="grid" aria-label="Your plot" data-testid="estate-grid">
           {Array.from({ length: COLS * ROWS }, (_, i) => {
             const x = i % COLS
@@ -131,7 +132,7 @@ export function EstateEditor({
             )
           })}
         </svg>
-        {!laneLeft && <LaneStrip />}
+        {!laneFirst && <LaneStrip horizontal={sideways} />}
       </div>
 
       <p className="mt-2 min-h-[2.5em] text-[13px] leading-snug text-bone/85" data-testid="estate-msg" aria-live="polite">
@@ -191,8 +192,12 @@ export function EstateEditor({
   )
 }
 
-function LaneStrip() {
-  return (
+function LaneStrip({ horizontal = false }: { horizontal?: boolean }) {
+  return horizontal ? (
+    <div className="flex h-6 w-[min(100%,24rem)] shrink-0 items-center justify-center rounded-lg bg-[#5a5462]">
+      <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-bone/70">lane · gate</span>
+    </div>
+  ) : (
     <div className="flex w-6 shrink-0 items-center justify-center rounded-lg bg-[#5a5462]">
       <span className="rotate-180 font-mono text-[9px] uppercase tracking-[0.2em] text-bone/70 [writing-mode:vertical-rl]">lane · gate</span>
     </div>
