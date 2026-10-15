@@ -8,6 +8,17 @@ const URL = process.env.URL || 'http://localhost:4318/chadverse/'
 const PI = Math.PI
 // name: play = [x, z, yaw, dragUp, dragTurn] (gameplay camera)  |  cam = [[cx,cy,cz],[lx,ly,lz],fov] (fixed)
 const VIEWS = {
+  'n-overlook': { play: [12, 90, 0, -6, 0] },
+  'n-hamlet': { play: [-8, 208, -PI / 2, -10, 0] },
+  'n-hamlet-inn': { play: [-27, 224, PI, -10, 0] },
+  'n-woodland': { play: [-24, 178, -PI / 2, -10, 0] },
+  'n-watchtower': { play: [86, 266, PI / 2, -10, 0] },
+  'n-bridge': { play: [58, 415, -PI / 2, -10, 0] },
+  'n-landing': { play: [60, 440, -PI / 2, -10, 0] },
+  'n-waterfront': { play: [-44, 474, 0, -10, 0] },
+  'n-manor-gates': { play: [98, 504, 0.67, -10, 0] },
+  'n-manor-court': { play: [116, 516, PI / 2, -10, 0] },
+  'n-manor-terrace': { play: [137, 516, PI / 2, -10, 0] },
   'estates-arch': { cam: [[-22, 2.2, 47], [-34, 2.4, 47], 55] },
   'estates-aerial': { cam: [[-28, 30, 86], [-47, 0, 60], 50] },
   'estates-lane': { play: [-47, 50, 0, -10, 0] },

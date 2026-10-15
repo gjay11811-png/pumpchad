@@ -56,7 +56,7 @@ export function lakeBasin(x: number, z: number) {
 export const inLakeWater = (x: number, z: number) => lakeBasin(x, z) > 2.4 + 0.15
 
 /* ───────────── flat landings and promenades ───────────── */
-export type Pad = { id: string; x0: number; x1: number; z0: number; z1: number; y: number }
+export type Pad = { id: string; x0: number; x1: number; z0: number; z1: number; y: number; /** walkable only: the terrain is not levelled under it (a pier over water) */ noTerrain?: boolean }
 export type CirclePad = { id: string; x: number; z: number; r: number; y: number }
 const roadY = (x: number, z: number) => DESCENT.nearest(x, z).y
 /** city waterfront: the south promenade, the east strip beside the inlet, and the Lakeside Landing east of the bridge */
@@ -65,6 +65,8 @@ export const PADS: Pad[] = [
   { id: 'prom_e', x0: -9.5, x1: -5, z0: 394, z1: 482, y: VALLEY_Y },
   { id: 'landing', x0: 49, x1: 80, z0: 418, z1: 454, y: VALLEY_Y },
   { id: 'hamlet', x0: -52, x1: -5, z0: 196, z1: 236, y: roadY(-2, 208) },
+  // the fishing pier out over the inlet (planks 0.35 m above the floor, the water 2.4 m below that)
+  { id: 'pier', x0: 37.6, x1: 49.5, z0: 430.6, z1: 433.4, y: VALLEY_Y + 0.35, noTerrain: true },
 ]
 export const CIRCLE_PADS: CirclePad[] = [
   { id: 'tower', x: 96, z: 262, r: 7.5, y: roadY(54, 262) + 11 },
@@ -169,6 +171,7 @@ export function valleyTerrain(x: number, z: number, h: number) {
   }
   // flat pads: level inside, easing into the surroundings over a few metres
   for (const p of PADS) {
+    if (p.noTerrain) continue
     const dx = Math.max(p.x0 - x, 0, x - p.x1)
     const dz = Math.max(p.z0 - z, 0, z - p.z1)
     const d = Math.hypot(dx, dz)

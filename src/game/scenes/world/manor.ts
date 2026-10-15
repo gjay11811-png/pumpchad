@@ -266,13 +266,14 @@ export function manor(T: Town, q: Quality, stoneTex: THREE.Texture, seats: Bench
         L.batch.put(new THREE.ConeGeometry(1.2, 1.6, 4).rotateY(Math.PI / 4), P.stoneLight, gx, 5.5, sz * 3.9)
         L.batch.put(new THREE.SphereGeometry(0.3, 10, 8), P.gold, gx, 6.5, sz * 3.9)
         L.colliders.push({ kind: 'box', minX: gx - 0.85, maxX: gx + 0.85, minZ: sz * 3.9 - 0.85, maxZ: sz * 3.9 + 0.85, h: 5 })
-        // gate leaf swung open: bars + gilded finials (hung from the pier, folded back toward the house)
+        // gate leaf swung fully open against its pier: bars + gilded finials lying along the drive's edge
         for (let k = 0; k < 6; k++) {
-          L.batch.put(new THREE.BoxGeometry(0.05, 3.0 + Math.sin((k / 5) * Math.PI) * 0.3, 0.05), P.iron, gx - 0.9, 1.6, sz * (2.9 - k * 0.36))
-          L.batch.put(new THREE.ConeGeometry(0.07, 0.2, 4), P.gold, gx - 0.9, 3.25 + Math.sin((k / 5) * Math.PI) * 0.3, sz * (2.9 - k * 0.36))
+          const lx = gx - 0.7 - k * 0.36
+          L.batch.put(new THREE.BoxGeometry(0.05, 3.0 + Math.sin((k / 5) * Math.PI) * 0.3, 0.05), P.iron, lx, 1.6, sz * 3.0)
+          L.batch.put(new THREE.ConeGeometry(0.07, 0.2, 4), P.gold, lx, 3.25 + Math.sin((k / 5) * Math.PI) * 0.3, sz * 3.0)
         }
-        L.batch.put(new THREE.BoxGeometry(0.06, 0.08, 1.9), P.iron, gx - 0.9, 0.4, sz * 2.0)
-        L.batch.put(new THREE.BoxGeometry(0.06, 0.08, 1.9), P.iron, gx - 0.9, 2.6, sz * 2.0)
+        L.batch.put(new THREE.BoxGeometry(2.0, 0.08, 0.06), P.iron, gx - 1.7, 0.4, sz * 3.0)
+        L.batch.put(new THREE.BoxGeometry(2.0, 0.08, 0.06), P.iron, gx - 1.7, 2.6, sz * 3.0)
       }
       L.batch.put(new THREE.TorusGeometry(3.9, 0.12, 8, 28, Math.PI).rotateZ(0).rotateY(Math.PI / 2), P.iron, gx, 4.55, 0)
       L.batch.put(new THREE.TorusGeometry(3.3, 0.08, 8, 28, Math.PI).rotateY(Math.PI / 2), P.iron, gx, 4.55, 0)

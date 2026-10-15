@@ -134,6 +134,9 @@ export const SEEDS: [string, number, number][] = [
 ]
 
 /** Walkable height: castle steps, tavern porch, fountain step. */
+/** the old far skyline of needle towers (retired: see buildTown) */
+const SHOW_GOTHIC_BACKDROP = false
+
 export function groundHeight(x: number, z: number) {
   const bh = bridgeHeight(x, z)
   if (bh !== null) return bh
@@ -395,6 +398,8 @@ export class World implements GameScene {
     this.city = buildChadCity(this.scene, q, this.disposables, this.night)
     // the great distant skyline now stands far beyond the valley city (it is the backdrop, not a place you can reach)
     this.city.group.position.set(0, -8, 340)
+    // (retired: the repeated pointed-tower backdrop now crowded the lake and the real city — the valley city, the lake, the castle mountain and the ridge ranges replace it)
+    this.city.group.visible = SHOW_GOTHIC_BACKDROP
 
     // vegetation avoids roads, plaza and buildings
     const avoid = (x: number, z: number) => {
@@ -522,7 +527,7 @@ export class World implements GameScene {
         this.scene.add(this.embers.points)
       }
       // chimney smoke over the Gothic city (scaled up: it's hundreds of metres away)
-      if (this.city.chimneys.length) {
+      if (SHOW_GOTHIC_BACKDROP && this.city.chimneys.length) {
         this.cityStacks = new Particles(this.city.chimneys.map((c) => ({ x: c.x, y: c.y - 8, z: c.z + 340 })), q === 'high' ? 6 : 4, 'smoke', this.night ? '#4a4262' : '#9a96a0', false, 7)
         this.scene.add(this.cityStacks.points)
       }
