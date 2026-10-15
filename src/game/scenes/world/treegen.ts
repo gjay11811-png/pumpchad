@@ -249,7 +249,7 @@ export function growTree(kind: TreeKind, seed: number, o: TreeOpts): TreeGeo {
     clump(leaves, top.clone().add(V(0, 0.9, 0)), V(spec.clump * 1.1, spec.clump * 0.8, spec.clump * 1.1), cardsFor(spec.cards * 1.4), sizeFor(spec.size), leafPick(), spec.lo, spec.hi, r, spec.droop > 0.5 ? 0.3 : 0)
   } else if (kind === 'pine') {
     const H = 6.2 + r() * 1.4
-    const tp = trunk(H, 0.17, 0.2, 6)
+    trunk(H, 0.17, 0.2, 6)
     const whorls = Math.round((far ? 7 : 12) * (0.6 + 0.4 * det))
     for (let w = 0; w < whorls; w++) {
       const t = 0.2 + 0.78 * (w / whorls)
