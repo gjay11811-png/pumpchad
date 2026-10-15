@@ -54,6 +54,16 @@ export const PLOTS: Plot[] = [
   { id: 'D', name: 'Plot D', x0: -62, z0: 65, gate: 'e' },
   ...heightsPlots(),
 ]
+/** street trees along the two lanes: in the 1 m gaps between plots, every other gap, alternating sides (they stand on the lane's edge strip, leaving 3 m to walk) */
+export const HEIGHTS_TREES: [number, number][] = (() => {
+  const out: [number, number][] = []
+  for (let i = 0; i < HEIGHTS.slots; i++) {
+    const gx = plotX0(i) - 0.5
+    if (i % 2) continue
+    out.push([gx, 36.6], [gx - 13, 39.4], [gx, 60.6], [gx - 13, 63.4])
+  }
+  return out.filter(([x]) => x > -239.5)
+})()
 export type ShowHome = { id: 'cottage' | 'contemporary' | 'premium'; name: string; blurb: string; x: number; z: number; face: 's' }
 /** the three show homes: look-and-walk-round models, not for sale and not buildable */
 export const SHOW_HOMES: ShowHome[] = [

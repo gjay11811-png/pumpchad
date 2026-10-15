@@ -69,3 +69,10 @@ Source: Poly Haven, CC0 (licence page verified; attribution not required, credit
 
 * **Sword Drill** — Antique Estoc (Poly Haven, CC0, James Ray Cock + Ulan Cabanilla) in the Parkour Yard's north strip: three straw dummies, 30 s, cuts with the action key, combo for hitting different dummies, local personal best.
 * **Pistol Range** — the second weapon on the Pumpkin Toss range. The pistol is our own procedural model (slide, barrel, grip, sights; no third-party asset), held in the right hand with the arm IK following the aim. The supplied Sketchfab 9mm (CC BY 4.0, ~18 K faces) is still **blocked behind a login**; once downloaded it can replace the procedural model.
+
+
+## Animation sources (2026-10-16)
+
+* **Mixamo** (https://www.mixamo.com/) — **not used, not verified.** The Adobe FAQ page (`helpx.adobe.com/creative-cloud/faq/mixamo-faq.html`) returned HTTP 403 to an automated fetch, so the licence wording could not be read here; Mixamo downloads also need an Adobe sign-in, which only Jay can provide. I have **not** claimed it contains every requested parkour clip (vault / mantle / ledge hang / shimmy / pull-up) — that has to be checked by browsing its library signed in. Manual step, once: sign in → search "climb", "hang", "vault", "jump" → note the exact clip names and the licence text on the FAQ → tell me which to retarget (the rig is the shared PumpChad / Skeleton / Demon skeleton with `hand_l/r`, `lowerarm_l/r`, `upperarm_l/r`, `foot_l/r`).
+* **Threepeat parkour animations** (https://www.threepeatgames.com/parkour_anims/) — Unity-oriented; format and licence unverified; **no purchase authorised or made**. Comparison only.
+* **What the game does today instead**: the existing Universal Animation Library clips (jump start / loop / land, idle, run) plus **procedural arm IK** (`PumpkinChad.grip`) to put both hands on the ledge, a procedural pull-up path, and a root pitch/roll lean for vaults and mantles. This is *procedural motion on the existing rig, not motion capture*, and the three species share the one rig so the same motion plays on PumpChad, Skeleton and Demon (visual check on all three still to do).

@@ -92,7 +92,7 @@ import { manor } from './world/manor'
 import { MILL_LAMPS, SOUTHSHORE_LAMPS, southshore } from './world/southshore'
 import { LANTERNS, SIGIL, guardianLanterns, type GuardianLanterns } from './world/lanterns'
 import { ESTATE_LAMPS, EstateView, estatesDistrict } from './world/estates'
-import { PLOTS, PLOT_PRICE, cottageDoor, plotGate, type Estate } from '../estates'
+import { HEIGHTS_TREES, PLOTS, PLOT_PRICE, cottageDoor, plotGate, type Estate } from '../estates'
 import { Pet, type PetKind } from '../character/pet'
 
 export type Interactable = { id: string; label: string; pos: THREE.Vector3; radius: number; kind: 'talk' | 'activity' | 'info' | 'collect' | 'secret' }
@@ -455,6 +455,7 @@ export class World implements GameScene {
     squareExtras(T, SM.trim)
     // street trees + bushes for the south + east districts
     greenery.trees.push(...MOTOR_ROW_TREES)
+    greenery.trees.push(...HEIGHTS_TREES) // Chadville Heights' street trees
     greenery.trees.push([-12.5, 49.6], [12.5, 49.6], [-14, 71], [24.5, 70], [-26, 30.5], [26, 30.5], [33, 1], [52, 2], [56, 31], [36.5, 31.5], [48.6, 31.2])
     greenery.bushes.push([-13, 66.4], [-12.2, 66.4], [-9.5, 55.2], [9.5, 55.2], [-5.2, 46.6], [5.2, 46.6], [30.6, 2.2], [30.6, 10.5])
     // lamps along the new streets (same family as the old town's)
