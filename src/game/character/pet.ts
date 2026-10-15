@@ -87,12 +87,21 @@ export class Pet {
       P.leg1.rotation.x = -s
       P.leg2.rotation.x = -s
     } else if (this.kind === 'pumpkin') {
-      this.body.position.y = moving ? Math.abs(Math.sin(t * 8)) * 0.22 : Math.abs(Math.sin(t * 2)) * 0.02
-      this.body.scale.set(1, 1 - Math.max(0, 0.08 - this.body.position.y) * 1.2, 1)
+      // a trot: small bounce, legs and arms swinging in opposition; at rest a slow breathing sway
+      this.body.position.y = moving ? 0.07 + Math.abs(Math.sin(t * 9)) * 0.05 : Math.sin(t * 2) * 0.01
+      const sw = Math.sin(t * 9) * 0.7 * moving
+      P.legL.rotation.x = sw
+      P.legR.rotation.x = -sw
+      P.armL.rotation.x = -sw * 0.8
+      P.armR.rotation.x = sw * 0.8
+      P.armL.rotation.z = 0.15 + (moving ? 0 : Math.sin(t * 1.7) * 0.05)
+      P.armR.rotation.z = -0.15 - (moving ? 0 : Math.sin(t * 1.7) * 0.05)
     } else if (this.kind === 'ghost') {
       this.body.position.y = 0.75 + Math.sin(t * 2.2) * 0.08
       this.body.rotation.z = Math.sin(t * 1.3) * 0.08
       this.body.rotation.x = moving * 0.25
+      P.armL.rotation.z = Math.sin(t * 2.6) * 0.35 + 0.1
+      P.armR.rotation.z = -Math.sin(t * 2.6 + 1) * 0.35 - 0.1
     } else {
       this.body.position.y = 1.25 + Math.sin(t * 3.1) * 0.1
       const f = Math.sin(t * 18) * 0.9
@@ -138,12 +147,31 @@ export class Pet {
       this.mesh(new THREE.ConeGeometry(0.04, 0.09, 4), fur, sx * 0.055, 0.1, -0.01, head).rotation.z = -sx * 0.25
       this.mesh(new THREE.SphereGeometry(0.018, 8, 6), eye, sx * 0.042, 0.015, 0.088, head).scale.set(1, 1.3, 0.5)
     }
-    // four legs pivoting at the hip
+    // a face: pink nose, pale muzzle, whiskers, slit pupils, inner ears
+    const pink = this.std('#c8788a', 0.6)
+    const pale = this.std('#cfc8c0', 0.8)
+    const slit = this.std('#050408', 0.5)
+    this.mesh(new THREE.SphereGeometry(0.045, 10, 8), pale, 0, -0.03, 0.085, head).scale.set(1.15, 0.8, 0.9)
+    this.mesh(new THREE.SphereGeometry(0.014, 8, 6), pink, 0, -0.005, 0.125, head).scale.set(1.2, 0.8, 0.8)
+    for (const sx of [-1, 1]) {
+      this.mesh(new THREE.BoxGeometry(0.004, 0.012, 0.004), slit, sx * 0.042, 0.015, 0.093, head).scale.set(1, 1.6, 1)
+      this.mesh(new THREE.ConeGeometry(0.022, 0.05, 4), pink, sx * 0.055, 0.095, 0.005, head).rotation.z = -sx * 0.25
+      for (let k = 0; k < 3; k++) {
+        const w = this.mesh(new THREE.CylinderGeometry(0.0015, 0.001, 0.12, 3), pale, sx * 0.075, -0.02 + (k - 1) * 0.016, 0.1, head)
+        w.rotation.z = Math.PI / 2 + sx * (k - 1) * 0.18
+        w.rotation.y = -sx * 0.25
+      }
+    }
+    // haunches + a pale chest so it reads as an animal with a body, not a capsule
+    this.mesh(new THREE.SphereGeometry(0.1, 12, 10), fur, 0, 0.26, -0.13).scale.set(1.05, 0.95, 1.05)
+    this.mesh(new THREE.SphereGeometry(0.075, 10, 8), pale, 0, 0.23, 0.15).scale.set(0.85, 1, 0.7)
+    // four legs pivoting at the hip, each with a paw on the ground
     ;[[-0.06, 0.13], [0.06, 0.13], [-0.06, -0.13], [0.06, -0.13]].forEach(([x, z], i) => {
       const hip = new THREE.Group()
       hip.position.set(x, 0.2, z)
       this.body.add(hip)
-      this.mesh(new THREE.CylinderGeometry(0.025, 0.022, 0.2, 6), fur, 0, -0.1, 0, hip)
+      this.mesh(new THREE.CylinderGeometry(0.027, 0.02, 0.2, 7), fur, 0, -0.1, 0, hip)
+      this.mesh(new THREE.SphereGeometry(0.03, 8, 6), i < 2 ? pale : fur, 0, -0.195, 0.012, hip).scale.set(1, 0.6, 1.3)
       this.parts[`leg${i}`] = hip
     })
     // a curled tail
@@ -173,6 +201,14 @@ export class Pet {
     this.mesh(g, sheet)
     for (const sx of [-1, 1]) this.mesh(new THREE.SphereGeometry(0.035, 10, 8), dark, sx * 0.07, 0.24, 0.19).scale.set(1, 1.4, 0.5)
     this.mesh(new THREE.SphereGeometry(0.03, 10, 8), dark, 0, 0.14, 0.215).scale.set(1, 1.3, 0.4)
+    // little arms that wave, and a wisp of tail at the hem
+    for (const sx of [-1, 1]) {
+      const arm = new THREE.Group()
+      arm.position.set(sx * 0.2, 0.12, 0.02)
+      this.body.add(arm)
+      this.mesh(new THREE.CapsuleGeometry(0.035, 0.1, 4, 8), sheet, sx * 0.04, -0.05, 0.03, arm).rotation.z = sx * 0.9
+      this.parts[sx < 0 ? 'armL' : 'armR'] = arm
+    }
     this.body.position.y = 1
   }
 
@@ -215,12 +251,29 @@ export class Pet {
       pos.setXYZ(i, pos.getX(i) * k, pos.getY(i) * 0.82, pos.getZ(i) * k)
     }
     g.computeVertexNormals()
-    this.mesh(g, skin, 0, 0.2, 0)
-    this.mesh(new THREE.CylinderGeometry(0.02, 0.03, 0.08, 6), stem, 0.01, 0.39, 0).rotation.z = 0.2
+    const top = new THREE.Group() // the gourd rides a little above the ground so legs and boots show
+    top.position.y = 0.09
+    this.body.add(top)
+    this.mesh(g, skin, 0, 0.2, 0, top)
+    this.mesh(new THREE.CylinderGeometry(0.02, 0.03, 0.08, 6), stem, 0.01, 0.39, 0, top).rotation.z = 0.2
     for (const sx of [-1, 1]) {
-      this.mesh(new THREE.ConeGeometry(0.03, 0.05, 3), face, sx * 0.065, 0.25, 0.178).rotation.x = Math.PI / 2
-      this.mesh(new THREE.SphereGeometry(0.04, 8, 6), dark, sx * 0.09, 0.03, 0.04).scale.set(1, 0.6, 1.3)
+      this.mesh(new THREE.ConeGeometry(0.03, 0.05, 3), face, sx * 0.065, 0.25, 0.178, top).rotation.x = Math.PI / 2
+      this.mesh(new THREE.SphereGeometry(0.04, 8, 6), dark, sx * 0.09, 0.03, 0.04, top).scale.set(1, 0.6, 1.3)
     }
-    this.mesh(new THREE.BoxGeometry(0.11, 0.025, 0.02), face, 0, 0.17, 0.188)
+    this.mesh(new THREE.BoxGeometry(0.11, 0.025, 0.02), face, 0, 0.17, 0.188, top)
+    // stubby legs with boots (the hop is a walk, not a bounce of a ball) and little arms
+    for (const sx of [-1, 1]) {
+      const hip = new THREE.Group()
+      hip.position.set(sx * 0.075, 0.13, 0.01)
+      this.body.add(hip)
+      this.mesh(new THREE.CylinderGeometry(0.03, 0.026, 0.12, 6), skin, 0, -0.06, 0, hip)
+      this.mesh(new THREE.SphereGeometry(0.045, 8, 6), dark, 0, -0.12, 0.018, hip).scale.set(1, 0.6, 1.4)
+      this.parts[sx < 0 ? 'legL' : 'legR'] = hip
+      const arm = new THREE.Group()
+      arm.position.set(sx * 0.215, 0.29, 0.02)
+      this.body.add(arm)
+      this.mesh(new THREE.CapsuleGeometry(0.02, 0.07, 4, 8), skin, 0, -0.045, 0, arm)
+      this.parts[sx < 0 ? 'armL' : 'armR'] = arm
+    }
   }
 }
