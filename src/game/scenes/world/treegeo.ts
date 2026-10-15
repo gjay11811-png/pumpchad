@@ -14,8 +14,8 @@ export function crownGeo(kind: CrownKind, seed: number): THREE.BufferGeometry {
   const key = `${kind}:${seed}`
   const hit = cache.get(key)
   if (hit) return hit
-  let s = seed * 9301 + 49297
-  const rnd = () => ((s = (s * 9301 + 49297) % 233280) / 233280)
+  let s = Math.abs(Math.round(seed)) * 9301 + 49297
+  const rnd = () => ((s = (s * 9301 + 49297) % 233280) / 233280) // (seed forced non-negative: a negative one made sqrt(rnd()) a NaN)
   const lobes = kind === 'oval' ? 7 : kind === 'spread' ? 8 : 9
   const R = kind === 'oval' ? 1.5 : kind === 'spread' ? 2.6 : 2.1
   const parts: THREE.BufferGeometry[] = []

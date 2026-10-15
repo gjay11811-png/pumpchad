@@ -58,7 +58,7 @@ for (const [i, L] of legs.entries()) {
 }
 check(off === 0, `${legs.length} stretches walked: on the road, at the road's height (${off} off)`)
 // the overlook terrace, then the City Gateway, both reachable and clear
-for (const [n, x, z, y] of [['the overlook terrace', 14, 90, 0], ['the City Gateway', 12, 414, -52]]) {
+for (const [n, x, z, y] of [['the overlook terrace', 14, 90, 0], ['the City Gateway', -6, 415, -52]]) {
   await C('teleport', x, z, 0)
   await p.waitForTimeout(500)
   const w = await C('world')
