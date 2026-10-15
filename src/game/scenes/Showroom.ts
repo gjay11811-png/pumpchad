@@ -51,29 +51,31 @@ export class Showroom implements GameScene {
 
   constructor(engine: Engine, private canvas: HTMLCanvasElement) {
     const s = this.scene
-    s.background = new THREE.Color('#060508')
-    s.fog = new THREE.Fog('#060508', 10, 24)
+    s.background = new THREE.Color('#0a0820')
+    s.fog = new THREE.Fog('#0a0820', 14, 30)
     s.environment = engine.env
     s.environmentIntensity = 0.28
 
-    // curved panelled backdrop with gold seams + faint light strips
-    const backTex = panelTexture()
-    backTex.repeat.set(6, 1)
+    // the backdrop: a night-village panorama (moon, castle on the hill, lit windows, lantern glow) curved behind the stage — one canvas texture, one mesh
+    const pano = nightPanorama()
     const back = new THREE.Mesh(
-      new THREE.CylinderGeometry(9, 9, 9, 64, 1, true, Math.PI * 0.62, Math.PI * 0.76),
-      new THREE.MeshStandardMaterial({ map: backTex, roughness: 0.7, metalness: 0.35, side: THREE.BackSide, color: '#8a7c86' }),
+      new THREE.CylinderGeometry(9, 9, 9, 64, 1, true, Math.PI * 0.55, Math.PI * 0.9),
+      new THREE.MeshBasicMaterial({ map: pano, side: THREE.BackSide, toneMapped: false, color: new THREE.Color(1.05, 1.0, 1.1), fog: false }),
     )
     back.position.y = 4.2
     s.add(back)
-    const stripMat = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ff8a30').multiplyScalar(1.5), toneMapped: false })
-    for (let i = -3; i <= 3; i++) {
-      if (i === 0) continue
-      const a = Math.PI + i * 0.19
-      const strip = new THREE.Mesh(new THREE.BoxGeometry(0.03, 5.5, 0.03), stripMat)
-      strip.position.set(Math.sin(a) * 8.9, 3.2, Math.cos(a) * 8.9)
-      s.add(strip)
+    // soft lantern bokeh: a few additive glow sprites at different depths
+    const glowTex = glowSprite()
+    const glowMat = new THREE.SpriteMaterial({ map: glowTex, color: '#ffa850', transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.55, fog: false })
+    for (let i = 0; i < 16; i++) {
+      const a = Math.PI + (i / 13 - 0.5) * 1.9 + Math.sin(i * 7.1) * 0.08
+      const r = 6.8 + (i % 3) * 0.7
+      const sp = new THREE.Sprite(glowMat)
+      sp.position.set(Math.sin(a) * r, 1.1 + ((i * 37) % 10) * 0.18, Math.cos(a) * r)
+      sp.scale.setScalar(0.32 + (i % 4) * 0.16)
+      s.add(sp)
     }
-
+    this.disposables.push(pano, glowTex, glowMat)
     // polished floor with radial inlay
     const floor = new THREE.Mesh(new THREE.CircleGeometry(16, 64), new THREE.MeshStandardMaterial({ map: floorTexture(), color: '#6d6470', roughness: 0.32, metalness: 0.35 }))
     floor.rotation.x = -Math.PI / 2
@@ -130,7 +132,6 @@ export class Showroom implements GameScene {
     this.rimR.target = this.turntable
     s.add(this.rimR)
 
-    this.disposables.push(backTex)
 
     // drifting dust motes
     const N = 90
@@ -293,25 +294,124 @@ export class Showroom implements GameScene {
 }
 
 /* ── procedural textures for the stage ── */
-function panelTexture() {
+/** a night village seen from a hill: gradient sky, stars, a big moon with halo, mountain layers, a castle and houses with lit windows, lantern glows */
+function nightPanorama() {
+  const W = 2048
+  const H = 640
   const c = document.createElement('canvas')
-  c.width = 256
-  c.height = 512
+  c.width = W
+  c.height = H
   const g = c.getContext('2d')!
-  const grd = g.createLinearGradient(0, 0, 0, 512)
-  grd.addColorStop(0, '#0d0b10')
-  grd.addColorStop(0.6, '#1a161e')
-  grd.addColorStop(1, '#0b090d')
-  g.fillStyle = grd
-  g.fillRect(0, 0, 256, 512)
-  g.fillStyle = 'rgba(255,255,255,0.025)'
-  for (let y = 0; y < 512; y += 64) g.fillRect(14, y + 10, 228, 46)
-  g.fillStyle = '#b8873a'
-  g.fillRect(0, 0, 3, 512)
-  g.fillStyle = 'rgba(184,135,58,0.35)'
-  g.fillRect(0, 380, 256, 2)
+  let seed = 7
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646
+  const sky = g.createLinearGradient(0, 0, 0, H)
+  sky.addColorStop(0, '#080a24')
+  sky.addColorStop(0.45, '#1b1450')
+  sky.addColorStop(0.72, '#4a2468')
+  sky.addColorStop(1, '#7a3a58')
+  g.fillStyle = sky
+  g.fillRect(0, 0, W, H)
+  for (let i = 0; i < 320; i++) {
+    g.fillStyle = `rgba(255,255,255,${0.2 + rnd() * 0.6})`
+    g.fillRect(rnd() * W, rnd() * H * 0.55, 1 + rnd() * 1.6, 1 + rnd() * 1.6)
+  }
+  // the moon
+  const mx = W * 0.72
+  const my = H * 0.22
+  const halo = g.createRadialGradient(mx, my, 10, mx, my, 190)
+  halo.addColorStop(0, 'rgba(255,240,210,0.55)')
+  halo.addColorStop(0.35, 'rgba(180,160,255,0.18)')
+  halo.addColorStop(1, 'rgba(120,100,255,0)')
+  g.fillStyle = halo
+  g.fillRect(mx - 200, my - 200, 400, 400)
+  g.fillStyle = '#f6edd4'
+  g.beginPath()
+  g.arc(mx, my, 62, 0, Math.PI * 2)
+  g.fill()
+  g.fillStyle = 'rgba(190,175,150,0.35)'
+  for (const [dx, dy, r] of [[-18, -10, 14], [16, 14, 10], [-4, 24, 8], [22, -20, 7]]) {
+    g.beginPath()
+    g.arc(mx + dx, my + dy, r, 0, Math.PI * 2)
+    g.fill()
+  }
+  // far mountains, then the castle hill with towers and spires
+  const ridge = (base: number, amp: number, col: string, freq: number, ph: number) => {
+    g.fillStyle = col
+    g.beginPath()
+    g.moveTo(0, H)
+    for (let x = 0; x <= W; x += 8) g.lineTo(x, base - Math.abs(Math.sin(x * freq + ph)) * amp - Math.sin(x * freq * 2.3 + ph) * amp * 0.25)
+    g.lineTo(W, H)
+    g.fill()
+  }
+  ridge(H * 0.62, 90, '#2a1a58', 0.004, 0.4)
+  ridge(H * 0.7, 70, '#1d1244', 0.006, 1.7)
+  // the castle: a cluster of towers on the left third
+  g.fillStyle = '#120c30'
+  const tower = (x: number, w: number, h: number, spire: number) => {
+    g.fillRect(x, H * 0.7 - h, w, h + 30)
+    g.beginPath()
+    g.moveTo(x - 4, H * 0.7 - h)
+    g.lineTo(x + w / 2, H * 0.7 - h - spire)
+    g.lineTo(x + w + 4, H * 0.7 - h)
+    g.fill()
+  }
+  for (const [x, w, h, sp] of [[210, 44, 150, 90], [262, 30, 210, 120], [300, 56, 120, 70], [370, 34, 180, 110], [418, 48, 130, 60], [468, 28, 170, 100], [150, 36, 110, 60]]) tower(x, w, h, sp)
+  // lit windows on the castle
+  for (let i = 0; i < 46; i++) {
+    g.fillStyle = rnd() < 0.8 ? '#ffb45a' : '#ffe9a0'
+    g.fillRect(160 + rnd() * 340, H * 0.7 - 190 + rnd() * 200, 4, 7)
+  }
+  // the village below: rows of gabled houses with warm windows
+  const row = (y: number, col: string, n: number, hmax: number) => {
+    for (let i = 0; i < n; i++) {
+      const x = (i / n) * W + rnd() * 20
+      const w = 46 + rnd() * 50
+      const h = 40 + rnd() * hmax
+      g.fillStyle = col
+      g.fillRect(x, y - h, w, h + 40)
+      g.beginPath()
+      g.moveTo(x - 5, y - h)
+      g.lineTo(x + w / 2, y - h - 22 - rnd() * 26)
+      g.lineTo(x + w + 5, y - h)
+      g.fill()
+      for (let k = 0; k < 4; k++) {
+        if (rnd() < 0.62) {
+          g.fillStyle = rnd() < 0.85 ? '#ffb85e' : '#ffe0a0'
+          g.fillRect(x + 8 + rnd() * (w - 22), y - h + 8 + rnd() * (h - 16), 5, 8)
+        }
+      }
+    }
+  }
+  row(H * 0.8, '#150e34', 34, 60)
+  row(H * 0.92, '#0e0a24', 26, 70)
+  // lantern glows along the street line
+  for (let i = 0; i < 36; i++) {
+    const x = rnd() * W
+    const y = H * (0.8 + rnd() * 0.15)
+    const lg = g.createRadialGradient(x, y, 1, x, y, 28)
+    lg.addColorStop(0, 'rgba(255,190,100,0.95)')
+    lg.addColorStop(0.3, 'rgba(255,150,60,0.4)')
+    lg.addColorStop(1, 'rgba(255,120,40,0)')
+    g.fillStyle = lg
+    g.fillRect(x - 30, y - 30, 60, 60)
+  }
   const t = new THREE.CanvasTexture(c)
-  t.wrapS = t.wrapT = THREE.RepeatWrapping
+  t.colorSpace = THREE.SRGBColorSpace
+  t.anisotropy = 4
+  return t
+}
+
+function glowSprite() {
+  const c = document.createElement('canvas')
+  c.width = c.height = 64
+  const g = c.getContext('2d')!
+  const gr = g.createRadialGradient(32, 32, 1, 32, 32, 32)
+  gr.addColorStop(0, 'rgba(255,220,160,1)')
+  gr.addColorStop(0.25, 'rgba(255,170,80,0.6)')
+  gr.addColorStop(1, 'rgba(255,130,40,0)')
+  g.fillStyle = gr
+  g.fillRect(0, 0, 64, 64)
+  const t = new THREE.CanvasTexture(c)
   t.colorSpace = THREE.SRGBColorSpace
   return t
 }

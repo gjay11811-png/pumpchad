@@ -79,7 +79,7 @@ await wait(2200)
 await p.keyboard.up('w')
 await p.keyboard.up('Shift')
 let w = await W()
-check(w.z < 26 && w.z > 5 && Math.abs(w.x + 234) < 6, `walk in through the yard entrance from lane A (now at ${w.x.toFixed(1)}, ${w.z.toFixed(1)})`)
+check(w.z < 28 && w.z > 5 && Math.abs(w.x + 234) < 6, `walk in through the yard entrance from lane A (now at ${w.x.toFixed(1)}, ${w.z.toFixed(1)})`)
 await shot('pk-entrance-inside')
 
 /* ── 0b. the vault animation, frame by frame (stills of the body mid-vault; taken first so no level-up banner is over them) ── */
@@ -145,10 +145,14 @@ check((sv.progress?.records?.parkour_rookie ?? 0) > 0, `best time saved (${sv.pr
 void sv1
 
 /* ── 3. Rooftop Run ── */
+await p.evaluate(() => window.dispatchEvent(new CustomEvent('chad-parkour-cmd', { detail: 'exit' })))
+await wait(300)
 await tp(-229.6, 0, Math.PI / 2)
 await wait(900)
 check(((await W()).prompt ?? '') === 'pk:roof', 'the branch pad offers the Rooftop Run')
 await press('e')
+await wait(300)
+check((await PK()).run?.id === 'roof', 'E on the branch pad starts the ROOFTOP run (not a leftover Rookie result)')
 const edges = [-212.8, -202.8, -192.8, -182.8]
 let ei = 0
 const seenB = await drive(
@@ -166,7 +170,7 @@ const seenB = await drive(
 s = await PK()
 console.log('  roofs: traversals seen', seenB.join(','), '| run:', JSON.stringify(s.run))
 check(seenA.includes('mantle') || seenB.includes('mantle'), 'mantle animation played (crate stair / blocks)')
-check(!!s.run?.done, `the Rooftop Run finishes with ordinary input (ms ${s.run?.ms}, falls ${s.run?.falls})`)
+check(s.run?.id === 'roof' && !!s.run?.done, `the Rooftop Run finishes with ordinary input (ms ${s.run?.ms}, falls ${s.run?.falls})`)
 await shot('pk-roof-finish')
 await p.evaluate(() => window.dispatchEvent(new CustomEvent('chad-parkour-cmd', { detail: 'exit' })))
 

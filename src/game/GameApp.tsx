@@ -962,6 +962,13 @@ export function GameApp() {
       parkour: () => world.current?.parkourState() ?? null,
       sword: () => world.current?.swordState() ?? null,
       hang: () => world.current?.hangState() ?? null,
+      stage: (o: { yaw?: number; auto?: boolean; zoom?: number }) => {
+        const r = showroom.current
+        if (!r) return
+        if (o.auto !== undefined) r.autoRotate = o.auto
+        if (o.yaw !== undefined) r.yaw = o.yaw
+        if (o.zoom !== undefined) r.zoom = o.zoom
+      },
       shotCam: (o: Parameters<World['setShotCam']>[0]) => world.current?.setShotCam(o),
       stats: () => engine.current?.stats,
       gfxLog: () => engine.current?.gfxLog() ?? [],
