@@ -288,6 +288,62 @@ export function buildHall(B: StaticBatch, s: THREE.Scene, D: D, M: GymMats, env:
     for (const dx of [-w / 2, 0, w / 2]) R.box(0.04, 2.48, 0.035, M.steel, dx, 1.55, 0.02, 0, 0, 0, false)
   }
 
+  // ── the plant wall (reference Y02/Y03): a framed living wall on the front wall right of the door, clear of equipment (it hangs from 1.0 m up), with a planter trough,
+  //    a warm grow-light strip above and a thin steel frame. One canvas texture + a handful of boxes ──
+  if (!/[?&]noplant/.test(location.search)) {
+    const [c, g] = canvas(1024, 512)
+    g.fillStyle = '#0f2a14'
+    g.fillRect(0, 0, 1024, 512)
+    let seed = 41
+    const rr = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646
+    const greens = ['#1f5a24', '#2a7a2c', '#3a9a38', '#4aae44', '#2d6a30', '#5cc050', '#18481c']
+    for (let i = 0; i < 2600; i++) {
+      const x = rr() * 1024
+      const y = rr() * 512
+      const r = 7 + rr() * 22
+      g.save()
+      g.translate(x, y)
+      g.rotate(rr() * Math.PI * 2)
+      g.fillStyle = greens[Math.floor(rr() * greens.length)]
+      g.beginPath()
+      g.ellipse(0, 0, r, r * (0.3 + rr() * 0.3), 0, 0, Math.PI * 2)
+      g.fill()
+      g.restore()
+    }
+    // a few trailing stems and small pale flowers
+    g.strokeStyle = '#2f8a34'
+    g.lineWidth = 3
+    for (let i = 0; i < 40; i++) {
+      const x = rr() * 1024
+      g.beginPath()
+      g.moveTo(x, 0)
+      g.quadraticCurveTo(x + (rr() - 0.5) * 60, 200, x + (rr() - 0.5) * 90, 120 + rr() * 380)
+      g.stroke()
+    }
+    for (let i = 0; i < 70; i++) {
+      g.fillStyle = rr() < 0.5 ? '#f4efe0' : '#ffd36a'
+      g.beginPath()
+      g.arc(rr() * 1024, rr() * 512, 3 + rr() * 3, 0, Math.PI * 2)
+      g.fill()
+    }
+    const leafTex = ctex(c, D)
+    const wallX = 5.8
+    const wallW = 5.0
+    const wallH = 2.5
+    const wy = 1.05 + wallH / 2
+    const plantMat = mat({ map: leafTex, roughness: 0.95, emissive: '#1a4a1c', emissiveMap: leafTex, emissiveIntensity: 0.28 })
+    const P = Place.at(B, wallX, z1 - 0.07, Math.PI)
+    P.put(new THREE.PlaneGeometry(wallW, wallH), plantMat, 0, wy, 0.02, 0, 0, 0, false)
+    // frame + trough + warm grow light
+    for (const dy of [-wallH / 2, wallH / 2]) P.box(wallW + 0.14, 0.07, 0.1, M.frame, 0, wy + dy, 0.04)
+    for (const dx of [-wallW / 2, wallW / 2]) P.box(0.07, wallH + 0.07, 0.1, M.frame, dx, wy, 0.04)
+    P.box(wallW + 0.2, 0.3, 0.38, M.frame, 0, 0.98, 0.17) // the trough
+    P.box(wallW + 0.1, 0.05, 0.3, mat({ color: '#2a1a10', roughness: 1 }), 0, 1.14, 0.17, 0, 0, 0, false) // soil
+    P.box(wallW - 0.2, 0.05, 0.08, led, 0, wy + wallH / 2 + 0.2, 0.16, 0, 0, 0, false) // the grow-light strip
+    // trailing leaves over the trough lip
+    const trail = new THREE.PlaneGeometry(0.2, 0.55)
+    for (let i = 0; i < 18; i++) P.put(trail, plantMat, -wallW / 2 + 0.2 + i * (wallW / 17.5), 0.78, 0.36, 0, ((i * 5) % 7) * 0.2 - 0.6, 0, false)
+  }
   // ── PUMP GYM: fabricated channel letters on a dark backer, purple halo, orange LED trim + tagline ──
   const sign = new THREE.Group()
   {

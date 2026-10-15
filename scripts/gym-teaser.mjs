@@ -6,6 +6,7 @@ const only = (process.argv[2] || 'hero,weights,wide').split(',')
 const formats = (process.argv[3] || 'wide,post,story').split(',')
 const SIZES = { wide: [1920, 1080], post: [1080, 1350], story: [1080, 1920] }
 const SCALE = +(process.env.SCALE || 2)
+if (process.env.SIZE) SIZES.wide = process.env.SIZE.split('x').map(Number) // e.g. SIZE=960x540 on a machine short of memory
 const b = await chromium.launch({ executablePath: process.env.LOCALAPPDATA + '/ms-playwright/chromium-1228/chrome-win64/chrome.exe' })
 const errs = []
 // each shot: where the Chad stands + faces, the pose, and a camera per aspect (tall frames step back / go lower)
@@ -25,6 +26,10 @@ const SHOTS = {
   entrance: {
     at: { x: 0.3, z: 1.4, yaw: 0, pose: 'idle' },
     cam: { wide: [[-3.5, 1.7, 7.0], [0, 1.5, -3], 70], post: [[-3.5, 1.7, 7.0], [0, 1.5, -3], 70], story: [[-3.5, 1.7, 7.0], [0, 1.5, -3], 70] },
+  },
+  plant: {
+    at: { x: 0.3, z: 1.4, yaw: 0, pose: 'idle' },
+    cam: { wide: [[-1.5, 1.9, -3.2], [5.8, 1.9, 7.2], 62], post: [[-1.5, 1.9, -3.2], [5.8, 1.9, 7.2], 62], story: [[-1.5, 1.9, -3.2], [5.8, 1.9, 7.2], 62] },
   },
   left: {
     at: { x: 0.3, z: 1.4, yaw: 0, pose: 'idle' },
