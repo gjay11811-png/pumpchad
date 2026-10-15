@@ -205,8 +205,8 @@ FIRST RELEASE: Chad Village and its available surrounding activities. FUTURE EXP
 | # | Requirement | Phase | Status | Notes |
 |---|---|---|---|---|
 | 1 | Selective inspection of the current build | 1 | PARTIAL | done per item below; no full audit |
-| 2 | Better assets, consistent style; licence + attribution record (`ASSETS.md`); runtime assets stored with the project; shared-resource ownership kept | 2 | MISSING | candidates: Poly Haven (CC0), cjmitchell lakeside mansion, sports car, pistol, Antique Estoc — source/licence/availability to be verified before use; nothing purchased |
-| 3 | Realistic trees and bushes (trunks, branching, layered canopy, species variety, alpha-tested foliage, LOD, terrain contact) across the launch area incl. Haunted Forest | 2 | MISSING | current: lumpy-crown geometry (`treegeo.ts`) + foliage.ts |
+| 2 | Better assets, consistent style; licence + attribution record (`ASSETS.md`); runtime assets stored with the project; shared-resource ownership kept | 2 | PARTIAL | `ASSETS.md` written: Poly Haven = CC0 (verified), Antique Estoc = CC0, ~8K tris, glTF 1K available (sword candidate, not yet downloaded); Poly Haven trees are 0.3–17 M tris = unusable without decimation; cjmitchell mansion / sports car / pistol: source+licence NOT verified (not found by name) — unused until Jay supplies URLs |
+| 3 | Realistic trees and bushes (trunks, branching, layered canopy, species variety, alpha-tested foliage, LOD, terrain contact) across the launch area incl. Haunted Forest | 2 | PARTIAL (written, UNVERIFIED) | `treegen.ts` grows branching oak/birch/willow/pine/poplar/dead/shrub; `FoliageBuilder.plant` buckets them in 44 m cells with THREE.LOD (full ≤75 m, far ≤260 m); village trees/bushes (`props.ts`), Haunted Forest + lake willows + Elder Oak (`wilds.ts`) switched. NOT yet compiled or looked at: machine out of commit memory |
 | 4 | PumpChad head fix (mobile + rear), identity preserved, other characters rechecked | 1 | MISSING | investigate geometry vs scaling vs LOD vs projection vs viewport |
 | 5 | Garage / workshop rebuild; cars; lifts; tyres; reposition if impractical; bikes kept, no bicycles; driving + purchases stay unavailable | 2 | MISSING | |
 | 6 | Pump Gym exterior (interior preserved) | 2 | MISSING | |
@@ -214,15 +214,17 @@ FIRST RELEASE: Chad Village and its available surrounding activities. FUTURE EXP
 | 8 | Pets: species models, faces, animation, ground contact, shop presentation; behaviour through doors/activities/reload | 2 | MISSING | |
 | 9 | Haunted Quarter architecture | 3 | MISSING | |
 | 10 | Expanded Haunted Forest + quest mystery; boundary kept closed to the valley | 3 | MISSING | |
-| 11 | Sign fixes (post through text, orientation, contrast, housing signs) | 1 | MISSING | |
-| 12 | Real-phone landscape panels (compact HUD, Challenges button, scrolling panel, reachable Start/Close, safe areas) | 1 | PARTIAL | activity cards fixed in emulation last stage; the Challenges panel + HUD still to rework; real-phone check outstanding |
-| 13 | Height-aware jumping, landing on surfaces, takeoff/air/landing animation, vault/mantle; release boundary stays separate | 1 | MISSING | |
+| 11 | Sign fixes (post through text, orientation, contrast, housing signs) | 1 | PARTIAL (written, UNVERIFIED) | fixed: fingerpost arms started inside the 0.18 m post (first letters hidden); housing plot signs had a post through the middle of the board (now two edge posts + rail + backing). Other signs still to inspect visually |
+| 12 | Real-phone landscape panels (compact HUD, Challenges button, scrolling panel, reachable Start/Close, safe areas) | 1 | PARTIAL (written, UNVERIFIED) | Challenges panel is now a right-hand drawer in landscape (≤ 46 vw, full height, safe-area padding, scrolls); activity cards fixed earlier. Emulation + real phone still to check |
+| 13 | Height-aware jumping, landing on surfaces, takeoff/air/landing animation, vault/mantle; release boundary stays separate | 1 | PARTIAL (written, UNVERIFIED) | `Jumper` now tracks a floor; low obstacles (≤1.3 m) can be jumped over/landed on, kerbs ≤0.12 m never block, vault asks for a taller hop for 0.55–1.3 m ledges; tall colliders still block; `clampToCity` (the release boundary) untouched. Animation phases already existed; hover/foot-slide check still to do |
 | 14 | Starter-map parkour area + rooftop/ledge routes | 3 | MISSING | |
 | 15 | ~50 Chadville plots, stable ids, safe migration, LOD | 3 | MISSING | |
 | 16 | One gun + one sword, shooting range, haunted combat activity | 4 | MISSING | no PvP, no networking |
 | 17 | Rewards through existing XP/coins/achievements/cosmetics/trophies | 4 | MISSING | |
-| 18 | Perimeter walls on slopes; distant Chad City skyline from the overlook | 1 / 5 | MISSING | |
+| 18 | Perimeter walls on slopes; distant Chad City skyline from the overlook | 1 / 5 | PARTIAL (skyline written, UNVERIFIED) | `skyline.ts`: ~60 varied shell buildings (tall neon core, mid-rise with mansard/gable roofs, low rows, clock tower, twin towers, art-deco spire) in the valley frame, shown only while the expansion is closed. Perimeter-wall defects not yet located (need screenshots) |
 | 19 | Mooncrest Manor facade/courtyard/cars (expansion) | 5 | MISSING | |
 | 20 | Castle parkour route (expansion) | 5 | MISSING | |
 | 21 | Whole existing gameplay plan retained | — | tracked | see launch tracker above; BLOCKED backend items unchanged |
 | 22–24 | Staged delivery, performance, evidence | — | ongoing | |
+
+**Blocker (2026-10-15):** the PC ran out of *commit* memory (14.1 of 14.3 GB committed; VS Code ~1.5 GB, Windows Update's TiWorker ~1 GB — not touched), so `tsc`, `vite build` and every browser run fail with `VirtualAlloc … errno 1455`. Everything above marked UNVERIFIED was written carefully against `noUnusedLocals`/strict but has not been compiled. Next step once memory recovers: `npx tsc --noEmit`, build, then screenshots (head, trees, gate/skyline, panels) and the jump test.
