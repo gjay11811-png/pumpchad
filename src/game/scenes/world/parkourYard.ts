@@ -34,7 +34,7 @@ export function parkourYard(T: Town) {
     const g = new THREE.PlaneGeometry(w, d).rotateX(-Math.PI / 2)
     const u = g.attributes.uv as THREE.BufferAttribute
     for (let i = 0; i < u.count; i++) u.setXY(i, (u.getX(i) * w) / 4, (u.getY(i) * d) / 4)
-    T.batch.put(g, P.plaza, (YARD.x0 + YARD.x1) / 2, 0.02, (25.6 + -19.2) / 2, 0, 1, 1, 1, { cast: false })
+    T.batch.put(g, P.stoneLight, (YARD.x0 + YARD.x1) / 2, 0.02, (25.6 + -19.2) / 2, 0, 1, 1, 1, { cast: false })
   }
 
   // enclosure: brick walls with a stone cap (tall: never climbable, always solid)
@@ -144,6 +144,9 @@ export function parkourYard(T: Town) {
     },
   }
 }
+
+/** lamp posts: down the corridor, along the roof field and at the entrance (added to the city's lamp list) */
+export const PARKOUR_LAMPS: [number, number][] = [[-239.4, 22], [-239.4, 10], [-239.4, -2], [-239.4, -14], [-232, 23], [-226, -9], [-214, 9], [-205, -10], [-196, 9], [-186, -9], [-176, 9], [-176, -9]]
 
 export type ParkourBuild = ReturnType<typeof parkourYard>
 export const isSolidPlatform = (p: Platform) => p.kind === 'wall' && !p.vault

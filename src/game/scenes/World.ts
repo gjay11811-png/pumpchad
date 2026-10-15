@@ -19,7 +19,7 @@ import { GARDEN, SPAWN, VALLEY_GATE, bridgeHeight, clampToCity } from './world/c
 import { EXPANSION_OPEN, SAFE_ARRIVAL, isLocked } from '../launch'
 import { COURSES, PLATFORMS, SECRET, YARD, fmtMs, type CourseId } from '../parkour'
 import { ParkourRun, planTraverse, platformFloor, platformResolve, travAt, type RunResult, type TravFrame, type TravPlan } from '../parkourSystem'
-import { parkourYard, type ParkourBuild } from './world/parkourYard'
+import { PARKOUR_LAMPS, parkourYard, type ParkourBuild } from './world/parkourYard'
 import { PANEL, boardTexture } from './world/signs'
 import { citySkyline } from './world/skyline'
 import { GYM_SHRUBS } from './world/gymExterior'
@@ -100,6 +100,9 @@ export type WorldEvents = {
   /** a timed parkour run was finished: save the best, pay the coins, return the result for the card */
   onParkourFinish?(id: CourseId, ms: number, falls: number): RunResult
 }
+
+/** the parkour platforms as camera blockers (the lens must not sit inside a roof; slabs you can walk under are left out) */
+const PLATFORM_BOXES = PLATFORMS.filter((p) => !p.bottom).map((p) => ({ kind: 'box' as const, minX: p.minX, maxX: p.maxX, minZ: p.minZ, maxZ: p.maxZ, h: p.top }))
 
 /** six hidden pumpkins: fair, reachable spots (no climbing), one per district */
 export const HIDDEN: [string, number, number, string][] = [
@@ -426,6 +429,7 @@ export class World implements GameScene {
       ...MOTOR_ROW_LAMPS,
       ...lakeLamps(),
       ...ESTATE_LAMPS,
+      ...PARKOUR_LAMPS,
       ...(EXPANSION_OPEN ? SOUTHSHORE_LAMPS : []), // Southshore + Mill Row are the next update
       ...(EXPANSION_OPEN ? MILL_LAMPS : []),
     ])
@@ -1429,7 +1433,7 @@ export class World implements GameScene {
     this.camera.position.lerp(want, Math.min(1, k * 1.4))
     // hard guarantee: never leave the lens inside a building volume (smoothing can lag into corners)
     const cam = this.camera.position
-    const boxes = [...this.colliders, ...this.camBlockers]
+    const boxes = [...this.colliders, ...this.camBlockers, ...PLATFORM_BOXES]
     const inBox = (c: (typeof boxes)[number]) => c.kind === 'box' && !!c.h && cam.y <= c.h && cam.x > c.minX - 0.15 && cam.x < c.maxX + 0.15 && cam.z > c.minZ - 0.15 && cam.z < c.maxZ + 0.15
     // a push out of one box can land in its neighbour (tight alleys): repeat until clear
     for (let pass = 0; pass < 4; pass++) {

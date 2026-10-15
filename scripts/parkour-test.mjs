@@ -26,6 +26,7 @@ const PK = () => p.evaluate(() => window.__chadverse.parkour())
 const wait = (ms) => p.waitForTimeout(ms)
 const tp = (x, z, yaw, y = 0) => p.evaluate(([x, z, yaw, y]) => window.__chadverse.teleport(x, z, yaw, y), [x, z, yaw, y])
 const shot = async (name) => {
+  await p.addStyleTag({ content: '.panel, [data-testid=objective], [data-testid=parkour-chip] .panel { }' }).catch(() => {})
   if (SHOTS) await p.screenshot({ path: `${SHOTS}/${name}.jpg`, quality: 82, timeout: 120000 })
 }
 /** hold W + Shift, call `decide(world, parkour)` every ~40 ms; it returns true to press Space; stop when `done(w, pk)` */
@@ -81,6 +82,36 @@ let w = await W()
 check(w.z < 26 && w.z > 5 && Math.abs(w.x + 234) < 6, `walk in through the yard entrance from lane A (now at ${w.x.toFixed(1)}, ${w.z.toFixed(1)})`)
 await shot('pk-entrance-inside')
 
+/* ── 0b. the vault animation, frame by frame (stills of the body mid-vault; taken first so no level-up banner is over them) ── */
+await p.evaluate(() => window.dispatchEvent(new CustomEvent('chad-parkour-cmd', { detail: 'exit' })))
+await tp(-234, 21, Math.PI)
+await wait(500)
+await p.keyboard.down('w')
+await p.keyboard.down('Shift')
+let shotTaken = 0
+for (let i = 0; i < 80 && shotTaken < 3; i++) {
+  const pk = await PK()
+  const w2 = await W()
+  if (!pk.trav && w2.z < 19.4 && w2.z > 18.0) await p.keyboard.press('Space')
+  if (pk.trav) {
+    if (shotTaken === 0 && pk.trav.t > 0.12) {
+      await shot('pk-vault-1')
+      shotTaken = 1
+    } else if (shotTaken === 1 && pk.trav.t > 0.3) {
+      await shot('pk-vault-2')
+      shotTaken = 2
+    } else if (shotTaken === 2 && pk.trav.t > 0.45) {
+      await shot('pk-vault-3')
+      shotTaken = 3
+    }
+  }
+  await wait(20)
+}
+await p.keyboard.up('w')
+await p.keyboard.up('Shift')
+check(shotTaken === 3, `vault stills captured (${shotTaken}/3)`)
+await wait(500)
+
 /* ── 1. Rookie Run ── */
 await tp(-234, 22, Math.PI)
 await wait(900)
@@ -112,36 +143,6 @@ await wait(800)
 const sv = await p.evaluate(() => JSON.parse(localStorage.getItem('pumpchad.chadverse.save') ?? '{}'))
 check((sv.progress?.records?.parkour_rookie ?? 0) > 0, `best time saved (${sv.progress?.records?.parkour_rookie} ms)`)
 void sv1
-
-/* ── 2. the vault animation, frame by frame (a still of the body mid-vault) ── */
-await p.evaluate(() => window.dispatchEvent(new CustomEvent('chad-parkour-cmd', { detail: 'exit' })))
-await tp(-234, 21, Math.PI)
-await wait(500)
-await p.keyboard.down('w')
-await p.keyboard.down('Shift')
-let shotTaken = 0
-for (let i = 0; i < 80 && shotTaken < 3; i++) {
-  const pk = await PK()
-  const w2 = await W()
-  if (!pk.trav && w2.z < 19.4 && w2.z > 18.0) await p.keyboard.press('Space')
-  if (pk.trav) {
-    if (shotTaken === 0 && pk.trav.t > 0.12) {
-      await shot('pk-vault-1')
-      shotTaken = 1
-    } else if (shotTaken === 1 && pk.trav.t > 0.3) {
-      await shot('pk-vault-2')
-      shotTaken = 2
-    } else if (shotTaken === 2 && pk.trav.t > 0.45) {
-      await shot('pk-vault-3')
-      shotTaken = 3
-    }
-  }
-  await wait(20)
-}
-await p.keyboard.up('w')
-await p.keyboard.up('Shift')
-check(shotTaken === 3, `vault stills captured (${shotTaken}/3)`)
-await wait(500)
 
 /* ── 3. Rooftop Run ── */
 await tp(-229.6, 0, Math.PI / 2)
