@@ -48,11 +48,20 @@ function pumpkinTextures(skin: string, glow: string) {
     const x = u * W
     const gr = g.createLinearGradient(x - 30, 0, x + 30, 0)
     gr.addColorStop(0, 'rgba(0,0,0,0)')
-    gr.addColorStop(0.5, 'rgba(60,18,0,0.32)')
+    gr.addColorStop(0.5, 'rgba(60,18,0,0.55)') // deeper grooves: the ridges read from every angle, including from behind
     gr.addColorStop(1, 'rgba(0,0,0,0)')
     g.fillStyle = gr
     g.fillRect(x - 30, 0, 60, H)
     if (x < 30) g.fillRect(x - 30 + W, 0, 60, H)
+    // a lighter ridge crest halfway between two grooves
+    const cxr = x + W / RIBS / 2
+    const hl = g.createLinearGradient(cxr - 26, 0, cxr + 26, 0)
+    hl.addColorStop(0, 'rgba(255,170,70,0)')
+    hl.addColorStop(0.5, 'rgba(255,170,70,0.2)')
+    hl.addColorStop(1, 'rgba(255,170,70,0)')
+    g.fillStyle = hl
+    g.fillRect(cxr - 26, 0, 52, H)
+    if (cxr > W - 26) g.fillRect(cxr - 26 - W, 0, 52, H)
   }
   let seed = 9
   const rnd = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646
@@ -72,7 +81,8 @@ function pumpkinTextures(skin: string, glow: string) {
     gb.stroke()
   }
   // carved face: centred on u=0.25 (front), drawn on all three maps
-  ge.fillStyle = '#000'
+  // the whole shell keeps a faint inner warmth (a candle inside a jack-o'-lantern): the back and sides never go dead red; the carved face is still the bright part
+  ge.fillStyle = '#2a1205'
   ge.fillRect(0, 0, W, H)
   const cx = 0.25 * W
   const carve = (path: (ctx: CanvasRenderingContext2D) => void) => {
@@ -147,7 +157,7 @@ export function buildPumpkinHead(a: Appearance, D: D) {
   for (let i = 0; i < p.count; i++) {
     const x = p.getX(i), y = p.getY(i), z = p.getZ(i)
     const theta = Math.atan2(x, z)
-    const f = rib(theta, V2 ? 0.105 : 0.075) * (1 + Math.sin(theta * 3 + 1.3) * 0.012) // slight irregularity
+    const f = rib(theta, V2 ? 0.125 : 0.075) * (1 + Math.sin(theta * 3 + 1.3) * 0.012) // slight irregularity
     const lat = Math.abs(y)
     // squat shape with dimples at the top (stem) and bottom
     let ny = y * 0.8
