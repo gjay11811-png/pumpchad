@@ -25,7 +25,17 @@ third-party preview viewer.
 
 ## Local inventory (checked 2026-10-15) — visual references vs usable 3D assets
 
-Visual references on disk: `~\Downloads\pumpchadrt-source-pumpchad.png` (PumpChad's original artwork, 2.2 MB) · `publicrt\pumpchad-hero-1254.webp`, `pumpchad-hero-760.webp`, `pumpchad-logo.webp`, `publicrt\chadverse–05-*.webp` (Chadverse art) · `~\Downloads\Pumpkin King Crypto Throne.png` · our own game captures in `~\Downloads\pumpchad\docs\*`, `~\Downloads\pumpchad-review\*`, `~\Downloads\pumpchad-teasers\*`, `~\Desktop\Chadverse-Overnight-Review\*`.
-NOT on disk: the "World Upgrade Pack" reference images (no zip or extracted folder found anywhere under the user profile), any gym / arcade / workshop / mansion / haunted-house / parkour / housing reference photos, the cjmitchell mansion, the sports car, the pistol.
+**Visual references on disk (images only, not game assets)**
+* PumpChad's original character art: `C:/Users/zafe5/Downloads/pumpchad/art-source-pumpchad.png` (2.2 MB)
+* Chadverse brand art: `C:/Users/zafe5/Downloads/pumpchad/public/art/pumpchad-hero-1254.webp`, `pumpchad-hero-760.webp`, `pumpchad-logo.webp`, and `public/art/chadverse/01-pumpchad-throne.webp` … `05-pumpchad-army.webp`
+* `C:/Users/zafe5/Downloads/Pumpkin King Crypto Throne.png`
+* Our own game captures (evidence, not references): `C:/Users/zafe5/Downloads/pumpchad/docs/*` (chad-city, chadverse-v3, v3-polish, v4), `C:/Users/zafe5/Downloads/pumpchad-review/*`, `C:/Users/zafe5/Downloads/pumpchad-teasers/*` (gym teaser stills), `C:/Users/zafe5/Desktop/Chadverse-Overnight-Review/*`
 
-Usable 3D (all Quaternius, CC0, in `~\Downloads\pumpchad-assetsaw\`, already integrated where noted): Universal Base Characters + Modular Character Outfits (Fantasy) → in game as `public\chadverse\models\chad_body/ranger/villager_*.glb`; Universal Animation Library 1 + 2 → `chad_anims*.glb`; skull OBJ → `chad_skull.glb`; **Bestiary – Dungeon Monsters Kit** (`bestiary-dungeon-monsters-kit.zip`, 46 MB, NOT extracted, NOT integrated; contains e.g. Imp.glb 9 MB, Puglin.glb 7.7 MB — too heavy for mobile as-is, would need decimating; candidate enemies for the haunted combat activity).
+**NOT on disk (MISSING)**: the "World Upgrade Pack" reference images (no zip or extracted folder anywhere under the user profile); any reference photo/render for a modern industrial gym, standalone arcade, automotive workshop, haunted houses, mansion + courtyard, parkour structures or housing-neighbourhood layout; the cjmitchell lakeside mansion; the detailed sports car; the textured pistol. The Antique Estoc is available online (CC0) but not downloaded yet.
+
+**Usable 3D assets on disk (all Quaternius, CC0)** in `C:/Users/zafe5/Downloads/pumpchad-assets/raw/`:
+* Universal Base Characters, Modular Character Outfits (Fantasy), Universal Animation Library 1 and 2, skull OBJ — INTEGRATED as `C:/Users/zafe5/Downloads/pumpchad/public/chadverse/models/chad_body.glb, chad_ranger.glb, chad_skull.glb, chad_anims.glb, chad_anims2.glb, villager_*.glb, vhair_*.glb`
+* `bestiary-dungeon-monsters-kit.zip` (46 MB; e.g. Imp.glb 9.2 MB, Puglin.glb 7.7 MB) — AVAILABLE, not extracted, not integrated, too heavy for mobile without decimation; candidate haunted-combat enemies
+* No vegetation, building, vehicle, pet, weapon or parkour 3D asset is on disk. Everything for those in the game today is procedural code.
+
+**Free sources checked online (licence verified, not downloaded)**: Poly Haven (CC0; vegetation scans far too heavy), Poly Haven Antique Estoc (CC0, ~8K tris, glTF 1K), Kenney Car Kit / Graveyard Kit / Blaster Kit (CC0; zip contents and formats must be checked after download, before import).
