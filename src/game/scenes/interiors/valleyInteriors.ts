@@ -191,7 +191,7 @@ export const VALLEY_INTERIORS: HouseSpec[] = [
       Fu.chandelier(K, 0, 5.6, 4.5, 8, 0.9)
       Fu.grandfatherClock(K, -3.5, -3.2, 0)
       Fu.armorStand(K, -3.3, 9.0, Math.PI)
-      Fu.armorStand(K, 0.9, 9.2, Math.PI)
+      Fu.armorStand(K, -1.4, 9.2, Math.PI) // (was at x 0.9: it plugged the mouth of the stair)
       Fu.plant(K, -3.2, 3.2, 1.4)
       Fu.plant(K, 3.3, -3.7, 1.4)
       Fu.paintingOnWall(K, S.on('front', 6.2), 1.1, 3.1, 'portrait', 83)

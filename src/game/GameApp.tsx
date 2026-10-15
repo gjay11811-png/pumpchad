@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { castleRoadWorld } from './scenes/world/mountain'
 import { VALLEY_DISCOVERIES } from './scenes/world/valley'
+import { insideCity, inCanal, terrainHeight } from './scenes/world/city'
 import { objectiveTarget } from './atlas'
 import { DESCENT } from './scenes/world/descent'
 import { AnimatePresence, LazyMotion, MotionConfig, domAnimation } from 'framer-motion'
@@ -900,6 +901,33 @@ export function GameApp() {
         const top = [...tex.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([, b]) => `${(b / 1048576).toFixed(1)}MB`)
         const mem = (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory
         return { textures: tex.size, textureMB: +([...tex.values()].reduce((a, b) => a + b, 0) / 1048576).toFixed(1), geometries: geo.size, vertices: verts, geometryMB: +(gb / 1048576).toFixed(1), materials: mats.size, topTextures: top, sizeHistogram: hist, owners1024: owners.slice(0, 40), jsHeapMB: mem ? +(mem.usedJSHeapSize / 1048576).toFixed(0) : null }
+      },
+      /** QA: walkable area on a 1 m grid (insideCity minus canal), flood-filled from the spawn so only CONNECTED ground counts */
+      areaScan: () => {
+        const X0 = -260, X1 = 360, Z0 = -330, Z1 = 780
+        const W = X1 - X0, H = Z1 - Z0
+        const ok = new Uint8Array(W * H)
+        let all = 0
+        for (let z = 0; z < H; z++) for (let x = 0; x < W; x++) if (insideCity(X0 + x + 0.5, Z0 + z + 0.5) && !inCanal(X0 + x + 0.5, Z0 + z + 0.5)) { ok[z * W + x] = 1; all++ }
+        const seen = new Uint8Array(W * H)
+        const q = new Int32Array(W * H)
+        let n = 0, hd = 0, tl = 0
+        const sx = -X0, sz = -Z0
+        if (ok[sz * W + sx]) { q[tl++] = sz * W + sx; seen[sz * W + sx] = 1 }
+        let hi = 0, lo = 0
+        while (hd < tl) {
+          const c = q[hd++]
+          n++
+          const cx = c % W, cz = (c / W) | 0
+          if (terrainHeight(X0 + cx + 0.5, Z0 + cz + 0.5) < -26) lo++; else hi++
+          for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            const nx = cx + dx, nz = cz + dz
+            if (nx < 0 || nz < 0 || nx >= W || nz >= H) continue
+            const k = nz * W + nx
+            if (ok[k] && !seen[k]) { seen[k] = 1; q[tl++] = k }
+          }
+        }
+        return { walkable: all, connected: n, plateau: hi, valley: lo }
       },
       /** QA: meshes in the live scene (interior if inside, else the world) whose geometry has non-finite positions */
       nanScan: () => {

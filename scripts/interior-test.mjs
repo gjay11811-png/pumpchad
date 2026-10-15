@@ -63,9 +63,11 @@ for (const h of houses) {
   if (h.room.loft) {
     const L = h.room.loft
     const sx = (L.stair.x0 + L.stair.x1) / 2
+    // climbing takes longer on a long stair (the grand manor stair is ~10 m of run at a slowed stair pace)
+    const climbMs = Math.max(2600, Math.round(Math.abs(L.stair.zb - L.zl) * 800))
     await C('interiorTeleport', sx, L.stair.zb + 0.25, Math.PI, 0)
     await p.waitForTimeout(300)
-    await hold('w', 2600)
+    await hold('w', climbMs)
     const up = await C('interior')
     check(up.level === 1 && up.y > L.y - 0.3, `climbs the stair to the loft (level ${up.level}, y ${up.y})`)
     await hold('a', 900)
@@ -75,7 +77,7 @@ for (const h of houses) {
     // come back down
     await C('interiorTeleport', sx, L.zl + 0.1, 0, 1)
     await p.waitForTimeout(300)
-    await hold('w', 2600)
+    await hold('w', climbMs)
     const down = await C('interior')
     check(down.level === 0 && down.y < 0.2, `walks back down (level ${down.level}, y ${down.y})`)
   }
