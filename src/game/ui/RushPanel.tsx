@@ -1,4 +1,4 @@
-import { AnimatePresence, m } from 'framer-motion'
+﻿import { AnimatePresence, m } from 'framer-motion'
 import { useEffect, useRef, useState } from 'react'
 import { audio } from '../audio'
 import { RUSH, type RushGame, type RushStats } from '../minigames/pumpkinRush'
@@ -7,7 +7,7 @@ import { Btn, Label } from './kit'
 export type RushResult = { xp: number; mult: number; best: number; newBest: boolean }
 type Phase = 'ready' | 'run' | 'done'
 
-/** Pumpkin Rush: instructions → 3-2-1 → 45 s sprint (live time / score / combo) → results → play again. */
+/** Pumpkin Rush: instructions â†’ 3-2-1 â†’ 45 s sprint (live time / score / combo) â†’ results â†’ play again. */
 export function RushPanel({
   rush,
   best,
@@ -57,7 +57,7 @@ export function RushPanel({
       }
       if (timeRef.current) timeRef.current.textContent = rush.timeLeft.toFixed(1)
       if (scoreRef.current) scoreRef.current.textContent = String(rush.stats.score)
-      if (comboRef.current) comboRef.current.textContent = rush.combo > 1 ? `×${rush.combo}` : ''
+      if (comboRef.current) comboRef.current.textContent = rush.combo > 1 ? `Ã—${rush.combo}` : ''
       if (barRef.current) barRef.current.style.width = `${(rush.timeLeft / RUSH.duration) * 100}%`
       raf = requestAnimationFrame(loop)
     }
@@ -147,7 +147,7 @@ export function RushPanel({
                 {pops.map((p) => (
                   <m.p key={p.k} initial={{ y: 12, opacity: 0, scale: 0.8 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: -14, opacity: 0 }} className={`absolute inset-x-0 font-display text-3xl uppercase ${p.gold ? 'text-chain' : 'text-molten'}`}>
                     +{p.pts}
-                    {p.combo > 1 && <span className="ml-2 font-mono text-base text-bone/80">combo ×{p.combo}</span>}
+                    {p.combo > 1 && <span className="ml-2 font-mono text-base text-bone/80">combo Ã—{p.combo}</span>}
                     {p.gold && <span className="ml-2 font-mono text-base text-chain">golden!</span>}
                   </m.p>
                 ))}
@@ -172,12 +172,12 @@ export function RushPanel({
             <Label className="text-moon/80">Mini-game</Label>
             <p className="mt-1 font-display text-4xl uppercase leading-none">Pumpkin Rush</p>
             <ul className="mt-3 grid gap-1.5 text-[14px] text-bone/80">
-              <li>• {RUSH.duration} seconds. Glowing pumpkins light up around Chad Square — run into them to grab them.</li>
-              <li>• Grab the next one within {RUSH.comboWindow}s to build a combo (up to ×{RUSH.maxCombo}).</li>
-              <li>• Every {RUSH.goldEvery}th pumpkin is golden: triple points. Follow the light beams. Sprint with Shift / the far stick.</li>
+              <li>â€¢ {RUSH.duration} seconds. Glowing pumpkins light up around Chad Square â€” run into them to grab them.</li>
+              <li>â€¢ Grab the next one within {RUSH.comboWindow}s to build a combo (up to Ã—{RUSH.maxCombo}).</li>
+              <li>â€¢ Every {RUSH.goldEvery}th pumpkin is golden: triple points. Follow the light beams. Sprint with Shift / the far stick.</li>
             </ul>
-            <p className="mt-3 font-mono text-[11px] uppercase tracking-[0.2em] text-ash" data-testid="rush-best">Your best: {best || '—'}</p>
-            <div className="mt-5 flex gap-2">
+            <p className="mt-3 font-mono text-[11px] uppercase tracking-[0.2em] text-ash" data-testid="rush-best">Your best: {best || 'â€”'}</p>
+            <div className="sticky bottom-0 mt-5 flex gap-2 bg-ink/95 pb-1 pt-2">
               <Btn className="flex-1" size="lg" onClick={start} sound={null} data-testid="rush-start">
                 Start
               </Btn>
@@ -201,7 +201,7 @@ export function RushPanel({
                 [
                   ['Pumpkins', result.s.grabbed],
                   ['Golden', result.s.gold],
-                  ['Best combo', result.s.bestCombo ? `×${result.s.bestCombo}` : '—'],
+                  ['Best combo', result.s.bestCombo ? `Ã—${result.s.bestCombo}` : 'â€”'],
                 ] as const
               ).map(([k, v]) => (
                 <div key={k} className="rounded-xl bg-bone/[0.04] py-2 ring-1 ring-bone/10">
@@ -213,8 +213,8 @@ export function RushPanel({
             <p className="mt-4 text-center font-display text-2xl uppercase text-molten" data-testid="rush-xp">
               +{result.r.xp} XP
             </p>
-            {result.r.mult < 1 && <p className="mt-1 text-center font-mono text-[11px] uppercase tracking-[0.16em] text-ash">Tired legs · {Math.round(result.r.mult * 100)}% XP for more runs today</p>}
-            <div className="mt-4 flex gap-2">
+            {result.r.mult < 1 && <p className="mt-1 text-center font-mono text-[11px] uppercase tracking-[0.16em] text-ash">Tired legs Â· {Math.round(result.r.mult * 100)}% XP for more runs today</p>}
+            <div className="sticky bottom-0 mt-4 flex gap-2 bg-ink/95 pb-1 pt-2">
               <Btn className="flex-1" onClick={start} sound={null} data-testid="rush-again">
                 Play again
               </Btn>
@@ -232,7 +232,9 @@ export function RushPanel({
 function Card({ children }: { children: React.ReactNode }) {
   return (
     <m.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 12 }} transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }} className="pointer-events-auto px-3 pb-3 safe-b safe-x">
-      <div className="panel mx-auto max-w-xl rounded-[24px] p-5 md:p-6">{children}</div>
+      <div className="panel mx-auto max-h-[calc(100svh-5.75rem)] max-w-xl overflow-y-auto overscroll-contain rounded-[24px] p-5 md:p-6 [@media(max-height:480px)]:p-3">{children}</div>
     </m.div>
   )
 }
+
+
