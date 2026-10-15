@@ -1,4 +1,6 @@
 import * as THREE from 'three'
+import { LANTERN_ROLLOUT } from '../../launch'
+import { lanternFamily } from './lanternFamily'
 import { FoliageBuilder, leafTexture, rockGeo } from './foliage'
 import { isHeroBush, isHeroTree } from './vegModels'
 import type { Quality } from '../../save'
@@ -85,6 +87,7 @@ export function buildGround(T: Town, _tex: Record<string, THREE.Texture>) {
 
 /* ───────── lamp posts (emissive lanterns; a few get real lights via LightSpot priority) ───────── */
 export function lampPosts(T: Town, spots: [number, number][]) {
+  if (LANTERN_ROLLOUT) return lanternFamily(T, 'L01', spots.map(([x, z]) => ({ x, z })))
   const P = T.P
   const post = new THREE.CylinderGeometry(0.07, 0.11, 3.3, 8)
   const arm = new THREE.BoxGeometry(0.6, 0.06, 0.06)

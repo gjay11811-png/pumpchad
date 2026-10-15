@@ -12,6 +12,12 @@
  */
 export const LAUNCH_EXPANSION_OPEN = false
 
+/**
+ * LANTERN ROLLOUT: false = the original street lamps everywhere plus one DEMO of each new lantern (L01 Gaslight Post, L02 Crook Lantern, L03 Pillar
+ * Lantern) on the arrival forecourt beside the spawn, to be judged day and night first. true (or `?lanterns=all`) swaps every lamp for the family.
+ */
+export const LANTERN_ROLLOUT = typeof window !== 'undefined' && /[?&]lanterns=all\b/.test(window.location.search)
+
 const flag = typeof window !== 'undefined' && /[?&]expansion=open\b/.test(window.location.search)
 export const EXPANSION_OPEN = LAUNCH_EXPANSION_OPEN || flag
 

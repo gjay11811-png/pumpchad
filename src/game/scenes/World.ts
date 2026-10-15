@@ -16,10 +16,11 @@ import { Crowd, RESIDENTS } from './world/npcs'
 import { CASTLE_Z, ROADS, buildGround, castle, clutter, fence, lampPosts, poles, stringLights, vegetation } from './world/props'
 import { BENCHES, kingdom, mountains } from './world/kingdom'
 import { GARDEN, SPAWN, VALLEY_GATE, bridgeHeight, clampToCity } from './world/city'
-import { EXPANSION_OPEN, SAFE_ARRIVAL, isLocked } from '../launch'
+import { EXPANSION_OPEN, LANTERN_ROLLOUT, SAFE_ARRIVAL, isLocked } from '../launch'
 import { COURSES, PLATFORMS, SECRET, YARD, fmtMs, type CourseId } from '../parkour'
 import { ParkourRun, planTraverse, platformFloor, platformResolve, travAt, type RunResult, type TravFrame, type TravPlan } from '../parkourSystem'
 import { PARKOUR_LAMPS, parkourYard, type ParkourBuild } from './world/parkourYard'
+import { lanternFamily } from './world/lanternFamily'
 import { PANEL, boardTexture } from './world/signs'
 import { citySkyline } from './world/skyline'
 import { GYM_SHRUBS } from './world/gymExterior'
@@ -428,11 +429,18 @@ export class World implements GameScene {
       [-7.2, -12.6], [7.2, -12.6],
       ...MOTOR_ROW_LAMPS,
       ...lakeLamps(),
-      ...ESTATE_LAMPS,
-      ...PARKOUR_LAMPS,
+      ...(LANTERN_ROLLOUT ? [] : [...ESTATE_LAMPS, ...PARKOUR_LAMPS]),
       ...(EXPANSION_OPEN ? SOUTHSHORE_LAMPS : []), // Southshore + Mill Row are the next update
       ...(EXPANSION_OPEN ? MILL_LAMPS : []),
     ])
+    // the lantern family: three demos beside the spawn (always), and the whole town once rolled out
+    lanternFamily(T, 'L01', [{ x: 2.3, z: 62.4 }])
+    lanternFamily(T, 'L02', [{ x: 3.6, z: 62.4 }])
+    lanternFamily(T, 'L03', [{ x: 4.8, z: 62.4 }])
+    if (LANTERN_ROLLOUT) {
+      lanternFamily(T, 'L02', ESTATE_LAMPS.map(([x, z]) => ({ x, z })))
+      lanternFamily(T, 'L03', PARKOUR_LAMPS.map(([x, z]) => ({ x, z })))
+    }
     this.city = buildChadCity(this.scene, q, this.disposables, this.night)
     // the great distant skyline now stands far beyond the valley city (it is the backdrop, not a place you can reach)
     this.city.group.position.set(0, -8, 340)
