@@ -61,15 +61,16 @@ export function hauntedQuarter(T: Town, stone: THREE.Material, trim: THREE.Mater
     return m
   }
   const H = DISTRICTS.haunted
+  const HX1 = -58 // the quarter's drawn ground ends at the gate; its walkable rect reaches 2 m further east so the seam can be crossed
   const LZ = HQ.laneZ
   const CX = HQ.crossX
 
   /* ── ground: dead grass, the lanes, the square ── */
   {
-    const g = new THREE.PlaneGeometry(H.x1 - H.x0, H.z1 - H.z0).rotateX(-Math.PI / 2)
+    const g = new THREE.PlaneGeometry(HX1 - H.x0, H.z1 - H.z0).rotateX(-Math.PI / 2)
     const u = g.attributes.uv as THREE.BufferAttribute
-    for (let i = 0; i < u.count; i++) u.setXY(i, (u.getX(i) * (H.x1 - H.x0)) / 6, (u.getY(i) * (H.z1 - H.z0)) / 6)
-    T.batch.put(g, std({ map: P.ground.map, color: '#5a5040', roughness: 1 }), (H.x0 + H.x1) / 2, 0.008, (H.z0 + H.z1) / 2, 0, 1, 1, 1, { cast: false })
+    for (let i = 0; i < u.count; i++) u.setXY(i, (u.getX(i) * (HX1 - H.x0)) / 6, (u.getY(i) * (H.z1 - H.z0)) / 6)
+    T.batch.put(g, std({ map: P.ground.map, color: '#5a5040', roughness: 1 }), (H.x0 + HX1) / 2, 0.008, (H.z0 + H.z1) / 2, 0, 1, 1, 1, { cast: false })
     const lane = (x0: number, x1: number, z0: number, z1: number) => {
       const lg = new THREE.PlaneGeometry(x1 - x0, z1 - z0).rotateX(-Math.PI / 2)
       const lu = lg.attributes.uv as THREE.BufferAttribute

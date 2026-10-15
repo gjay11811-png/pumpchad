@@ -25,7 +25,7 @@ export const DISTRICTS: Record<'south' | 'east' | 'west' | 'overlook' | 'haunted
   // the scenic overlook juts out over the cliff at the garden's south-west corner
   overlook: { x0: -60, x1: -46, z0: 33, z1: 42 },
   // the HAUNTED QUARTER: crooked lanes of old houses beyond the garden, through the iron gate at the end of the west road
-  haunted: { x0: -102, x1: -58, z0: -18, z1: 24 },
+  haunted: { x0: -102, x1: -56, z0: -18, z1: 24 }, // x1 overlaps the market road's west rect by 2 m: the seam at the gate used to leave a 1.2 m gap that nothing could walk across
   // MOTOR ROW: the canal promenade's eastward continuation (Chad Pets, Chad Motors)
   motor: { x0: 28, x1: 66, z0: 29, z1: 58 },
   // the ENCHANTED FOREST: beyond the Haunted Quarter's north edge — glowing mushrooms, an elder oak, winding paths

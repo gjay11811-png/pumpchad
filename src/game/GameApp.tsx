@@ -27,7 +27,7 @@ import { RushPanel, type RushResult } from './ui/RushPanel'
 import { EventPanel, type EventResult } from './ui/EventPanel'
 import { TargetPanel, type TossResult } from './ui/TargetPanel'
 import { tossXp, type TossStats } from './minigames/targetThrow'
-import { EVENT_DEFS, EVENT_IDS, type EventId, type EventStats } from './minigames/events'
+import { ALL_EVENT_IDS, EVENT_DEFS, EVENT_IDS, type EventId, type EventStats } from './minigames/events'
 import { rushXp, type RushStats } from './minigames/pumpkinRush'
 import { Showroom } from './scenes/Showroom'
 import { World, type Interactable } from './scenes/World'
@@ -99,6 +99,7 @@ export function GameApp() {
   const rushRef = useRef(rush)
   rushRef.current = rush
   const [evt, setEvt] = useState<null | 'ready' | 'run' | 'done'>(null)
+  const [evtIds, setEvtIds] = useState<EventId[]>(EVENT_IDS)
   const [tgt, setTgt] = useState<null | 'ready' | 'run' | 'done'>(null)
   const tgtRef = useRef(tgt)
   tgtRef.current = tgt
@@ -424,6 +425,12 @@ export function GameApp() {
         break
       case 'events':
         input.current?.clear()
+        setEvtIds(EVENT_IDS)
+        setEvt('ready')
+        break
+      case 'ghosthunt':
+        input.current?.clear()
+        setEvtIds(['ghosthunt'])
         setEvt('ready')
         break
       case 'target':
@@ -825,7 +832,7 @@ export function GameApp() {
         },
       }
     })
-    if (st.won) unlock(({ hunt: 'hunt_won', invasion: 'ghost_buster', festival: 'festival_lit', storm: 'storm_rider', race: 'race_won' } as const)[st.id])
+    if (st.won) unlock(({ hunt: 'hunt_won', invasion: 'ghost_buster', festival: 'festival_lit', storm: 'storm_rider', race: 'race_won', ghosthunt: 'ghost_catcher' } as const)[st.id])
     const best = st.won && st.id === 'race' ? Math.min(p0.records.race_best || 1e6, Math.round(st.time * 100)) : p0.records.race_best
     return { xp: r.xp, mult: r.mult, wins: (p0.records[key] ?? 0) + (st.won ? 1 : 0), best }
   }
@@ -1081,7 +1088,8 @@ export function GameApp() {
                   <EventPanel
                     director={world.current.eventDir}
                     player={world.current.playerPos}
-                    wins={Object.fromEntries(EVENT_IDS.map((e) => [e, save.progress.records[`event_${e}`] ?? 0])) as Record<EventId, number>}
+                    ids={evtIds}
+                    wins={Object.fromEntries(ALL_EVENT_IDS.map((e) => [e, save.progress.records[`event_${e}`] ?? 0])) as Record<EventId, number>}
                     onPhase={setEvt}
                     onFinish={finishEvent}
                     onClose={() => {

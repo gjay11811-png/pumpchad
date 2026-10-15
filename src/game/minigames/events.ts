@@ -8,8 +8,10 @@ import * as THREE from 'three'
  *   storm    Thunderstorm: gather storm crystals and keep out of the marked strike circles (3 lives)
  * Rules are plain numbers below; EventDirector owns the 3D side (markers, ghosts, strike rings, rain, lightning).
  */
-export type EventId = 'hunt' | 'invasion' | 'festival' | 'storm' | 'race'
+export type EventId = 'hunt' | 'invasion' | 'festival' | 'storm' | 'race' | 'ghosthunt'
+/** the Events Board's rounds (Ghost Hunt is its own activity at the Haunted Quarter gate, run on the same director) */
 export const EVENT_IDS: EventId[] = ['hunt', 'invasion', 'festival', 'storm', 'race']
+export const ALL_EVENT_IDS: EventId[] = [...EVENT_IDS, 'ghosthunt']
 
 export const EVENT_DEFS: Record<EventId, { name: string; blurb: string; rules: string[]; duration: number; goal: number; lives: number; xp: number; color: number }> = {
   hunt: {
@@ -42,6 +44,20 @@ export const EVENT_DEFS: Record<EventId, { name: string; blurb: string; rules: s
     xp: 30,
     color: 0xffd36a,
   },
+  ghosthunt: {
+    name: 'Ghost Hunt',
+    blurb: 'Five ghosts are hiding in the Haunted Quarter. Find them, then hold still beside each one to capture it.',
+    rules: [
+      'Search the lanes, the square and the graveyard of the Haunted Quarter — the ghosts stay invisible until you are close (about 7 m).',
+      'The hint line says how far the nearest uncaptured ghost is and whether you are getting warmer.',
+      'Stand right beside a ghost for a moment to capture it. Capture all five before time runs out.',
+    ],
+    duration: 150,
+    goal: 5,
+    lives: 0,
+    xp: 55,
+    color: 0x9ff0d0,
+  },
   race: {
     name: 'Square Time Trial',
     blurb: 'A sprint through six gates around the square, against the clock.',
@@ -67,7 +83,7 @@ export const EVENT_DEFS: Record<EventId, { name: string; blurb: string; rules: s
 export type EventStats = { id: EventId; won: boolean; score: number; goal: number; lives: number; timeLeft: number; time: number }
 export type EventPhase = 'idle' | 'countdown' | 'playing' | 'done'
 
-type Mark = { group: THREE.Object3D; x: number; z: number; born: number; vx?: number; vz?: number }
+type Mark = { group: THREE.Object3D; x: number; z: number; born: number; vx?: number; vz?: number; seen?: number; cap?: number }
 
 export class EventDirector {
   phase: EventPhase = 'idle'
@@ -81,6 +97,8 @@ export class EventDirector {
   onEnd: ((s: EventStats) => void) | null = null
   private root = new THREE.Group()
   private marks: Mark[] = []
+  /** per-round materials (each hidden ghost fades on its own) */
+  private temp: THREE.Material[] = []
   private rings: { mesh: THREE.Mesh; x: number; z: number; t: number }[] = []
   private t = 0
   private spawnT = 0
@@ -90,6 +108,7 @@ export class EventDirector {
   goalOverride = 0
   /** the round's time limit (the race derives it from its course; the other events use their definition) */
   limit = 0
+  private lastNear: number | null = null
   private flashLight: THREE.HemisphereLight
   private rain: THREE.LineSegments
   private rainPos: Float32Array
@@ -100,6 +119,7 @@ export class EventDirector {
     scene: THREE.Scene,
     private valid: (x: number, z: number) => boolean,
     private walk: (x: number, z: number) => boolean,
+    private zone: { walk: (x: number, z: number) => boolean; open: (x: number, z: number) => boolean },
     private ground: (x: number, z: number) => number,
     private area: { r: number },
   ) {
@@ -123,7 +143,7 @@ export class EventDirector {
     this.geo.pole = new THREE.CylinderGeometry(0.05, 0.07, 2.6, 6).translate(0, 1.3, 0)
     this.geo.gate = new THREE.TorusGeometry(1.5, 0.12, 8, 24)
     this.geo.ring = new THREE.RingGeometry(1.7, 2.2, 28).rotateX(-Math.PI / 2)
-    for (const k of EVENT_IDS) {
+    for (const k of ALL_EVENT_IDS) {
       this.mats[k] = new THREE.MeshBasicMaterial({ color: EVENT_DEFS[k].color, transparent: true, opacity: 0.9 })
       this.mats[`${k}Beam`] = new THREE.MeshBasicMaterial({ color: EVENT_DEFS[k].color, transparent: true, opacity: 0.28, side: THREE.DoubleSide, depthWrite: false })
     }
@@ -147,6 +167,7 @@ export class EventDirector {
     const d = EVENT_DEFS[id]
     this.timeLeft = d.duration
     this.limit = d.duration
+    this.lastNear = null
     this.score = 0
     this.lives = d.lives
     this.countdown = 3
@@ -157,6 +178,7 @@ export class EventDirector {
     this.hint = d.rules[0]
     if (id === 'festival') this.placeLanterns(player)
     if (id === 'race') this.placeGates(player)
+    if (id === 'ghosthunt') this.placeGhosts(player)
     if (id === 'hunt') for (let i = 0; i < 4; i++) this.spawnPumpkin(player)
     if (id === 'storm') {
       for (let i = 0; i < 3; i++) this.spawnCrystal(player)
@@ -192,6 +214,8 @@ export class EventDirector {
   }
 
   private clear() {
+    for (const m of this.temp) m.dispose()
+    this.temp = []
     for (const m of this.marks) m.group.removeFromParent()
     for (const r of this.rings) r.mesh.removeFromParent()
     this.marks = []
@@ -297,6 +321,52 @@ export class EventDirector {
     this.limit = Math.max(25, Math.round((best?.len ?? 90) / 2.9))
     this.timeLeft = this.limit
     this.hint = 'Run through the lit gate'
+  }
+
+  /**
+   * five hidden ghosts, in bounded ground the player can actually reach: flood-fill the walkable cells outward from where the hunt starts
+   * (inside the village, clear of colliders, never across the locked gate), then pick spread-out spots from what was reached.
+   */
+  private placeGhosts(player: THREE.Vector3) {
+    const STEP = 2
+    const key = (x: number, z: number) => `${x},${z}`
+    const sx = Math.round(player.x / STEP) * STEP
+    const sz = Math.round(player.z / STEP) * STEP
+    const seen = new Set<string>([key(sx, sz)])
+    const q: [number, number][] = [[sx, sz]]
+    const reached: [number, number][] = []
+    const LIM = 48 // the hunt's bounded area: within 48 m of the start
+    while (q.length) {
+      const [x, z] = q.shift()!
+      reached.push([x, z])
+      for (const [dx, dz] of [[STEP, 0], [-STEP, 0], [0, STEP], [0, -STEP]]) {
+        const nx = x + dx
+        const nz = z + dz
+        const k = key(nx, nz)
+        if (seen.has(k) || Math.hypot(nx - player.x, nz - player.z) > LIM || nx > -57 || nx < -104 || nz < -19 || nz > 25) continue // the Haunted Quarter's own ground
+        seen.add(k)
+        if (this.zone.walk(nx, nz)) q.push([nx, nz])
+      }
+    }
+    const cand = reached.filter(([x, z]) => this.zone.open(x, z) && Math.hypot(x - player.x, z - player.z) > 9)
+    const pts: [number, number][] = []
+    for (let t = 0; t < 200 && pts.length < 5; t++) {
+      const c = cand[Math.floor(Math.random() * cand.length)]
+      if (!c || pts.some((p) => Math.hypot(p[0] - c[0], p[1] - c[1]) < 11)) continue
+      pts.push(c)
+    }
+    for (const [x, z] of pts) {
+      const g = new THREE.Group()
+      const mat = new THREE.MeshBasicMaterial({ color: EVENT_DEFS.ghosthunt.color, transparent: true, opacity: 0 })
+      this.temp.push(mat)
+      const body = new THREE.Mesh(this.geo.ghost, mat)
+      body.position.y = 1.2
+      g.add(body)
+      g.visible = false
+      this.add(g, x, z, { seen: 0, cap: 0 })
+    }
+    this.goalOverride = this.marks.length
+    this.hint = 'Search the Haunted Quarter'
   }
 
   private placeLanterns(player: THREE.Vector3) {
@@ -405,6 +475,28 @@ export class EventDirector {
           if (this.score >= this.goal) return this.finish(true)
           this.hint = `Gate ${this.score + 1} of ${this.goal}`
         }
+      } else if (this.id === 'ghosthunt') {
+        const d = Math.hypot(m.x - player.x, m.z - player.z)
+        const mat = (m.group.children[0] as THREE.Mesh).material as THREE.MeshBasicMaterial
+        const want = d < 7 ? 1 : 0
+        m.seen = Math.max(0, Math.min(1, (m.seen ?? 0) + (want ? dt * 1.4 : -dt * 0.8)))
+        m.group.visible = m.seen > 0.02
+        mat.opacity = 0.7 * m.seen * (1 - (m.cap ?? 0) * 0.8)
+        m.group.children[0].position.y = 1.2 + Math.sin(this.t * 2 + m.born) * 0.12
+        if (want && !m.born) m.born = this.t
+        if (d < 1.9 && m.seen > 0.6) {
+          m.cap = Math.min(1, (m.cap ?? 0) + dt / 1.1)
+          this.hint = 'Hold still — capturing…'
+          m.group.scale.setScalar(1 - (m.cap ?? 0) * 0.5)
+          if ((m.cap ?? 0) >= 1) {
+            m.group.removeFromParent()
+            this.marks.splice(i, 1)
+            this.score++
+            this.onHit?.('good')
+            this.hint = `${this.score} of ${this.goal} ghosts captured`
+            if (this.score >= this.goal) return this.finish(true)
+          }
+        } else m.cap = Math.max(0, (m.cap ?? 0) - dt * 0.9)
       } else if (this.id === 'festival') {
         if (Math.hypot(m.x - player.x, m.z - player.z) < 1.5) {
           ;(m.group.children[1] as THREE.Mesh).material = this.mats.festival
@@ -418,6 +510,15 @@ export class EventDirector {
         this.collect(i, player)
         if ((this.phase as EventPhase) === 'done') return
       }
+    }
+    // the hunt's hint: how far the nearest uncaptured ghost is, and warmer/colder
+    if (this.id === 'ghosthunt' && this.marks.length && !this.hint.startsWith('Hold still')) {
+      let dn = Infinity
+      for (const m of this.marks) dn = Math.min(dn, Math.hypot(m.x - player.x, m.z - player.z))
+      const band = dn < 7 ? 'right here — look around!' : `about ${Math.round(dn / 5) * 5} m away`
+      const trend = this.lastNear === null ? '' : dn < this.lastNear - 0.02 ? ' · warmer' : dn > this.lastNear + 0.02 ? ' · colder' : ''
+      this.lastNear = dn
+      this.hint = `${this.score} of ${this.goal} captured · nearest ghost ${band}${trend}`
     }
     // ghosts arrive over time
     if (this.id === 'invasion') {

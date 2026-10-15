@@ -738,7 +738,34 @@ export class World implements GameScene {
       }
       return true
     }
-    this.eventDir = new EventDirector(this.scene, open, walk, groundHeight, { r: 29 })
+    // the same two tests for ANY village ground (the Ghost Hunt works in the Haunted Quarter, not just the square)
+    const clearAt = (x: number, z: number, m: number) => {
+      if (isLocked(x, z) || !insideCity(x, z, 0.5) || inCanal(x, z, 0.8) || Math.abs(groundHeight(x, z)) > 0.6) return false
+      for (const c of this.colliders) {
+        if (c.kind === 'circle' ? Math.hypot(x - c.x, z - c.z) < c.r + m : x > c.minX - m && x < c.maxX + m && z > c.minZ - m && z < c.maxZ + m) return false
+      }
+      return true
+    }
+    this.eventDir = new EventDirector(this.scene, open, walk, { walk: (x, z) => clearAt(x, z, 0.62), open: (x, z) => clearAt(x, z, 0.9) }, groundHeight, { r: 29 })
+    // GHOST HUNT: a lantern-post at the Haunted Quarter's gate starts it (hidden ghosts, bounded to the quarter)
+    {
+      const post = new THREE.Group()
+      const iron = new THREE.MeshStandardMaterial({ color: 0x25242a, metalness: 0.6, roughness: 0.5 })
+      const orb = new THREE.MeshBasicMaterial({ color: 0x9ff0d0 })
+      const pg = new THREE.CylinderGeometry(0.05, 0.07, 2.4, 6)
+      const og = new THREE.SphereGeometry(0.2, 12, 8)
+      this.disposables.push(iron, orb, pg, og)
+      const pole = new THREE.Mesh(pg, iron)
+      pole.position.y = 1.2
+      const o = new THREE.Mesh(og, orb)
+      o.position.y = 2.55
+      post.add(pole, o)
+      post.position.set(-60.6, groundHeight(-60.6, 4.6), 4.6)
+      this.scene.add(post)
+      T.dynamic.push({ update: (t) => (o.scale.setScalar(1 + Math.sin(t * 2.4) * 0.12)) })
+      this.colliders.push({ kind: 'circle', x: -60.6, z: 4.6, r: 0.3, h: 2.5 })
+      add('ghosthunt', 'Take up the Ghost Hunt', -61.4, 3.4, 2.4, 'activity')
+    }
     // PUMPKIN TOSS: a target range on the nearest open ground big enough for it (searched against the finished colliders)
     const site = this.findRangeSite(walk)
     if (site) {

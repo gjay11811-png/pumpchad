@@ -16,10 +16,13 @@ export function EventPanel({
   onPhase,
   onFinish,
   onClose,
+  ids = EVENT_IDS,
 }: {
+  /** which rounds this panel offers (the Events Board offers the world events; the Ghost Hunt station offers just its own) */
+  ids?: EventId[]
   director: EventDirector
   player: THREE.Vector3
-  wins: Record<EventId, number>
+  wins: Partial<Record<EventId, number>>
   onPhase: (p: Phase) => void
   onFinish: (s: EventStats) => EventResult
   onClose: () => void
@@ -32,7 +35,7 @@ export function EventPanel({
   const livesRef = useRef<HTMLSpanElement>(null)
   const hintRef = useRef<HTMLParagraphElement>(null)
   const barRef = useRef<HTMLDivElement>(null)
-  const [id, setId] = useState<EventId>('hunt')
+  const [id, setId] = useState<EventId>(ids[0])
   const setPhase = (p: Phase) => {
     setPhaseState(p)
     onPhase(p)
@@ -151,10 +154,27 @@ export function EventPanel({
       <AnimatePresence mode="wait">
         {phase === 'ready' && (
           <Card key="ready">
-            <Label className="text-moon/80">Events Board</Label>
-            <p className="mt-1 font-display text-3xl uppercase leading-none">Village events</p>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2">
-              {EVENT_IDS.map((e) => (
+            <Label className="text-moon/80">{ids.length === 1 ? 'Activity' : 'Events Board'}</Label>
+            <p className="mt-1 font-display text-3xl uppercase leading-none">{ids.length === 1 ? EVENT_DEFS[ids[0]].name : 'Village events'}</p>
+            {ids.length === 1 && (
+              <>
+                <ul className="mt-3 grid gap-1.5 text-[14px] text-bone/80">
+                  {EVENT_DEFS[ids[0]].rules.map((r) => (
+                    <li key={r}>• {r}</li>
+                  ))}
+                </ul>
+                <p className="mt-3 font-mono text-[11px] uppercase tracking-[0.2em] text-ash">
+                  {EVENT_DEFS[ids[0]].duration}s · cleared {wins[ids[0]] || 0}× · local to this device
+                </p>
+                <div className="mt-4 flex gap-2">
+                  <Btn className="flex-1" size="lg" onClick={() => start(ids[0])} sound={null} data-testid={`event-${ids[0]}`}>
+                    Start
+                  </Btn>
+                </div>
+              </>
+            )}
+            <div className={`mt-3 grid gap-2 sm:grid-cols-2 ${ids.length === 1 ? 'hidden' : ''}`}>
+              {ids.map((e) => (
                 <button key={e} type="button" onClick={() => start(e)} data-testid={`event-${e}`} className="rounded-xl bg-bone/[0.04] p-3 text-left ring-1 ring-bone/10 transition hover:bg-bone/[0.09]">
                   <p className="font-display text-xl uppercase leading-tight">{EVENT_DEFS[e].name}</p>
                   <p className="mt-1 text-[13px] text-bone/70">{EVENT_DEFS[e].blurb}</p>
@@ -189,9 +209,11 @@ export function EventPanel({
               <Btn className="flex-1" onClick={() => start(id)} sound={null} data-testid="event-again">
                 Play again
               </Btn>
-              <Btn variant="ghost" className="flex-1" onClick={() => setPhase('ready')} data-testid="event-menu">
-                Other events
-              </Btn>
+              {ids.length > 1 && (
+                <Btn variant="ghost" className="flex-1" onClick={() => setPhase('ready')} data-testid="event-menu">
+                  Other events
+                </Btn>
+              )}
               <Btn variant="ghost" className="flex-1" onClick={quit} data-testid="event-done">
                 Done
               </Btn>
