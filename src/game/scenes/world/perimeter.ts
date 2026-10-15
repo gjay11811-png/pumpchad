@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import type { Town } from './buildings'
 import { DISTRICTS, VALLEY_GATE, insideCity } from './city'
 import { boxUV } from './kit'
+import { EXPANSION_DISTRICTS, EXPANSION_OPEN } from '../../launch'
 
 /**
  * The city's open edges: walk every district outline, keep the stretches that face the cliff (the outward
@@ -15,6 +16,9 @@ export function perimeter(T: Town, stone: THREE.Material, trim: THREE.Material, 
   for (const [key, r] of Object.entries(DISTRICTS)) {
     // the forest's edge is a timber fence, not a city balustrade (and it isn't closed by the curtain wall)
     if (key === 'downtown' || key === 'plaza') continue // the valley city builds its own edge walls (in its own frame)
+    // the closed expansion's lower districts are not walkable in the first release: no balustrade round their (unreachable) outline — it used to
+    // run in a rectangle across the open hillside beside the valley road, floating over the slope
+    if (!EXPANSION_OPEN && (EXPANSION_DISTRICTS as readonly string[]).includes(key)) continue
     const rustic = key === 'forest'
     const edges: [number, number, number, number, number, number][] = [
       // x0, z0, x1, z1, outward normal

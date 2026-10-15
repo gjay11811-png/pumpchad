@@ -409,8 +409,8 @@ export class World implements GameScene {
       ...MOTOR_ROW_LAMPS,
       ...lakeLamps(),
       ...ESTATE_LAMPS,
-      ...SOUTHSHORE_LAMPS,
-      ...MILL_LAMPS,
+      ...(EXPANSION_OPEN ? SOUTHSHORE_LAMPS : []), // Southshore + Mill Row are the next update
+      ...(EXPANSION_OPEN ? MILL_LAMPS : []),
     ])
     this.city = buildChadCity(this.scene, q, this.disposables, this.night)
     // the great distant skyline now stands far beyond the valley city (it is the backdrop, not a place you can reach)
