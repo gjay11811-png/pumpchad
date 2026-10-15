@@ -99,7 +99,7 @@ export function ChallengePanel({ open, save, notes, onClose }: { open: boolean; 
             animate={{ y: 0 }}
             exit={{ y: 60, transition: { duration: 0.15 } }}
             transition={{ type: 'spring', stiffness: 420, damping: 36 }}
-            className="absolute inset-x-0 bottom-0 mx-auto w-full max-w-lg landscape:inset-x-auto landscape:inset-y-0 landscape:bottom-auto landscape:right-0 landscape:mx-0 landscape:w-[min(46vw,22rem)] landscape:max-w-none"
+            className="absolute inset-x-0 bottom-0 mx-auto w-full max-w-lg landscape:inset-x-auto landscape:inset-y-0 landscape:right-0 landscape:mx-0 landscape:w-[min(46vw,22rem)] landscape:max-w-none"
           >
           {/* the drag (swipe-down) transform lives on this inner layer, so it never fights the open/close animation */}
           <div
