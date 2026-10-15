@@ -1,7 +1,7 @@
 import { AnimatePresence, m } from 'framer-motion'
 import { useEffect, useRef, useState } from 'react'
 import { audio } from '../audio'
-import { MAX_TOSS_SCORE, TOSS, type TargetRange, type TossStats } from '../minigames/targetThrow'
+import { MAX_TOSS_SCORE, TOSS, WEAPONS, type TargetRange, type TossStats, type Weapon } from '../minigames/targetThrow'
 import { Btn, Label } from './kit'
 
 export type TossResult = { xp: number; mult: number; best: number; newBest: boolean }
@@ -13,18 +13,21 @@ type Phase = 'ready' | 'run' | 'done'
  */
 export function TargetPanel({
   range,
-  best,
+  bests,
   onPhase,
   onFinish,
   onClose,
 }: {
   range: TargetRange
-  best: number
+  bests: Record<Weapon, number>
   onPhase: (p: Phase) => void
-  onFinish: (s: TossStats) => TossResult
+  onFinish: (s: TossStats, weapon: Weapon) => TossResult
   onClose: () => void
 }) {
   const [phase, setPhaseState] = useState<Phase>('ready')
+  const [weapon, setWeaponState] = useState<Weapon>(range.weapon)
+  const W = WEAPONS[weapon]
+  const best = bests[weapon]
   const [result, setResult] = useState<{ s: TossStats; r: TossResult } | null>(null)
   const [pop, setPop] = useState<{ k: number; pts: number; label: string } | null>(null)
   const scoreRef = useRef<HTMLSpanElement>(null)
@@ -42,7 +45,7 @@ export function TargetPanel({
     }
     range.onEnd = (s) => {
       audio.play('achievement')
-      setResult({ s, r: onFinish(s) })
+      setResult({ s, r: onFinish(s, range.weapon) })
       setPhase('done')
     }
     return () => {
@@ -78,6 +81,10 @@ export function TargetPanel({
     }
     const move = (e: PointerEvent) => {
       const c = onCanvas(e)
+      if (c && range.weapon === 'pistol') {
+        const r = c.getBoundingClientRect()
+        range.aim(((e.clientX - r.left) / r.width) * 2 - 1, -(((e.clientY - r.top) / r.height) * 2 - 1))
+      }
       if (reticle.current) {
         reticle.current.style.opacity = c ? '1' : '0'
         reticle.current.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`
@@ -104,6 +111,7 @@ export function TargetPanel({
     audio.play('confirm')
     setResult(null)
     setPop(null)
+    range.weapon = weapon
     range.start()
     setPhase('run')
   }
@@ -133,7 +141,7 @@ export function TargetPanel({
             <div className="panel pointer-events-none rounded-2xl px-4 py-2.5 [@media(max-height:480px)]:py-1.5">
               <div className="flex items-end justify-between gap-3">
                 <div>
-                  <Label className="text-moon/80">Pumpkin Toss</Label>
+                  <Label className="text-moon/80">{W.name}</Label>
                   <p className="font-display text-4xl leading-none">
                     <span ref={scoreRef} data-testid="toss-score">0</span>
                   </p>
@@ -148,7 +156,7 @@ export function TargetPanel({
                   </button>
                 </div>
               </div>
-              <p className="mt-1.5 text-[12px] text-bone/65 [@media(max-height:480px)]:hidden">Click or tap a board to throw. Bullseye 50 · inner 25 · outer 10 — far boards ×1.5, the sliding board ×2.</p>
+              <p className="mt-1.5 text-[12px] text-bone/65 [@media(max-height:480px)]:hidden">Click or tap a board to {W.verb}. Bullseye 50 · inner 25 · outer 10 — far boards ×1.5, the sliding board ×2.</p>
             </div>
             <div className="relative mt-2 h-10 text-center">
               <AnimatePresence mode="wait">
@@ -177,13 +185,31 @@ export function TargetPanel({
                 ✕
               </button>
             </div>
-            <p className="mt-1 font-display text-4xl uppercase leading-none">Pumpkin Toss</p>
+            <p className="mt-1 font-display text-4xl uppercase leading-none">{W.name}</p>
+            <div className="mt-3 flex gap-2" role="radiogroup" aria-label="Weapon">
+              {(['toss', 'pistol'] as const).map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  role="radio"
+                  aria-checked={weapon === k}
+                  data-testid={`weapon-${k}`}
+                  onClick={() => {
+                    setWeaponState(k)
+                    range.weapon = k
+                  }}
+                  className={`min-h-11 flex-1 rounded-2xl px-3 font-mono text-[12px] uppercase tracking-wider ring-1 ${weapon === k ? 'bg-bone/15 ring-[#ffd25a] text-bone' : 'bg-bone/[0.04] ring-bone/10 text-bone/70'}`}
+                >
+                  {k === 'toss' ? 'Pumpkin' : 'Pistol'}
+                </button>
+              ))}
+            </div>
             <ul className="mt-3 grid gap-1.5 text-[14px] text-bone/80">
-              <li>• {TOSS.throws} throws from the line. Click (mouse) or tap (touch) a board to throw a pumpkin at that spot.</li>
+              <li>• {TOSS.throws} {W.noun} from the line. Click (mouse) or tap (touch) a board to {W.verb} {weapon === 'pistol' ? 'a pumpkin-seed round straight at' : 'a pumpkin at'} that spot.</li>
               <li>• Bullseye 50 · inner ring 25 · outer ring 10. The far boards are worth ×1.5; the one sliding side to side is ×2 — time it.</li>
               <li>• You stay on the line while the round runs. Esc or Quit ends it with no reward.</li>
             </ul>
-            <p className="mt-3 font-mono text-[11px] uppercase tracking-[0.2em] text-ash" data-testid="toss-best">Your best (this device): {best || '—'}</p>
+            <p className="mt-3 font-mono text-[11px] uppercase tracking-[0.2em] text-ash" data-testid="toss-best">Your best with this weapon (this device): {best || '—'}</p>
             <div className="sticky bottom-0 mt-5 flex gap-2 bg-ink/95 pb-1 pt-2">
               <Btn className="flex-1" size="lg" onClick={start} sound={null} data-testid="toss-start">
                 Start
@@ -205,7 +231,7 @@ export function TargetPanel({
                 [
                   ['Hits', `${result.s.hits}/${result.s.thrown}`],
                   ['Bullseyes', result.s.bulls],
-                  ['Throws', result.s.thrown],
+                  [weapon === 'pistol' ? 'Shots' : 'Throws', result.s.thrown],
                 ] as const
               ).map(([k, v]) => (
                 <div key={k} className="rounded-xl bg-bone/[0.04] py-2 ring-1 ring-bone/10">
@@ -220,7 +246,7 @@ export function TargetPanel({
             {result.r.mult < 1 && <p className="mt-1 text-center font-mono text-[11px] uppercase tracking-[0.16em] text-ash">Tired arm · {Math.round(result.r.mult * 100)}% XP for more rounds today</p>}
             <div className="sticky bottom-0 mt-4 flex gap-2 bg-ink/95 pb-1 pt-2">
               <Btn className="flex-1" onClick={start} sound={null} data-testid="toss-again">
-                Throw again
+                {weapon === 'pistol' ? 'Shoot again' : 'Throw again'}
               </Btn>
               <Btn variant="ghost" className="flex-1" onClick={quit} data-testid="toss-done">
                 Done

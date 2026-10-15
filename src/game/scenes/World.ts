@@ -810,7 +810,7 @@ export class World implements GameScene {
     if (site) {
       const note = new THREE.MeshStandardMaterial({ map: boardTexture('PUMPKIN TOSS', ['10 throws · click or tap', 'bullseye 50'], 1.8, PANEL.dark, this.disposables), roughness: 0.8 })
       this.disposables.push(note)
-      this.range = new TargetRange(this.scene, this.camera, site, groundHeight, () => this.playerPos, note)
+      this.range = new TargetRange(this.scene, this.camera, site, groundHeight, () => this.playerPos, note, () => this.player)
       this.colliders.push(...this.range.colliders())
       const s = this.range.at(0, -1.6)
       add('target', 'Play Pumpkin Toss', s.x, s.z, 2.0, 'activity')
@@ -1749,6 +1749,14 @@ export class World implements GameScene {
       triangles: info.render.triangles,
       npcs: this.crowd.live.length,
     }
+  }
+  /** QA: world position of the right hand (where a held weapon sits) */
+  handPos() {
+    const f = this.player?.fistR
+    if (!f) return null
+    const v = new THREE.Vector3()
+    f.getWorldPosition(v)
+    return { x: +v.x.toFixed(3), y: +v.y.toFixed(3), z: +v.z.toFixed(3) }
   }
   /** QA: the heaviest meshes in the scene (triangles × instances), to find what costs the frame */
   triBreakdown(top = 14) {

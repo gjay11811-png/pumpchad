@@ -132,7 +132,7 @@ function countMap(v: unknown, keys: string[], max = 1e7): Record<string, number>
 }
 /** station → rep count, only known stations */
 const repMap = (v: unknown) => countMap(v, STATION_KEYS)
-export const RECORD_KEYS = ['pumpkin_rush', 'fishing', 'event_hunt', 'event_invasion', 'event_festival', 'event_storm', 'event_race', 'race_best', 'pumpkin_toss', 'ghost_hunt', 'event_ghosthunt', 'parkour_rookie', 'parkour_roof']
+export const RECORD_KEYS = ['pumpkin_rush', 'fishing', 'event_hunt', 'event_invasion', 'event_festival', 'event_storm', 'event_race', 'race_best', 'pumpkin_toss', 'ghost_hunt', 'event_ghosthunt', 'parkour_rookie', 'parkour_roof', 'pistol_range']
 
 export function sanitizeSave(raw: unknown): SaveData {
   const d = defaultSave()

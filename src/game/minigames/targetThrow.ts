@@ -16,6 +16,14 @@ export const TOSS = {
   xpCap: 60,
 } as const
 
+/** the second weapon on the same range: a stylised pumpkin-seed pistol — a straight, fast shot at the same boards, scored the same way */
+export type Weapon = 'toss' | 'pistol'
+export const WEAPONS: Record<Weapon, { name: string; verb: string; noun: string; flight: number; key: 'pumpkin_toss' | 'pistol_range' }> = {
+  toss: { name: 'Pumpkin Toss', verb: 'throw', noun: 'throws', flight: 0.38, key: 'pumpkin_toss' },
+  pistol: { name: 'Pistol Range', verb: 'shoot', noun: 'shots', flight: 0.07, key: 'pistol_range' },
+}
+export type HandRig = { fistR: THREE.Object3D; grip?(targetL: THREE.Vector3 | null, targetR: THREE.Vector3 | null): void }
+
 export type TossStats = { score: number; hits: number; bulls: number; thrown: number }
 /** points for a hit at normalised distance `r` (0 centre … 1 rim) on a board worth `mult` */
 export const ringPoints = (r: number, mult: number) => (r > 1 ? 0 : Math.round((r < TOSS.bull ? 50 : r < TOSS.inner ? 25 : 10) * mult))
@@ -29,6 +37,8 @@ export type TossSite = { x: number; z: number; yaw: number }
 
 export class TargetRange {
   phase: TossPhase = 'idle'
+  /** which weapon the next round uses (set by the panel before start()) */
+  weapon: Weapon = 'toss'
   stats: TossStats = { score: 0, hits: 0, bulls: 0, thrown: 0 }
   /** the last throw, for the HUD */
   last: { pts: number; label: string; k: number } | null = null
@@ -43,6 +53,12 @@ export class TargetRange {
   private t = 0
   private ray = new THREE.Raycaster()
   private pumpkin: THREE.Mesh
+  private pistol: THREE.Group | null = null
+  private bullet: THREE.Mesh | null = null
+  private flash: { mesh: THREE.Mesh; t: number } | null = null
+  private aimPt = new THREE.Vector3()
+  private armed: THREE.Object3D | null = null
+  private flashMesh: THREE.Mesh | null = null
   private fwd: THREE.Vector3
   private right: THREE.Vector3
   private disposables: (THREE.BufferGeometry | THREE.Material)[] = []
@@ -55,6 +71,7 @@ export class TargetRange {
     private ground: (x: number, z: number) => number,
     private playerAt: () => THREE.Vector3,
     private noteMat?: THREE.Material,
+    private getPlayer?: () => HandRig | null,
   ) {
     this.stand = site
     this.fwd = new THREE.Vector3(Math.sin(site.yaw), 0, Math.cos(site.yaw))
@@ -163,9 +180,13 @@ export class TargetRange {
     this.pumpkin.visible = false
     this.cool = 0.4
     this.phase = 'playing'
+    if (this.weapon === 'pistol') this.equip()
+    else this.unequip()
+    this.aimPt.copy(this.at(0, 8, 1.5))
   }
 
   stop() {
+    this.unequip()
     this.clearMarks()
     this.flying = null
     this.pumpkin.visible = false
@@ -181,6 +202,49 @@ export class TargetRange {
   private clearMarks() {
     for (const m of this.marks) m.removeFromParent()
     this.marks = []
+  }
+
+  /** the pistol in the right hand (built on first use); the arm follows the aim point while the round runs */
+  private equip() {
+    const hand = this.getPlayer?.()?.fistR
+    if (!hand) return
+    if (!this.pistol) {
+      const steel = new THREE.MeshStandardMaterial({ color: 0x23242b, metalness: 0.85, roughness: 0.34 })
+      const grip = new THREE.MeshStandardMaterial({ color: 0x5a3a24, roughness: 0.7 })
+      const accent = new THREE.MeshStandardMaterial({ color: 0xff8a1a, emissive: 0xff6a10, emissiveIntensity: 0.9 })
+      this.disposables.push(steel, grip, accent)
+      const g = new THREE.Group()
+      const part = (geo: THREE.BufferGeometry, m: THREE.Material, x: number, y: number, z: number, rx = 0) => {
+        this.disposables.push(geo)
+        const mesh = new THREE.Mesh(geo, m)
+        mesh.position.set(x, y, z)
+        mesh.rotation.x = rx
+        g.add(mesh)
+        return mesh
+      }
+      // built along +z (muzzle forward), +y up: slide, barrel, frame, grip, trigger guard, front sight, a glowing seed chamber
+      part(new THREE.BoxGeometry(0.034, 0.042, 0.2), steel, 0, 0.03, 0.08)
+      part(new THREE.CylinderGeometry(0.011, 0.011, 0.07, 10).rotateX(Math.PI / 2), steel, 0, 0.026, 0.205)
+      part(new THREE.BoxGeometry(0.03, 0.03, 0.15), steel, 0, 0.0, 0.05)
+      part(new THREE.BoxGeometry(0.032, 0.11, 0.045), grip, 0, -0.06, -0.012, 0.22)
+      part(new THREE.TorusGeometry(0.022, 0.004, 5, 10, Math.PI).rotateZ(Math.PI / 2).rotateY(Math.PI / 2), steel, 0, -0.025, 0.05)
+      part(new THREE.BoxGeometry(0.008, 0.012, 0.012), accent, 0, 0.056, 0.17)
+      part(new THREE.BoxGeometry(0.006, 0.006, 0.07), accent, 0.0175, 0.032, 0.08)
+      this.pistol = g
+    }
+    this.pistol.position.set(0, 0.08, 0.04)
+    this.pistol.rotation.set(-Math.PI / 2, 0, 0) // the hand bone points its length along +y: lay the barrel along it, then forward by the grip IK
+    hand.add(this.pistol)
+    this.armed = hand
+  }
+  private unequip() {
+    this.pistol?.removeFromParent()
+    this.armed = null
+  }
+  /** the pointer moved over the 3D view: the pistol arm follows it (a point 7 m out along the aim ray) */
+  aim(ndcX: number, ndcY: number) {
+    this.ray.setFromCamera(new THREE.Vector2(ndcX, ndcY), this.camera)
+    this.aimPt.copy(this.ray.ray.origin).addScaledVector(this.ray.ray.direction, 7)
   }
 
   get left() {
@@ -240,10 +304,35 @@ export class TargetRange {
     } else {
       to = o.clone().addScaledVector(d, 18)
     }
-    const from = this.playerAt().clone().add(new THREE.Vector3(0, 1.35, 0)).addScaledVector(this.fwd, 0.3)
-    this.flying = { mesh: this.pumpkin, from, to: to.clone(), t: 0, pts, label, last: this.stats.thrown + 1 >= TOSS.throws }
-    this.pumpkin.visible = true
-    this.pumpkin.position.copy(from)
+    let from = this.playerAt().clone().add(new THREE.Vector3(0, 1.35, 0)).addScaledVector(this.fwd, 0.3)
+    let mesh = this.pumpkin
+    if (this.weapon === 'pistol') {
+      // the muzzle (when the pistol is in the hand), else just in front of the chest; a short glowing tracer instead of a lobbed pumpkin
+      if (this.pistol && this.armed) this.pistol.localToWorld(from.set(0, 0.03, 0.245))
+      if (!this.bullet) {
+        const g = new THREE.CylinderGeometry(0.012, 0.012, 0.5, 6).rotateX(Math.PI / 2)
+        const m = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffb03a').multiplyScalar(2.4), toneMapped: false })
+        this.disposables.push(g, m)
+        this.bullet = new THREE.Mesh(g, m)
+        this.root.add(this.bullet)
+      }
+      mesh = this.bullet
+      if (!this.flashMesh) {
+        const fg = new THREE.SphereGeometry(0.09, 8, 6)
+        const fm = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffd070').multiplyScalar(3), toneMapped: false, transparent: true, opacity: 0.9 })
+        this.disposables.push(fg, fm)
+        this.flashMesh = new THREE.Mesh(fg, fm)
+      }
+      this.flashMesh.position.copy(from)
+      ;(this.flashMesh.material as THREE.MeshBasicMaterial).opacity = 0.9
+      this.flashMesh.scale.setScalar(0.6)
+      this.root.add(this.flashMesh)
+      this.flash = { mesh: this.flashMesh, t: 0 }
+    }
+    this.flying = { mesh, from, to: to.clone(), t: 0, pts, label, last: this.stats.thrown + 1 >= TOSS.throws }
+    mesh.visible = true
+    mesh.position.copy(from)
+    if (this.weapon === 'pistol') mesh.lookAt(to)
     this.stats.thrown++
     return true
   }
@@ -258,16 +347,32 @@ export class TargetRange {
     }
     if (this.phase !== 'playing') return
     this.cool = Math.max(0, this.cool - dt)
+    // the muzzle flash lives ~70 ms; the arm tracks the aim point (real rigs only)
+    if (this.flash) {
+      this.flash.t += dt
+      const o = Math.max(0, 1 - this.flash.t / 0.07)
+      ;(this.flash.mesh.material as THREE.MeshBasicMaterial).opacity = o
+      this.flash.mesh.scale.setScalar(0.6 + (1 - o))
+      if (o <= 0) {
+        this.flash.mesh.removeFromParent()
+        this.flash = null
+      }
+    }
+    if (this.weapon === 'pistol' && this.armed) this.getPlayer?.()?.grip?.(null, this.aimPt)
     const f = this.flying
     if (!f) return
-    f.t += dt / TOSS.flight
+    const pistol = this.weapon === 'pistol'
+    f.t += dt / WEAPONS[this.weapon].flight
     const k = Math.min(1, f.t)
     f.mesh.position.lerpVectors(f.from, f.to, k)
-    f.mesh.position.y += Math.sin(k * Math.PI) * 0.9
-    f.mesh.rotation.x += dt * 12
+    if (!pistol) {
+      f.mesh.position.y += Math.sin(k * Math.PI) * 0.9
+      f.mesh.rotation.x += dt * 12
+    }
     if (k >= 1) {
       this.flying = null
       this.pumpkin.visible = false
+      if (this.bullet) this.bullet.visible = false
       this.cool = TOSS.gap
       if (f.pts > 0) {
         this.stats.hits++

@@ -26,6 +26,7 @@ import { WorkoutPanel } from './ui/WorkoutPanel'
 import { RushPanel, type RushResult } from './ui/RushPanel'
 import { EventPanel, type EventResult } from './ui/EventPanel'
 import { TargetPanel, type TossResult } from './ui/TargetPanel'
+import { WEAPONS, type Weapon } from './minigames/targetThrow'
 import { tossXp, type TossStats } from './minigames/targetThrow'
 import { ALL_EVENT_IDS, EVENT_DEFS, EVENT_IDS, type EventId, type EventStats } from './minigames/events'
 import { rushXp, type RushStats } from './minigames/pumpkinRush'
@@ -874,10 +875,11 @@ export function GameApp() {
   }
 
   /** a finished Pumpkin Toss: XP (daily fatigue), personal best, achievement */
-  const finishToss = (st: TossStats): TossResult => {
+  const finishToss = (st: TossStats, weapon: Weapon = 'toss'): TossResult => {
     const p0 = saveRef.current.progress
-    const r = setRewards(tossXp(st.score), 0, rollDaily(p0.daily).sets.pumpkin_toss ?? 0)
-    const prev = p0.records.pumpkin_toss ?? 0
+    const key = WEAPONS[weapon].key
+    const r = setRewards(tossXp(st.score), 0, rollDaily(p0.daily).sets[key] ?? 0)
+    const prev = p0.records[key] ?? 0
     setSave((s) => {
       const d = rollDaily(s.progress.daily)
       return {
@@ -885,8 +887,8 @@ export function GameApp() {
         progress: {
           ...s.progress,
           xp: s.progress.xp + r.xp,
-          records: { ...s.progress.records, pumpkin_toss: Math.max(s.progress.records.pumpkin_toss ?? 0, st.score) },
-          daily: { day: d.day, sets: { ...d.sets, pumpkin_toss: (d.sets.pumpkin_toss ?? 0) + 1 } },
+          records: { ...s.progress.records, [key]: Math.max(s.progress.records[key] ?? 0, st.score) },
+          daily: { day: d.day, sets: { ...d.sets, [key]: (d.sets[key] ?? 0) + 1 } },
         },
       }
     })
@@ -946,6 +948,7 @@ export function GameApp() {
       shotCam: (o: Parameters<World['setShotCam']>[0]) => world.current?.setShotCam(o),
       stats: () => engine.current?.stats,
       gfxLog: () => engine.current?.gfxLog() ?? [],
+      handPos: () => world.current?.handPos() ?? null,
       triBreakdown: (n?: number) => world.current?.triBreakdown(n) ?? null,
       loseContext: () => engine.current?.canvasLoseContext(),
       integrity: () => world.current?.integrity() ?? null,
@@ -1115,7 +1118,7 @@ export function GameApp() {
                 {tgt && world.current?.range && (
                   <TargetPanel
                     range={world.current.range}
-                    best={save.progress.records.pumpkin_toss ?? 0}
+                    bests={{ toss: save.progress.records.pumpkin_toss ?? 0, pistol: save.progress.records.pistol_range ?? 0 }}
                     onPhase={setTgt}
                     onFinish={finishToss}
                     onClose={() => {
