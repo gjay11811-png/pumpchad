@@ -22,7 +22,7 @@ export const ESTATES = {
 export const ESTATE_LAMPS: [number, number][] = [
   [-36, 44.6], [-56, 44.6], [-44.5, 57], [-49.5, 57], [-44.5, 71], [-49.5, 71],
   ...[0, 1, 2, 3, 4, 5, 6].flatMap((i): [number, number][] => [[-78 - i * 26, i % 2 ? 35.6 : 40.4], [-78 - i * 26, i % 2 ? 59.6 : 64.4]]),
-  [-68, 31], [-68, 54], [-68, 70],
+  [-69.3, 31], [-69.3, 54], [-69.3, 70],
 ]
 
 export function estatesDistrict(T: Town) {
