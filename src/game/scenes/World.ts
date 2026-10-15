@@ -1137,8 +1137,8 @@ export class World implements GameScene {
 
   /** a low obstacle straight ahead that a plain jump cannot clear but a vault can: returns the apex to ask for, else 0 */
   private vaultApex() {
-    const ax = this.playerPos.x + Math.sin(this.playerYaw) * 0.85
-    const az = this.playerPos.z + Math.cos(this.playerYaw) * 0.85
+    const ax = this.playerPos.x + Math.sin(this.playerYaw) * 1.25
+    const az = this.playerPos.z + Math.cos(this.playerYaw) * 1.25
     let top = 0
     for (const c of this.colliders) {
       const h = c.h
