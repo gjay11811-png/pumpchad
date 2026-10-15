@@ -8,7 +8,7 @@ import { BRIDGE, DESCENT, DESCENT_LEN, DESCENT_W, OVERLOOK, VALLEY_Y, VIADUCT } 
 import { lakeRho } from './valley'
 import { isNight } from './daylight'
 import { archGeo } from './archGeo'
-import { crownGeo, trunkGeo } from './treegeo'
+import { FoliageBuilder, leafTexture } from './foliage'
 
 /**
  * THE VALLEY ROAD, built: the cobbled carriageway with a raised footway and kerb each side, retaining walls and a parapet
@@ -17,7 +17,6 @@ import { crownGeo, trunkGeo } from './treegeo'
  * outcrops on the banks. Everything is in world coordinates (the road's y changes along it).
  */
 const ID = new THREE.Matrix4()
-const Y = new THREE.Vector3(0, 1, 0)
 
 function laid(T: Town, geo: THREE.BufferGeometry, mat: THREE.Material, x: number, y: number, z: number, ang: number, pitch: number, cast = true) {
   const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch, ang, 0, 'YXZ'))
@@ -318,16 +317,12 @@ export function descentRoad(T: Town, q: 'low' | 'medium' | 'high') {
 
   /* ── autumn trees and rock outcrops on the banks (instanced, cheap) ── */
   {
-    const trunk = trunkGeo()
-    const crown = crownGeo('broad', 21)
-    const crown2 = crownGeo('oval', 22)
     const rock = new THREE.DodecahedronGeometry(1, 0)
-    const trees: THREE.Matrix4[] = []
-    const colours: THREE.Color[] = []
+    const plants: [number, number, number, number][] = [] // x, y, z, scale — grown into real trees below
     const rocks: THREE.Matrix4[] = []
     const palette = ['#b8561c', '#c8781c', '#8a5a1c', '#6f8a3a', '#a8321f', '#d89a2a']
     const nTree = q === 'low' ? 50 : q === 'medium' ? 110 : 170
-    for (let i = 0; i < nTree * 14 && (trees.length < nTree || rocks.length < nTree / 2); i++) {
+    for (let i = 0; i < nTree * 14 && (plants.length < nTree || rocks.length < nTree / 2); i++) {
       const s = R() * DESCENT_LEN
       const p = DESCENT.pointAt(s)
       const side = R() < 0.5 ? -1 : 1
@@ -343,19 +338,15 @@ export function descentRoad(T: Town, q: 'low' | 'medium' | 'high') {
       const gy = terrainHeight(x, z)
       if (Math.abs(gy - nn.y) > 9 && R() < 0.7) continue
       const m = new THREE.Matrix4()
-      if (R() < 0.72 && trees.length < nTree) {
-        const sc = 0.7 + R() * 0.9
-        m.compose(new THREE.Vector3(x, gy - 0.15, z), new THREE.Quaternion().setFromAxisAngle(Y, R() * 6), new THREE.Vector3(sc, sc * (0.85 + R() * 0.5), sc))
-        trees.push(m)
-        colours.push(new THREE.Color(palette[Math.floor(R() * palette.length)]))
+      if (R() < 0.72 && plants.length < nTree) {
+        plants.push([x, gy - 0.15, z, 0.7 + R() * 0.9])
       } else if (rocks.length < nTree / 2) {
         const sc = 0.6 + R() * 1.8
         m.compose(new THREE.Vector3(x, gy + sc * 0.2, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(R() * 3, R() * 3, R() * 3)), new THREE.Vector3(sc * 1.4, sc * 0.8, sc))
         rocks.push(m)
       }
     }
-    const leafMat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.92, flatShading: true, vertexColors: true })
-    D.push(leafMat, rock)
+    D.push(rock)
     const place = (geo: THREE.BufferGeometry, mat: THREE.Material, list: THREE.Matrix4[], cols?: THREE.Color[]) => {
       if (!list.length) return
       const im = new THREE.InstancedMesh(geo, mat, list.length)
@@ -367,13 +358,19 @@ export function descentRoad(T: Town, q: 'low' | 'medium' | 'high') {
       im.computeBoundingSphere()
       T.scene.add(im)
     }
-    const treesB = trees.filter((_, i) => i % 3 === 0)
-    const colB = colours.filter((_, i) => i % 3 === 0)
-    const treesA = trees.filter((_, i) => i % 3 !== 0)
-    const colA = colours.filter((_, i) => i % 3 !== 0)
-    place(crown, leafMat, treesA, colA)
-    place(crown2, leafMat, treesB, colB)
-    place(trunk, P.bark, trees)
+    // real trees (treegen): broadleaf in autumn colours, birches, the odd pine; far version beyond 75 m, gone beyond 260 m
+    const FB = new FoliageBuilder(555, q === 'high' ? 1 : q === 'medium' ? 0.6 : 0.4)
+    const autumn = palette.map((c) => new THREE.Color(c))
+    const pineCols = [new THREE.Color('#2a4a34'), new THREE.Color('#315a3a')]
+    const barkC = new THREE.Color('#3a2a20')
+    for (const [x, y, z, sc] of plants) {
+      const roll = R()
+      if (roll < 0.5) FB.plant('oak', x, z, sc, autumn, barkC, y)
+      else if (roll < 0.7) FB.plant('birch', x, z, sc, autumn, new THREE.Color('#cfcbc0'), y)
+      else if (roll < 0.9) FB.plant('pine', x, z, sc, pineCols, barkC, y)
+      else FB.plant('poplar', x, z, sc, autumn, barkC, y)
+    }
+    FB.build(T.scene, leafTexture(D), D, false)
     place(rock, P.rock, rocks)
   }
 }

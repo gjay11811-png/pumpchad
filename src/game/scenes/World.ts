@@ -52,7 +52,7 @@ import { MOTOR_ROW_LAMPS, MOTOR_ROW_TREES, motorRow } from './world/motorRow'
 
 /** where the player appears: the start, outside the gym, or outside a house door */
 export type SpawnAt = 'start' | 'gym' | { x: number; z: number; yaw: number }
-import { arrival } from './world/gateway'
+import { GATE_SHRUBS, arrival } from './world/gateway'
 import { perimeter } from './world/perimeter'
 import { citadel, CITADEL } from './world/citadel'
 import { eastside } from './world/eastside'
@@ -366,7 +366,7 @@ export class World implements GameScene {
     this.quest = guardianLanterns(T)
     estatesDistrict(T)
     this.estate = new EstateView(T, this.colliders)
-    greenery.potted = citadelShrubs
+    greenery.potted = [...citadelShrubs, ...GATE_SHRUBS]
     lawns(T, SM.trim, extraSeats, greenery)
     this.seats.push(...extraSeats)
     chadRides(T, SM.trim)

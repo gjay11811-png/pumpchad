@@ -197,21 +197,16 @@ export class FoliageBuilder {
     this.plant('shrub', x, z, s * 1.15, palette, new THREE.Color('#3a2c22'), y)
   }
 
-  /** clipped hedge: overlapping lumps along a line + a leafy skin; axis 'x' or 'z' */
+  /** a hedge: a row of overlapping real shrubs (varied stems and leaf clumps), trimmed to the requested height; axis 'x' or 'z' */
   hedge(x: number, z: number, len: number, width: number, height: number, axis: 'x' | 'z', green: THREE.Color) {
-    const dark = green.clone().multiplyScalar(0.4)
-    const light = green.clone().multiplyScalar(1.1)
-    const n = Math.max(2, Math.round(len / 0.55))
+    const palette = [green.clone().multiplyScalar(0.9), green.clone().multiplyScalar(1.12), green.clone().offsetHSL(0.015, 0, 0.03)]
+    const n = Math.max(2, Math.round(len / 0.62))
     for (let i = 0; i < n; i++) {
       const t = (i + 0.5) / n - 0.5
-      const end = Math.abs(t) > 0.5 - 0.5 / n ? 0.85 : 1 // rounded ends
-      const px = axis === 'x' ? x + t * len : x
-      const pz = axis === 'z' ? z + t * len : z
-      const rw = (width / 2) * (0.95 + this.r() * 0.12) * end
-      const rh = (height / 2) * (0.95 + this.r() * 0.1) * end
-      const rl = (len / n) * 0.75
-      this.blob(px, height / 2, pz, axis === 'x' ? rl : rw, rh, axis === 'z' ? rl : rw, dark, light)
-      this.leaves(px, height / 2, pz, axis === 'x' ? rl : rw, rh, axis === 'z' ? rl : rw, 11, 0.44, light, 0.18, -0.25)
+      const jitter = (this.r() - 0.5) * 0.12
+      const px = axis === 'x' ? x + t * len : x + jitter
+      const pz = axis === 'z' ? z + t * len : z + jitter
+      this.plant('shrub', px, pz, height * (1.05 + this.r() * 0.2) * (width > 0.8 ? 1.1 : 1), palette, new THREE.Color('#3a2c22'))
     }
   }
 

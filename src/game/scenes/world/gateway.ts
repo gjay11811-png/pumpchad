@@ -368,6 +368,9 @@ export function arrival(T: Town, stone: THREE.Material, trim: THREE.Material) {
 }
 
 
+/** shrubs the closed Valley Gate wants planted on its planters (grown by vegetation(): real branching shrubs, not modelled balls) */
+export const GATE_SHRUBS: [number, number, number, number][] = []
+
 /**
  * The CLOSED valley gate (first release): a pair of wrought-iron leaves meeting in the middle between the existing piers, warm lanterns on the
  * piers and a pair of lamp posts, a hedge + planter flank, and a plaque reading CHAD CITY — NEXT UPDATE. Bars are open so the road beyond
@@ -408,7 +411,7 @@ function closedValleyGate(T: Town, vx: number, vz: number, stone: THREE.Material
     for (let k = 0; k < 3; k++) {
       const hz = vz - 1.0 - k * 1.1
       T.batch.put(boxUV(1.3, 0.5, 1.0, 1), stone, vx + s * 3.7, 0.25, hz)
-      T.batch.put(new THREE.SphereGeometry(0.62, 10, 8), P.foliageDark, vx + s * 3.7, 0.9, hz, 0, 1.05, 0.9, 1)
+      GATE_SHRUBS.push([vx + s * 3.7, 0.5, hz, 0.95]) // a real shrub (planted by vegetation()), standing on the planter's soil line
     }
     T.colliders.push({ kind: 'box', minX: vx + s * 3.7 - 0.65, maxX: vx + s * 3.7 + 0.65, minZ: vz - 3.6, maxZ: vz - 0.4, h: 1.2 })
   }
