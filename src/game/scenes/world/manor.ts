@@ -13,6 +13,7 @@ import { inFrame } from './frame'
 import { pathRibbon } from './hamlet'
 import { CARS, sportsCar } from './vehicles'
 import { isNight } from './daylight'
+import { plantCrown } from './treegeo'
 
 /**
  * MOONCREST MANOR — a secluded hillside mansion over the lake. Arrival: a winding drive from the Lakeside Landing, ornate
@@ -357,10 +358,11 @@ export function manor(T: Town, q: Quality, stoneTex: THREE.Texture, seats: Bench
       L.colliders.push({ kind: 'box', minX: cx - 3.8, maxX: cx + 3.8, minZ: cz - 6.2, maxZ: cz + 6.2, h: 4.4 })
       // framing trees (mixed), planted deliberately so the lake stays visible from the terrace
       const treePts: [number, number, number, number][] = [[18, -14, 1.2, 0], [20, 6, 1.3, 1], [22, 16, 1.1, 0], [-8, -34, 1.2, 1], [12, -37, 1.0, 0], [-16, 24, 1.15, 0], [-8, 33, 1.2, 1], [26, -2, 1.0, 2], [-34, -16, 1.25, 0], [-34, 16, 1.25, 1], [-14, -18, 1.0, 2]]
+      const leafA = new THREE.MeshStandardMaterial({ color: '#c8661c', roughness: 0.92, flatShading: true })
+      const leafG = new THREE.MeshStandardMaterial({ color: '#40703e', roughness: 0.92, flatShading: true })
+      D.push(leafA, leafG)
       for (const [tx, tz, s, k] of treePts) {
-        L.batch.put(new THREE.CylinderGeometry(0.2 * s, 0.3 * s, 3.4 * s, 7), P.bark, tx, 1.7 * s, tz)
-        if (k === 2) for (let j = 0; j < 5; j++) L.batch.put(new THREE.ConeGeometry((1.9 - j * 0.32) * s, 1.6 * s, 8), P.foliageDark, tx, (2.2 + j * 1.1) * s, tz)
-        else for (const [r, y, dx, dz] of [[2.4, 3.9, 0, 0], [1.8, 5.0, 0.3, 0.1], [1.2, 5.8, 0, 0], [1.4, 4.2, 1.4, 0.5], [1.3, 4.4, -1.3, -0.6]] as const) L.batch.put(new THREE.SphereGeometry(r * s, 9, 6).scale(1, 0.55, 1), k === 0 ? P.foliageAutumn : P.foliage, tx + dx * s, y * s, tz + dz * s)
+        plantCrown(L.batch, k === 0 ? leafA : leafG, P.bark, tx, 0, tz, s, k === 1 ? 'spread' : k === 2 ? 'oval' : 'broad', Math.round(tx * 5 + tz))
         L.colliders.push({ kind: 'circle', x: tx, z: tz, r: 0.5, h: 5 })
       }
       void R

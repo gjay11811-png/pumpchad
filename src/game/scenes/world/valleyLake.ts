@@ -12,6 +12,7 @@ import { archMats, displayMaterial, shop, type ArchMats, type Roof } from './arc
 import { flowerTub } from './ornament'
 import { parkBench, type BenchSpot } from './westside'
 import { inFrame } from './frame'
+import { plantCrown } from './treegeo'
 
 /**
  * MOONMERE — the lake in the valley basin beside Chad City, finished as one scene: the water (irregular shoreline, shelving
@@ -354,10 +355,9 @@ export function valleyLakeFrame(L: Town, q: Quality, seats: BenchSpot[], stoneTe
     }
     for (const z of [422, 432, 442, 450]) flowerTub(L, 78.4, z, { long: 2.2, ry: Math.PI / 2 })
     // trees: framing, in groups, with a clear line of sight to the water
+    const lf = std({ color: '#c8741c', roughness: 0.92, flatShading: true })
     for (const [tx, tz, s] of [[76, 419, 1.1], [80.5, 428, 1.0], [80.5, 444, 1.15], [77, 452, 0.95], [53, 452, 1.0]] as const) {
-      L.batch.put(new THREE.CylinderGeometry(0.16 * s, 0.24 * s, 2.8 * s, 6), P.bark, tx, 1.4 * s, tz)
-      for (const [r, y, dx, dz] of [[2.0, 3.4, 0, 0], [1.5, 4.4, 0.3, 0.1], [1.0, 5.1, 0, 0], [1.2, 3.7, 1.2, 0.4], [1.1, 3.9, -1.1, -0.5]] as const)
-        L.batch.put(new THREE.SphereGeometry(r * s, 9, 6).scale(1, 0.55, 1), P.foliageAutumn, tx + dx * s, y * s, tz + dz * s)
+      plantCrown(L.batch, lf, P.bark, tx, 0, tz, s, 'spread', Math.round(tx + tz))
       L.colliders.push({ kind: 'circle', x: tx, z: tz, r: 0.4, h: 4 })
     }
     // the fishing pier: a timber deck on piles out over the inlet, a lantern at the head, a rail along both sides

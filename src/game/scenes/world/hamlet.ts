@@ -11,6 +11,7 @@ import { archMats, detailWalls, displayMaterial, shop, type ArchMats } from './a
 import { climbers, flowerTub, windowBox } from './ornament'
 import { parkBench, type BenchSpot } from './westside'
 import { inFrame } from './frame'
+import { crownGeo, plantCrown, trunkGeo } from './treegeo'
 
 /**
  * THE ROADSIDE PLACES on the way down:
@@ -228,10 +229,12 @@ export function hamlet(T: Town, q: Quality, stoneTex: THREE.Texture, seats: Benc
       L.colliders.push({ kind: 'box', minX: gx + 0.9, maxX: gx + 4.6, minZ: gz - 3.6, maxZ: gz - 3.2, h: 1.8 })
     }
     // autumn trees in groups round the terrace (mixed species; the open side faces the valley)
+    const leafA = new THREE.MeshStandardMaterial({ color: '#c8661c', roughness: 0.92, flatShading: true })
+    const leafB = new THREE.MeshStandardMaterial({ color: '#d89a2a', roughness: 0.92, flatShading: true })
+    const leafG = new THREE.MeshStandardMaterial({ color: '#3f6a40', roughness: 0.92, flatShading: true })
+    D.push(leafA, leafB, leafG)
     for (const [tx, tz, s, k] of [[-50, 200, 1.1, 0], [-52, 224, 1.0, 1], [-8, 197, 0.95, 2], [-49, 238, 1.15, 0], [-5.5, 238, 1.0, 1], [-20, 240, 1.1, 2], [-31, 241, 0.9, 0]] as const) {
-      L.batch.put(new THREE.CylinderGeometry(0.16 * s, 0.24 * s, 3.0 * s, 6), P.bark, tx, 1.5 * s, tz)
-      if (k === 2) for (let j = 0; j < 4; j++) L.batch.put(new THREE.ConeGeometry((1.6 - j * 0.3) * s, 1.5 * s, 8), P.foliageDark, tx, (2.0 + j * 1.0) * s, tz)
-      else for (const [r, y, dx, dz] of [[2.0, 3.4, 0, 0], [1.5, 4.4, 0.3, 0.1], [1.0, 5.1, 0, 0], [1.2, 3.7, 1.2, 0.4], [1.1, 3.9, -1.1, -0.5]] as const) L.batch.put(new THREE.SphereGeometry(r * s, 9, 6).scale(1, 0.55, 1), k === 0 ? P.foliageAutumn : P.foliage, tx + dx * s, y * s, tz + dz * s)
+      plantCrown(L.batch, k === 0 ? leafA : k === 1 ? leafB : leafG, P.bark, tx, 0, tz, s, k === 2 ? 'oval' : k === 1 ? 'spread' : 'broad', Math.round(tx * 3 + tz))
       L.colliders.push({ kind: 'circle', x: tx, z: tz, r: 0.4, h: 4 })
     }
     void R
@@ -248,21 +251,10 @@ export function woodland(T: Town, q: Quality) {
   pathRibbon(T, WOOD_TRAIL, gravel, WOOD_TRAIL.width)
   pathRibbon(T, TOWER_TRAIL, gravel, TOWER_TRAIL.width)
   // trees: layered crowns (tiers) in three silhouettes + gold/red autumn tints, clustered round the trail with gaps for views
-  const trunk = new THREE.CylinderGeometry(0.15, 0.26, 3.4, 6)
-  trunk.translate(0, 1.7, 0)
-  const tiers = (r: number[], y: number[], flat = 0.55) => {
-    const parts = r.map((rr, i) => new THREE.SphereGeometry(rr, 9, 6).scale(1, flat, 1).translate((i % 2 ? 0.5 : -0.4) * rr * 0.5, y[i], (i % 3 ? 0.3 : -0.3) * rr * 0.4))
-    const g = new THREE.BufferGeometry()
-    let pos: number[] = []
-    for (const p of parts) pos = pos.concat(Array.from((p.toNonIndexed().attributes.position as THREE.BufferAttribute).array))
-    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
-    g.computeVertexNormals()
-    parts.forEach((p) => p.dispose())
-    return g
-  }
-  const crowns = [tiers([2.1, 1.6, 1.1, 1.2, 1.0], [3.9, 4.8, 5.5, 4.2, 4.4]), tiers([1.0, 0.95, 0.9, 0.8, 0.7, 0.6], [2.8, 3.7, 4.6, 5.5, 6.3, 7.0], 0.8), tiers([2.4, 1.4, 1.8, 1.0], [3.4, 4.4, 3.8, 5.0], 0.45)]
-  const leafMat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.92, flatShading: true })
-  D.push(leafMat, trunk, ...crowns)
+  const trunk = trunkGeo()
+  const crowns = [crownGeo('broad', 11), crownGeo('oval', 12), crownGeo('spread', 13)]
+  const leafMat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.92, flatShading: true, vertexColors: true })
+  D.push(leafMat)
   const groups: THREE.Matrix4[][] = [[], [], []]
   const cols: THREE.Color[][] = [[], [], []]
   const tints = ['#b8561c', '#c8781c', '#d89a2a', '#8a5a1c', '#6f8a3a', '#a8321f', '#9a6a22']

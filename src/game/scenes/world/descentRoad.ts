@@ -7,6 +7,7 @@ import { BRIDGE, DESCENT, DESCENT_LEN, DESCENT_W, OVERLOOK, VALLEY_Y, VIADUCT } 
 import { lakeRho } from './valley'
 import { isNight } from './daylight'
 import { archGeo } from './archGeo'
+import { crownGeo, trunkGeo } from './treegeo'
 
 /**
  * THE VALLEY ROAD, built: the cobbled carriageway with a raised footway and kerb each side, retaining walls and a parapet
@@ -315,20 +316,9 @@ export function descentRoad(T: Town, q: 'low' | 'medium' | 'high') {
 
   /* ── autumn trees and rock outcrops on the banks (instanced, cheap) ── */
   {
-    const trunk = new THREE.CylinderGeometry(0.16, 0.26, 3.2, 6)
-    trunk.translate(0, 1.6, 0)
-    // a layered crown: three flattened tiers, so it reads as branches of foliage and not one ball
-    const tier = (r: number, y: number) => new THREE.SphereGeometry(r, 9, 6).scale(1, 0.55, 1).translate(0, y, 0)
-    const crown = (() => {
-      const parts = [tier(2.1, 3.6), tier(1.6, 4.5), tier(1.0, 5.3), tier(1.2, 3.2).translate(1.1, 0, 0.3), tier(1.1, 3.4).translate(-1.0, 0, -0.5)]
-      const geo = new THREE.BufferGeometry()
-      let pos: number[] = []
-      for (const p of parts) pos = pos.concat(Array.from((p.toNonIndexed().attributes.position as THREE.BufferAttribute).array))
-      geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
-      geo.computeVertexNormals()
-      parts.forEach((p) => p.dispose())
-      return geo
-    })()
+    const trunk = trunkGeo()
+    const crown = crownGeo('broad', 21)
+    const crown2 = crownGeo('oval', 22)
     const rock = new THREE.DodecahedronGeometry(1, 0)
     const trees: THREE.Matrix4[] = []
     const colours: THREE.Color[] = []
@@ -362,8 +352,8 @@ export function descentRoad(T: Town, q: 'low' | 'medium' | 'high') {
         rocks.push(m)
       }
     }
-    const leafMat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.92, flatShading: true })
-    D.push(leafMat, crown, trunk, rock)
+    const leafMat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.92, flatShading: true, vertexColors: true })
+    D.push(leafMat, rock)
     const place = (geo: THREE.BufferGeometry, mat: THREE.Material, list: THREE.Matrix4[], cols?: THREE.Color[]) => {
       if (!list.length) return
       const im = new THREE.InstancedMesh(geo, mat, list.length)
@@ -375,7 +365,12 @@ export function descentRoad(T: Town, q: 'low' | 'medium' | 'high') {
       im.computeBoundingSphere()
       T.scene.add(im)
     }
-    place(crown, leafMat, trees, colours)
+    const treesB = trees.filter((_, i) => i % 3 === 0)
+    const colB = colours.filter((_, i) => i % 3 === 0)
+    const treesA = trees.filter((_, i) => i % 3 !== 0)
+    const colA = colours.filter((_, i) => i % 3 !== 0)
+    place(crown, leafMat, treesA, colA)
+    place(crown2, leafMat, treesB, colB)
     place(trunk, P.bark, trees)
     place(rock, P.rock, rocks)
   }

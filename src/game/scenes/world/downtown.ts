@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import type { Town } from './buildings'
 import { boxUV, rng } from './kit'
-import { Frame, channelLetters } from './signs'
+import { Frame, PANEL, channelLetters, panelTexture } from './signs'
 import { isNight } from './daylight'
 import { CARS, sportsCar } from './vehicles'
 import { planterBox } from './architecture'
@@ -29,8 +29,7 @@ const TOWERS: Tower[] = [
   { x: 75, z: -69, w: 16, d: 11, h: 46, pal: 1, faces: 's', also: 'w', name: 'HYPE HOUSE' },
   { x: 95, z: -69, w: 17, d: 11, h: 58, pal: 2, faces: 's', name: 'CHAD CITY' },
   // row 1 (between the avenue and the cross street)
-  { x: 45, z: -42, w: 14, d: 13, h: 28, pal: 3, faces: 'ns', also: 'e', name: 'PUMP PLAZA' },
-  { x: 76, z: -42, w: 15, d: 13, h: 38, pal: 0, faces: 'ns', also: 'w', name: 'MOON BANK' },
+  { x: 45, z: -42, w: 14, d: 13, h: 28, pal: 3, faces: 'ns', also: 'e', name: 'GRAND GOURD' },
   { x: 101, z: -42, w: 14, d: 13, h: 31, pal: 1, faces: 'ns', name: 'NIGHT MARKET' },
   // row 2 (between the cross street and the east district)
   { x: 45, z: -18, w: 14, d: 12, h: 24, pal: 2, faces: 'n', also: 'e', name: 'CHAD CAFE' },
@@ -135,6 +134,12 @@ export function downtown(T: Town) {
     T.batch.put(boxUV(t.w + 1.2, podH, t.d + 1.2, 3), concrete, t.x, podH / 2, t.z)
     T.batch.put(boxUV(t.w, shaftH, t.d, 8), wm, t.x, podH + shaftH / 2, t.z)
     T.batch.put(boxUV(t.w + 0.5, 0.5, t.d + 0.5, 3), P.stoneLight, t.x, podH + 0.1, t.z)
+    // vertical fins every ~3.6 m on the long faces, a belt course every 9 m, and a deeper cornice under the crown: depth and rhythm on every elevation
+    for (let fx = -t.w / 2 + 0.9; fx < t.w / 2; fx += 3.6) for (const sz of [-1, 1]) T.batch.put(boxUV(0.4, shaftH, 0.55, 2), concrete, t.x + fx, podH + shaftH / 2, t.z + sz * (t.d / 2 + 0.2))
+    for (let fz = -t.d / 2 + 0.9; fz < t.d / 2; fz += 3.6) for (const sx of [-1, 1]) T.batch.put(boxUV(0.55, shaftH, 0.4, 2), concrete, t.x + sx * (t.w / 2 + 0.2), podH + shaftH / 2, t.z + fz)
+    for (let by = podH + 9; by < t.h - 2; by += 9) T.batch.put(boxUV(t.w + 0.9, 0.45, t.d + 0.9, 3), P.stoneLight, t.x, by, t.z)
+    T.batch.put(boxUV(t.w + 1.1, 0.7, t.d + 1.1, 3), P.stoneLight, t.x, t.h - 0.1, t.z)
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) T.batch.put(boxUV(0.9, 1.4, 0.9, 1), P.stone, t.x + sx * (t.w / 2 + 0.1), t.h + 0.7, t.z + sz * (t.d / 2 + 0.1)) // corner finials
     // stepped crown, spire and beacon
     T.batch.put(boxUV(t.w * 0.7, 3.2, t.d * 0.7, 6), wm, t.x, t.h + 1.6, t.z)
     T.batch.put(boxUV(t.w * 0.45, 2.4, t.d * 0.45, 6), concrete, t.x, t.h + 4.4, t.z)
@@ -233,6 +238,77 @@ export function downtown(T: Town) {
     planterBox(T, P.stoneLight, x, z, 1.4, 1.4)
     T.batch.put(new THREE.SphereGeometry(0.6, 10, 8).scale(1, 0.9, 1), leaf, x, 1.05, z)
     T.batch.put(new THREE.ConeGeometry(0.3, 0.9, 8), leaf, x, 1.75, z)
+  }
+
+  /* ── CHAD CITY HALL: the civic landmark on the cross street — a classical stone hall with a six-column portico, a pediment, a
+        windowed first and second floor, a cornice, a hipped slate roof, and a clock tower with a belfry and a copper dome ── */
+  {
+    const x = 76
+    const z = -42
+    const W = 20
+    const Dd = 12
+    const F = Frame.at(T.batch, x, 0, z, 0) // front (+z) faces the cross street
+    const copper = new THREE.MeshStandardMaterial({ color: '#4a9a86', metalness: 0.7, roughness: 0.4 })
+    const slate = new THREE.MeshStandardMaterial({ color: '#3f4658', roughness: 0.7 })
+    const clockM = new THREE.MeshBasicMaterial({ color: new THREE.Color('#fff2c8').multiplyScalar(1.3), toneMapped: false })
+    D.push(copper, slate, clockM)
+    F.put(boxUV(W, 14, Dd, 2), P.stone, 0, 7, 0)
+    F.put(boxUV(W + 0.6, 1.0, Dd + 0.6, 1.2), P.stoneLight, 0, 0.5, 0)
+    F.put(boxUV(W + 0.5, 0.35, Dd + 0.5, 1.2), P.stoneLight, 0, 6.2, 0) // string course
+    F.put(boxUV(W + 1.0, 0.8, Dd + 1.0, 1.2), P.stoneLight, 0, 14.2, 0) // cornice
+    // hipped slate roof (a low pyramid frustum)
+    const hip = new THREE.CylinderGeometry(7.2, 12.2, 3.2, 4, 1).rotateY(Math.PI / 4).scale(1.0, 1.0, 0.62)
+    F.put(hip, slate, 0, 16.2, 0)
+    // portico: six columns, an entablature and a pediment over the central bays
+    for (let k = 0; k < 6; k++) {
+      F.put(new THREE.CylinderGeometry(0.46, 0.52, 7.4, 14), P.stoneLight, -5.5 + k * 2.2, 4.4, Dd / 2 + 2.0)
+      F.put(boxUV(1.2, 0.4, 1.2, 1), P.stoneLight, -5.5 + k * 2.2, 0.9, Dd / 2 + 2.0)
+      F.put(boxUV(1.2, 0.4, 1.2, 1), P.stoneLight, -5.5 + k * 2.2, 8.2, Dd / 2 + 2.0)
+      T.colliders.push({ kind: 'circle', x: x - 5.5 + k * 2.2, z: z + Dd / 2 + 2.0, r: 0.6, h: 8 })
+    }
+    F.put(boxUV(13.2, 0.9, 3.4, 1.2), P.stoneLight, 0, 8.7, Dd / 2 + 1.5)
+    F.put(new THREE.ExtrudeGeometry(new THREE.Shape([new THREE.Vector2(-6.8, 0), new THREE.Vector2(6.8, 0), new THREE.Vector2(0, 2.3)]), { depth: 0.7, bevelEnabled: false }), P.stoneLight, 0, 9.15, Dd / 2 + 3.0)
+    F.put(new THREE.CircleGeometry(0.7, 20), P.gold, 0, 10.0, Dd / 2 + 3.72, 0, 0, 0, false)
+    for (let k = 0; k < 7; k++) F.put(boxUV(13.4 - k * 0.2, 0.18, 4.2, 1), P.stoneLight, 0, 0.1 + k * 0.17, Dd / 2 + 2.6 + (6 - k) * 0.45) // the steps
+    // the great doors + the windows (two rows, framed, a keystone over each)
+    F.put(boxUV(2.6, 4.6, 0.3, 1), concrete, 0, 3.2, Dd / 2 + 0.05)
+    F.put(new THREE.PlaneGeometry(2.0, 3.8), P.windowLit, 0, 3.0, Dd / 2 + 0.22, 0, 0, 0, false)
+    for (const wx of [-8, -5.2, -2.6, 2.6, 5.2, 8]) {
+      for (const [wy, h] of [[3.0, 2.6], [9.6, 2.6]] as const) {
+        F.put(new THREE.PlaneGeometry(1.1, h), P.windowLit, wx, wy, Dd / 2 + 0.03, 0, 0, 0, false)
+        F.box(1.5, 0.22, 0.3, P.stoneLight, wx, wy + h / 2 + 0.2, Dd / 2 + 0.1)
+        F.box(1.5, 0.16, 0.34, P.stoneLight, wx, wy - h / 2 - 0.1, Dd / 2 + 0.12)
+        F.box(0.2, h + 0.2, 0.26, P.stoneLight, wx - 0.7, wy, Dd / 2 + 0.08)
+        F.box(0.2, h + 0.2, 0.26, P.stoneLight, wx + 0.7, wy, Dd / 2 + 0.08)
+      }
+    }
+    // the clock tower rising from the centre of the roof: stone shaft, clock faces on four sides, a belfry with arched openings, a copper dome and a spire
+    const tz0 = -1
+    F.put(boxUV(5.6, 11.0, 5.6, 2), P.stone, 0, 14.4 + 5.5, tz0)
+    F.put(boxUV(6.2, 0.6, 6.2, 1), P.stoneLight, 0, 14.4 + 4.0, tz0)
+    for (const [dx, dz, ry] of [[0, 2.85, 0], [0, -2.85, Math.PI], [2.85, 0, Math.PI / 2], [-2.85, 0, -Math.PI / 2]] as const) {
+      const CF = F.sub(dx, 14.4 + 7.2, tz0 + dz, 0, ry, 0)
+      CF.put(new THREE.CircleGeometry(1.5, 28), clockM, 0, 0, 0.05, 0, 0, 0, false)
+      CF.put(new THREE.TorusGeometry(1.5, 0.12, 6, 28), P.gold, 0, 0, 0.06)
+      CF.box(0.1, 1.2, 0.06, P.iron, 0, 0.5, 0.12)
+      CF.put(new THREE.BoxGeometry(0.1, 0.9, 0.06).rotateZ(1.1), P.iron, 0.3, 0.1, 0.12)
+    }
+    F.put(boxUV(5.0, 3.2, 5.0, 1.4), P.stone, 0, 14.4 + 12.6, tz0)
+    for (const [dx, dz, ry] of [[0, 2.55, 0], [0, -2.55, Math.PI], [2.55, 0, Math.PI / 2], [-2.55, 0, -Math.PI / 2]] as const) {
+      const BF = F.sub(dx, 14.4 + 12.6, tz0 + dz, 0, ry, 0)
+      BF.put(new THREE.PlaneGeometry(1.4, 2.4), concrete, 0, 0, 0.03, 0, 0, 0, false)
+      BF.put(new THREE.TorusGeometry(0.7, 0.1, 6, 14, Math.PI), P.stoneLight, 0, 1.2, 0.05)
+    }
+    F.put(boxUV(5.8, 0.5, 5.8, 1), P.stoneLight, 0, 14.4 + 14.4, tz0)
+    F.put(new THREE.SphereGeometry(2.7, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2), copper, 0, 14.4 + 14.6, tz0)
+    F.put(new THREE.CylinderGeometry(0.08, 0.14, 3.2, 6), P.gold, 0, 14.4 + 18.4, tz0)
+    F.put(new THREE.SphereGeometry(0.28, 10, 8), P.gold, 0, 14.4 + 20.1, tz0)
+    T.lights.push({ x: x, y: 8, z: z + Dd / 2 + 3, color: '#ffd89a', intensity: 6, dist: 14, priority: 3 })
+    T.colliders.push({ kind: 'box', minX: x - W / 2 - 0.4, maxX: x + W / 2 + 0.4, minZ: z - Dd / 2 - 0.4, maxZ: z + Dd / 2 + 0.4, h: 14 })
+    // a name plate on the cornice
+    const plate = new THREE.MeshStandardMaterial({ map: panelTexture('CHAD CITY HALL', 'est. in the first autumn', 4.2, PANEL.dark, D), roughness: 0.6 })
+    D.push(plate)
+    F.put(new THREE.PlaneGeometry(4.2, 1.0), plate, 0, 11.6, Dd / 2 + 0.06, 0, 0, 0, false)
   }
   void R
 
