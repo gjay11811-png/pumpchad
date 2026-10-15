@@ -158,6 +158,9 @@ export function GameApp() {
     }
     engine.current = e
     input.current = new Input(canvas)
+    // mouse capture: Esc is eaten by the browser while the pointer is locked, so a lock lost that way opens the pause menu the same way Esc does
+    input.current.onLockLost = () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    input.current.onLockChange = (l) => window.dispatchEvent(new CustomEvent('chad-mouse-lock', { detail: l }))
     const s = saveRef.current.settings
     e.setQuality(s.quality, s.reducedEffects)
     audio.configure(s)
@@ -703,7 +706,10 @@ export function GameApp() {
   }, [overlay, dialogue, portal, phase, rush, evt, tgt, challenges])
   // any overlay opening — photo mode included, which keeps control — first drops whatever was being held
   useEffect(() => {
-    if (overlay || challenges) input.current?.clear()
+    if (overlay || challenges) {
+      input.current?.clear()
+      input.current?.releaseLock() // photo mode keeps control but needs its cursor
+    }
   }, [overlay, challenges])
   // the challenges sheet never survives a scene change
   useEffect(() => {

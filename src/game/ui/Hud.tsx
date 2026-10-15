@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { AnimatePresence, m } from 'framer-motion'
 import { ACHIEVEMENTS, levelFor, xpForLevel, type SaveData } from '../save'
 import type { Interactable } from '../scenes/World'
@@ -80,6 +81,12 @@ export function Hud({
   sprint?: boolean
   onSprint?: () => void
 }) {
+  const [locked, setLocked] = useState(false)
+  useEffect(() => {
+    const f = (e: Event) => setLocked(!!(e as CustomEvent<boolean>).detail)
+    window.addEventListener('chad-mouse-lock', f)
+    return () => window.removeEventListener('chad-mouse-lock', f)
+  }, [])
   const xp = save.progress.xp
   const lvl = levelFor(xp)
   const lo = xpForLevel(lvl)
@@ -210,7 +217,7 @@ export function Hud({
       )}
       {!touch && (
         <p className="absolute bottom-3 left-1/2 -translate-x-1/2 font-mono text-[10px] uppercase tracking-[0.25em] text-bone/35">
-          WASD move · Shift run · Space jump · Q emotes · Drag look · E interact · Esc menu
+          {locked ? 'Mouse captured · move to look · Esc releases' : 'WASD move · Shift run · Space jump · Q emotes · Click the view to capture the mouse · E interact · Esc menu'}
         </p>
       )}
       {onEmote && onJump && <EmoteWheel touch={touch} disabled={emotesDisabled} onEmote={onEmote} onJump={onJump} />}

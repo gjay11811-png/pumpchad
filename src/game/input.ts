@@ -20,7 +20,58 @@ export class Input {
   private dragId: number | null = null
   private lastX = 0
   private lastY = 0
-  enabled = true
+  private _enabled = true
+  get enabled() {
+    return this._enabled
+  }
+  set enabled(v: boolean) {
+    this._enabled = v
+    if (!v) this.releaseLock() // a menu / toss / dialogue needs the cursor back
+  }
+  /** DESKTOP mouse capture (Pointer Lock): one deliberate click on the 3D view captures it, then the mouse looks freely with no button held.
+   *  Esc (the browser's own release), any menu or overlay, a lost window and the touch screens all leave it — and touch never uses it. */
+  private canvas: HTMLElement
+  private selfRelease = false
+  lockAllowed = true
+  /** fired when the browser (Esc) took the lock away while the game was running — the app opens its pause menu */
+  onLockLost: (() => void) | null = null
+  onLockChange: ((locked: boolean) => void) | null = null
+  get locked() {
+    return typeof document !== 'undefined' && !!this.canvas && document.pointerLockElement === this.canvas
+  }
+  requestLock() {
+    if (!this.lockAllowed || !this._enabled || this.locked || typeof document === 'undefined') return
+    try {
+      const r = this.canvas.requestPointerLock?.() as unknown
+      if (r && typeof (r as Promise<void>).catch === 'function') (r as Promise<void>).catch(() => {}) // too soon after Esc / not allowed: stay in drag-look
+    } catch {
+      /* unsupported */
+    }
+  }
+  releaseLock() {
+    if (!this.locked) return
+    this.selfRelease = true
+    try {
+      document.exitPointerLock()
+    } catch {
+      /* already released */
+    }
+  }
+  private onLockState = () => {
+    const l = this.locked
+    if (l) this.endDrag()
+    else this.clearHeldKeysOnLockLoss()
+    this.onLockChange?.(l)
+    if (!l) {
+      const mine = this.selfRelease
+      this.selfRelease = false
+      if (!mine && this._enabled) this.onLockLost?.()
+    }
+  }
+  private clearHeldKeysOnLockLoss() {
+    this.lookDX = 0
+    this.lookDY = 0
+  }
   /** touch Sprint toggle (on-screen button): run whenever moving while it's on — it never moves you by itself */
   sprint = false
   /** the pointer currently driving the virtual joystick (null = nobody): one owner, so a lost release can't leave it held */
@@ -34,6 +85,9 @@ export class Input {
 
   constructor(el: HTMLElement) {
     this.surface = el.parentElement ?? el
+    this.canvas = el
+    this.lockAllowed = typeof window !== 'undefined' && !window.matchMedia?.('(pointer: coarse)').matches
+    document.addEventListener('pointerlockchange', this.onLockState)
     // desktop: show that the 3D view can be dragged
     if (typeof window !== 'undefined' && !window.matchMedia?.('(pointer: coarse)').matches) el.style.cursor = 'grab'
     window.addEventListener('keydown', this.onKey)
@@ -130,6 +184,16 @@ export class Input {
     this.surface.style.userSelect = 'none' // no text selection while looking around
   }
   private onMove = (e: PointerEvent) => {
+    if (this.locked && e.pointerType === 'mouse') {
+      // captured mouse: raw movement, no button needed (touch pointers never take this path)
+      const dx = e.movementX
+      const dy = e.movementY
+      if (Math.abs(dx) > 400 || Math.abs(dy) > 400) return
+      this.lookDX += dx
+      this.lookDY += dy
+      if (dx || dy) this.mouseLooked = true
+      return
+    }
     if (e.pointerId !== this.dragId) return
     // released somewhere we didn't hear about (another window, devtools…): stop, don't jump the camera
     if (e.pointerType === 'mouse' && e.buttons === 0) return this.endDrag()
@@ -150,6 +214,8 @@ export class Input {
     if (e.pointerType === 'mouse' && (dx || dy)) this.mouseLooked = true
   }
   private onUp = (e: PointerEvent) => {
+    // a plain left click on the 3D view (no drag) is the explicit gesture that captures the mouse
+    if (e.pointerId === this.dragId && e.pointerType === 'mouse' && e.button === 0 && !this.dragLive) this.requestLock() // (the press already passed lookable(): the 3D view or empty HUD space over it)
     if (e.pointerId === this.dragId) this.endDrag()
     // backup for the joystick: a release that never reached it (capture lost, finger lifted off-zone) still lets go
     if (e.pointerId === this.stickOwner) {
@@ -223,6 +289,8 @@ export class Input {
   }
 
   dispose() {
+    this.releaseLock()
+    document.removeEventListener('pointerlockchange', this.onLockState)
     window.removeEventListener('keydown', this.onKey)
     window.removeEventListener('keyup', this.onKeyUp)
     window.removeEventListener('blur', this.clear)
