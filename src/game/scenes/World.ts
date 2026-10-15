@@ -1785,6 +1785,29 @@ export class World implements GameScene {
       npcs: this.crowd.live.length,
     }
   }
+  /** QA: an ASCII map of where the body (radius PLAYER_R) cannot stand in a rectangle: '#' = pushed out by something, '.' = free, ' ' = outside the walkable city */
+  blockMap(x0: number, x1: number, z0: number, z1: number, step = 1) {
+    const rows: string[] = []
+    const v = new THREE.Vector3()
+    for (let z = z0; z <= z1; z += step) {
+      let row = ''
+      for (let x = x0; x <= x1; x += step) {
+        if (!insideCity(x, z, 0.3)) {
+          row += ' '
+          continue
+        }
+        v.set(x, 0, z)
+        this.resolve(v, PLAYER_R, 0)
+        row += Math.hypot(v.x - x, v.z - z) > 0.02 ? '#' : '.'
+      }
+      rows.push(`${String(z).padStart(5)} ${row}`)
+    }
+    return rows
+  }
+  /** QA: turn the camera so that W heads along `yaw` (a player steering a run) */
+  steer(yaw: number) {
+    this.camYaw = yaw + Math.PI
+  }
   /** QA: world position of the right hand (where a held weapon sits) */
   handPos() {
     const f = this.player?.fistR

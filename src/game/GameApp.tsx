@@ -965,6 +965,8 @@ export function GameApp() {
       stats: () => engine.current?.stats,
       gfxLog: () => engine.current?.gfxLog() ?? [],
       handPos: () => world.current?.handPos() ?? null,
+      steer: (y: number) => world.current?.steer(y),
+      blockMap: (a: number, b: number, c: number, d: number, e?: number) => world.current?.blockMap(a, b, c, d, e) ?? [],
       triBreakdown: (n?: number) => world.current?.triBreakdown(n) ?? null,
       loseContext: () => engine.current?.canvasLoseContext(),
       integrity: () => world.current?.integrity() ?? null,
