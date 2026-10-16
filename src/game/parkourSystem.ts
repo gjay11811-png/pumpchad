@@ -116,19 +116,56 @@ export function planTraverse(x: number, z: number, y: number, yaw: number, block
   if (list.some((p) => p !== hit && (p.bottom ?? 0) >= hit.top - 0.05 && (p.bottom ?? 0) < hit.top + HEADROOM && platformInside(p, ux, uz, 0.3))) return { plan: null, why: 'headroom' }
   if (blocked(ux, uz, hit.top)) return { plan: null, why: 'landing-blocked' }
   return {
-    plan: { kind: 'mantle', from: { x, z, y }, edge: { x: x + fx * (near - 0.28), z: z + fz * (near - 0.28) }, to: { x: ux, z: uz, y: hit.top }, peak: hit.top + 0.2, dur: 0.8, yaw, top: hit.top, hand: { x: x + fx * (near + 0.1), z: z + fz * (near + 0.1), y: hit.top + 0.02 } },
+    plan: { kind: 'mantle', from: { x, z, y }, edge: { x: x + fx * (near - 0.28), z: z + fz * (near - 0.28) }, to: { x: ux, z: uz, y: hit.top }, peak: hit.top + 0.2, dur: 0.66, yaw, top: hit.top, hand: { x: x + fx * (near + 0.1), z: z + fz * (near + 0.1), y: hit.top + 0.02 } },
     why: 'none',
   }
 }
 
 const ease = (u: number) => u * u * (3 - 2 * u)
+/**
+ * A smooth value through keyframes [u, value]: a monotone cubic (Fritsch–Carlson), so the body keeps moving THROUGH each key instead of coming to a
+ * stop at it (the old per-phase ease made a mantle or pull-up stall at every phase boundary, which read as lag). The ends ease in/out gently.
+ */
+export function mono(keys: [number, number][], u: number): number {
+  const n = keys.length
+  if (u <= keys[0][0]) return keys[0][1]
+  if (u >= keys[n - 1][0]) return keys[n - 1][1]
+  const d: number[] = []
+  for (let i = 0; i < n - 1; i++) d.push((keys[i + 1][1] - keys[i][1]) / (keys[i + 1][0] - keys[i][0]))
+  const m: number[] = [d[0] * 0.35]
+  for (let i = 1; i < n - 1; i++) m.push(d[i - 1] * d[i] <= 0 ? 0 : (d[i - 1] + d[i]) / 2)
+  m.push(d[n - 2] * 0.35)
+  for (let i = 0; i < n - 1; i++) {
+    if (d[i] === 0) {
+      m[i] = 0
+      m[i + 1] = 0
+    } else {
+      const a = m[i] / d[i]
+      const b = m[i + 1] / d[i]
+      const h = Math.hypot(a, b)
+      if (h > 3) {
+        m[i] = (3 * a * d[i]) / h
+        m[i + 1] = (3 * b * d[i]) / h
+      }
+    }
+  }
+  let i = 0
+  while (u > keys[i + 1][0]) i++
+  const [u0, v0] = keys[i]
+  const [u1, v1] = keys[i + 1]
+  const w = u1 - u0
+  const t = (u - u0) / w
+  const t2 = t * t
+  const t3 = t2 * t
+  return (2 * t3 - 3 * t2 + 1) * v0 + (t3 - 2 * t2 + t) * w * m[i] + (-2 * t3 + 3 * t2) * v1 + (t3 - t2) * w * m[i + 1]
+}
 export type TravFrame = { x: number; z: number; y: number; pitch: number; roll: number; done: boolean }
 /** where the body is `u` (0…1) of the way through a plan, and how it is leaning */
 export function travAt(pl: TravPlan, u: number): TravFrame {
   u = Math.min(1, Math.max(0, u))
   if (pl.kind === 'vault') {
     // a speed vault: run into the hand-plant, hips up and over, land beyond (the arc peaks over the obstacle)
-    const h = ease(u)
+    const h = u + (ease(u) - u) * 0.3 // mostly linear: a speed vault carries the run's momentum, it does not start from rest
     const x = pl.from.x + (pl.to.x - pl.from.x) * h
     const z = pl.from.z + (pl.to.z - pl.from.z) * h
     const base = pl.from.y + (pl.to.y - pl.from.y) * h
@@ -136,26 +173,12 @@ export function travAt(pl: TravPlan, u: number): TravFrame {
     const y = base + arc * (pl.peak - Math.max(pl.from.y, pl.to.y))
     return { x, z, y, pitch: Math.sin(Math.PI * u) * 0.75, roll: Math.sin(Math.PI * u) * 0.42, done: u >= 1 }
   }
-  // mantle: reach for the edge (0–0.2), pull up (0.2–0.7), stand over the top (0.7–1)
-  let x: number
-  let z: number
-  let y: number
-  if (u < 0.2) {
-    const k = ease(u / 0.2)
-    x = pl.from.x + (pl.edge.x - pl.from.x) * k
-    z = pl.from.z + (pl.edge.z - pl.from.z) * k
-    y = pl.from.y + k * 0.1
-  } else if (u < 0.7) {
-    const k = ease((u - 0.2) / 0.5)
-    x = pl.edge.x + (pl.to.x - pl.edge.x) * 0.35 * k
-    z = pl.edge.z + (pl.to.z - pl.edge.z) * 0.35 * k
-    y = pl.from.y + 0.1 + (pl.peak - pl.from.y - 0.1) * k
-  } else {
-    const k = ease((u - 0.7) / 0.3)
-    x = pl.edge.x + (pl.to.x - pl.edge.x) * (0.35 + 0.65 * k)
-    z = pl.edge.z + (pl.to.z - pl.edge.z) * (0.35 + 0.65 * k)
-    y = pl.peak + (pl.to.y - pl.peak) * k
-  }
+  // mantle: reach for the edge, pull up, stand over the top — one continuous path through the keys (no stop between phases)
+  const kx = (k: number) => pl.edge.x + (pl.to.x - pl.edge.x) * k
+  const kz = (k: number) => pl.edge.z + (pl.to.z - pl.edge.z) * k
+  const x = mono([[0, pl.from.x], [0.2, pl.edge.x], [0.7, kx(0.35)], [1, pl.to.x]], u)
+  const z = mono([[0, pl.from.z], [0.2, pl.edge.z], [0.7, kz(0.35)], [1, pl.to.z]], u)
+  const y = mono([[0, pl.from.y], [0.2, pl.from.y + 0.1], [0.62, pl.peak], [1, pl.to.y]], u)
   const lean = u < 0.2 ? u / 0.2 : u < 0.7 ? 1 : 1 - (u - 0.7) / 0.3
   return { x, z, y, pitch: lean * 0.42, roll: 0, done: u >= 1 }
 }

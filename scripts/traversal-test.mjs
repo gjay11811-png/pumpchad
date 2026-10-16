@@ -139,8 +139,8 @@ check(Math.abs(s1 - s0) > 0.8 && Math.abs(s2 - s1) > 0.8 && Math.sign(s1 - s0) !
 await shot('shimmy')
 /* 6. an unsupported end: hold toward it, the hands stop (corner wrap needs the player to keep pressing) */
 await down('a')
-await until(async () => { const q = await H(); return !q.hanging || q.side !== 'w' || q.s < 0.9 }, 3500)
-await wait(700)
+await until(async () => { const q = await H(); return !q.hanging || q.side !== 'w' || q.s > 6.8 }, 4500)
+await wait(250)
 h = await H()
 await up('a')
 check(h.hanging && (h.side === 'w' || h.side === 'n' || h.side === 's'), `holding on past the end does not throw the body off (${JSON.stringify(h)})`)

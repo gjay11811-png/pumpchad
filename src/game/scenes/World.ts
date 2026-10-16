@@ -20,7 +20,7 @@ import { EXPANSION_OPEN, LANTERN_ROLLOUT, SAFE_ARRIVAL, isLocked } from '../laun
 import { COURSES, PLATFORMS, SECRET, YARD, fmtMs, type CourseId } from '../parkour'
 import type { Platform } from '../parkour'
 import { END_MARGIN, HANG_DROP, cornerNext, edgeAt, findCatch, hangPose, ledgeGeom, pullUpSpot, type LedgeGeom } from '../ledge'
-import { ParkourRun, planTraverse, platformFloor, platformResolve, travAt, type RunResult, type TravFrame, type TravPlan } from '../parkourSystem'
+import { ParkourRun, mono, planTraverse, platformFloor, platformResolve, travAt, type RunResult, type TravFrame, type TravPlan } from '../parkourSystem'
 import { PARKOUR_LAMPS, parkourYard, type ParkourBuild } from './world/parkourYard'
 import { lanternFamily } from './world/lanternFamily'
 import { SwordDrill, type DrillResult, type DrillStats } from '../minigames/swordDrill'
@@ -2015,7 +2015,7 @@ export class World implements GameScene {
         if (stand) {
           h.mode = 'pullup'
           h.t = 0
-          h.dur = 0.95
+          h.dur = 0.72
           h.from = { x: this.playerPos.x, z: this.playerPos.z, y: this.jumper.y, yaw: this.playerYaw }
           h.to = stand
           this.hangLog = 'pull-up'
@@ -2129,21 +2129,13 @@ export class World implements GameScene {
       // pull-up: elbows bend and the chest comes up to the edge (0–0.5), then a knee over and the weight rolls onto the top (0.5–1)
       const u = Math.min(1, h.t / h.dur)
       const top = h.plat.top
-      if (u < 0.5) {
-        const k = ease(u / 0.5)
-        this.jumper.y = lerp(h.from.y, top - 0.62, k)
-        this.playerPos.x = lerp(h.from.x, h.from.x - h.g.nx * 0.12, k)
-        this.playerPos.z = lerp(h.from.z, h.from.z - h.g.nz * 0.12, k)
-        h.pitch = 0.1 + 0.35 * k
-      } else {
-        const k = ease((u - 0.5) / 0.5)
-        const mx = h.from.x - h.g.nx * 0.12
-        const mz = h.from.z - h.g.nz * 0.12
-        this.jumper.y = lerp(top - 0.62, top, k)
-        this.playerPos.x = lerp(mx, h.to.x, k)
-        this.playerPos.z = lerp(mz, h.to.z, k)
-        h.pitch = 0.45 * (1 - k)
-      }
+      // one continuous path through the keys (a monotone spline), so the body keeps moving through the half-way point instead of stalling there
+      const mx = h.from.x - h.g.nx * 0.12
+      const mz = h.from.z - h.g.nz * 0.12
+      this.jumper.y = mono([[0, h.from.y], [0.5, top - 0.62], [1, top]], u)
+      this.playerPos.x = mono([[0, h.from.x], [0.5, mx], [1, h.to.x]], u)
+      this.playerPos.z = mono([[0, h.from.z], [0.5, mz], [1, h.to.z]], u)
+      h.pitch = mono([[0, 0.1], [0.5, 0.45], [1, 0]], u)
       if (u >= 1) {
         this.playerPos.x = h.to.x
         this.playerPos.z = h.to.z
