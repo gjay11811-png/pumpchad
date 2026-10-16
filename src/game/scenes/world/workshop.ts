@@ -7,7 +7,7 @@ import { ornateSign } from './ornament'
 import { CARS, sportsCar } from './vehicles'
 
 /**
- * CHAD MOTORS SERVICE — the workshop, laid out like a real garage (dressed, not enterable: a notice says reception opens later).
+ * CHAD MOTORS SERVICE — the workshop, laid out like a real garage (enterable by the RECEPTION door — see interiors/garage.ts).
  *
  *   • the building: a concrete-block shed with a brick base, two roller-door bays on the road side (shutters part-raised, the lit bays
  *     visible), a separate RECEPTION entrance with a glass door, shop window and awning, a flat roof with skylights and a flue;
@@ -200,7 +200,7 @@ export function workshop(T: Town, stoneTex: THREE.Texture) {
       Y.put(new THREE.ConeGeometry(0.17, 0.5, 10), std({ color: '#ff6a1a', roughness: 0.6 }), cx, 0.25, cz)
       Y.box(0.38, 0.03, 0.38, rubber, cx, 0.02, cz, false)
     }
-    const note = std({ map: panelTexture('CHAD MOTORS SERVICE', 'reception opens in a later update', 2.6, PANEL.dark, D), roughness: 0.7 })
+    const note = std({ map: panelTexture('CHAD MOTORS SERVICE', 'reception is open · come inside', 2.6, PANEL.dark, D), roughness: 0.7 })
     postedBoard(Y.sub(-2.0, 0, 1.6, 0, 0, 0), 1.7, 0.75, 1.25, note, { frame: P.iron, metal: P.iron, gold: P.gold, stone: P.stoneLight }, true)
     T.colliders.push({ kind: 'circle', x: Y.world(-2.0, 0, 1.6).x, z: Y.world(-2.0, 0, 1.6).z, r: 0.8, h: 1.9 })
   }

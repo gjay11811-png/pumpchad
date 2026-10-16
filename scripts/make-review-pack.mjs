@@ -25,6 +25,8 @@ const ITEMS = [
   ['Cars — Chad Motors', 'awaiting visual review', 'After: lofted body, bulged tyres, ten-spoke alloys — front three-quarter (original design, not a licensed model)', 'car3-front34.jpg'],
   ['Cars — Chad Motors', 'awaiting visual review', 'After — side', 'car3-side.jpg'],
   ['Cars — Chad Motors', 'awaiting visual review', 'After — rear (partly behind ivy)', 'car3-rear.jpg'],
+  ['Chad Motors Service — workshop interior (new, enterable)', 'awaiting visual review', 'Reception door → garage: car on a two-post lift, a second car, workbench, tool chest, parts shelf, Dex the mechanic', 'garage-interior-1.jpg'],
+  ['Chad Motors Service — workshop interior (new, enterable)', 'awaiting visual review', 'Under the lift', 'garage-interior-2.jpg'],
   ['Motorbike — Chad Rides', 'awaiting visual review', 'Street bike (unchanged this pass)', 'bike-street-side.jpg'],
   ['Weapons', 'functionally checked', 'Pistol Range: Poly Haven Service Pistol (CC0) in the right hand', 'pistol3-servicepistol.jpg'],
   ['Housing — Chadville Heights', 'before', 'Before: the four original plots (A–D) and the estate lane', 'wall2-estates-aerial.jpg'],

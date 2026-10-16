@@ -53,6 +53,7 @@ export const LANDMARKS: Landmark[] = [
   { id: 'fits', name: 'Chad Fits', x: 39.1, z: 26, kind: 'shop' },
   { id: 'pets', name: 'Chad Pets', x: 38, z: 47.5, kind: 'shop' },
   { id: 'motors', name: 'Chad Motors', x: 54, z: 50.5, kind: 'shop', below: true },
+  { id: 'garage', name: 'Chad Motors Service', x: 72.4, z: 49, kind: 'shop' },
   { id: 'shakes', name: 'Pump Shakes', x: -38.5, z: 2.5, kind: 'shop' },
   // activities you can complete in the first release (each starts at the marker; no fast travel needed)
   { id: 'act_rush', name: 'Pumpkin Rush', x: 10.2, z: 11.7, kind: 'activity', spawn: { x: 8.5, z: 14, yaw: Math.PI } },

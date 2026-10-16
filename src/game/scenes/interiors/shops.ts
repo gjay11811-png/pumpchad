@@ -4,6 +4,7 @@ import { MOTORS, PETS } from '../world/motorRow'
 import { CARS, sportsCar } from '../world/vehicles'
 import * as Fu from './furniture'
 import type { HouseSpec } from './houses'
+import { GARAGE_INTERIOR } from './garage'
 
 /**
  * Motor Row's shops. CHAD PETS: a bright, lively shop — a black cat on her cushion, a ghost in a glass dome, a bat
@@ -135,4 +136,5 @@ export const SHOP_INTERIORS: HouseSpec[] = [
       K.light(0, 5.4, 2.5, '#fff0d8', 4, 10)
     },
   },
+  GARAGE_INTERIOR,
 ]

@@ -269,6 +269,7 @@ This extends the plan above; there is no second plan.
 - Ledge traversal: hand-over-hand shimmy (planted hand stays, free hand lifts, reaches and re-grips; body follows the hands' midpoint; shoulders twist toward the reaching hand), hang fitted to the arms (HANG_DROP 1.74, BODY_OFF 0.36), vault/mantle hand targets in code, stray-release fix. `traversal-test`, `jump-test`, `parkour-test` pass.
 - Continuous traversal recording with a tracking camera (`scripts/trav-sequence.mjs`) → `trav3-sequence.webm` in the review pack.
 - Pistol: Poly Haven Service Pistol (CC0) in hand with recoil + existing muzzle flash/tracer; Pistol Range test passes.
+- Workshop interior: Chad Motors Service is now enterable by its reception door (`interiors/garage.ts`, lift + two cars, bench, shelves, Dex); `scripts/garage-test.mjs` passes.
 - Cars: new lofted body, bulged tyres, ten-spoke alloys, interior hints (original design).
 
 **Partial**
@@ -279,4 +280,4 @@ This extends the plan above; there is no second plan.
 - McLaren-style and Realistic Sports Car candidates: Sketchfab login required (blocked).
 - Mixamo: needs an Adobe sign-in (not used).
 - Sur-Ron-style bike and street bike are unchanged this pass (they already exist in Chad Rides).
-- Workshop interior, gym exterior/plant wall, arcade finish, builder-piece show homes, village materials/lighting, forest/waterfall/quest, bar swing and rooftop routes, mobile checks on all three characters: not touched in this session. Lanterns still await approval; expansion stays closed.
+- Gym exterior/plant wall, arcade finish, builder-piece show homes, village materials/lighting, forest/waterfall/quest, bar swing and rooftop routes, mobile checks on all three characters: not touched in this session. Lanterns still await approval; expansion stays closed.
