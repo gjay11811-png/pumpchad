@@ -59,8 +59,10 @@ export class ModelBikeVisual implements BikeRig {
   gripR = new THREE.Object3D()
   pegL = new THREE.Object3D()
   pegR = new THREE.Object3D()
+  private tilt = new THREE.Group() // the slope of the ground under the bike, about the rear contact patch
   private roll = new THREE.Group()
-  private pitchPivot = new THREE.Group()
+  private inner = new THREE.Group() // puts the model's own origin back where it was drawn
+  private pitchPivot = new THREE.Group() // the wheelie: the body pivots about the REAR AXLE (the wheel itself stays on the ground)
   private bodyG = new THREE.Group()
   private frontPivot = new THREE.Group() // at the front axle; rotates about the steering axis
   private unsprung = new THREE.Group() // fender + wheel: moves along the fork when it compresses
@@ -116,15 +118,19 @@ export class ModelBikeVisual implements BikeRig {
       }
     }
     const zero = new THREE.Vector3()
-    this.root.add(this.roll)
-    this.roll.add(this.pitchPivot)
-    this.pitchPivot.position.set(this.rear.x, 0, 0)
-    this.pitchPivot.add(this.bodyG)
-    this.bodyG.position.set(-this.rear.x, 0, 0) // so the bike's own x = 0 sits where the model was drawn
-    mesh(parts.body, zero, this.bodyG)
-    this.bodyG.add(this.wheelR)
+    this.root.add(this.tilt)
+    this.tilt.position.set(this.rear.x, 0, 0)
+    this.tilt.add(this.roll)
+    this.roll.add(this.inner)
+    this.inner.position.set(-this.rear.x, 0, 0)
+    this.inner.add(this.wheelR) // the rear wheel never pitches: it stays on the ground under the axle
     this.wheelR.position.copy(this.rear)
     mesh(parts.wheelR, this.rear, this.wheelR)
+    this.inner.add(this.pitchPivot)
+    this.pitchPivot.position.copy(this.rear)
+    this.pitchPivot.add(this.bodyG)
+    this.bodyG.position.set(-this.rear.x, -this.rear.y, 0)
+    mesh(parts.body, zero, this.bodyG)
     this.bodyG.add(this.frontPivot)
     this.frontPivot.position.copy(this.front)
     mesh(parts.front, this.front, this.frontPivot)
@@ -155,19 +161,23 @@ export class ModelBikeVisual implements BikeRig {
 
   park() {
     this.stand.visible = true
+    this.tilt.rotation.z = 0
     this.roll.rotation.x = -0.17
     this.pitchPivot.rotation.z = 0
+    this.pitchPivot.position.y = this.rear.y
     this.frontPivot.quaternion.setFromAxisAngle(this.axis, -0.25)
     this.unsprung.position.set(0, 0, 0)
-    this.bodyG.position.y = 0
+    this.wheelR.rotation.z = 0
+    this.wheelF.rotation.z = 0
   }
 
   apply(sim: BikeSim, groundPitch = 0) {
     this.stand.visible = false
+    this.tilt.rotation.z = groundPitch
     this.roll.rotation.x = -sim.roll // + roll = leaning right; the bike's +z is its left, so right-lean is a negative rotation about +x
-    this.pitchPivot.rotation.z = sim.pitch + groundPitch
-    // the whole bike settles on the shock; the unsprung front sinks into the fork travel
-    this.bodyG.position.y = -sim.shockC * 0.55 - sim.forkC * 0.3
+    this.pitchPivot.rotation.z = sim.pitch
+    // the body settles on the rear shock (the wheel stays put); the unsprung front sinks into the fork travel
+    this.pitchPivot.position.y = this.rear.y - sim.shockC * 0.7 - (sim.pitch > 0.05 ? 0 : sim.forkC * 0.25)
     this.frontPivot.quaternion.setFromAxisAngle(this.axis, -sim.delta) // + delta = steering right = clockwise seen from above = negative about the up axis
     this.unsprung.position.copy(this.axis).multiplyScalar(sim.forkC)
     this.wheelR.rotation.z = -sim.rearSpin
