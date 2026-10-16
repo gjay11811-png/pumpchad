@@ -43,12 +43,12 @@ await p.getByRole('button', { name: /Enter Chad Square/ }).click()
 await p.waitForFunction(() => window.__chadverse?.phase === 'world' && window.__chadverse.world(), null, { timeout: 120000 })
 await p.evaluate(() => window.__chadverse.enterDistrict())
 await p.waitForFunction(() => window.__chadverse.phase === 'interior', null, { timeout: 90000 })
-await p.waitForTimeout(9000) // the tree models load a few seconds after the scene
+await p.waitForTimeout(14000) // the tree models load a few seconds after the scene
 await p.addStyleTag({ content: '.panel, [data-testid=objective], .hud { opacity: 0 !important }' })
 for (const name of only) {
   const [c, l, fov] = VIEWS[name]
   await p.evaluate(([c, l, fov]) => window.__chadverse.shotCam({ cam: c, look: l, fov }), [c, l, fov])
-  await p.waitForTimeout(1100)
+  await p.waitForTimeout(2200)
   await p.screenshot({ path: `${OUT}/district-${name}.jpg`, type: 'jpeg', quality: 86, timeout: 120000 })
   console.log('shot', name)
 }
