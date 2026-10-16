@@ -14,6 +14,8 @@ import { interiorMats, type Kit } from './interiors/furniture'
 import { HOUSE, shell, type HouseSpec } from './interiors/houses'
 import { createVillager } from '../character/villager'
 import { Pet, type PetKind } from '../character/pet'
+import { buildDaylight, skyPresetFromUrl } from './world/daylight'
+import { OUTDOOR } from '../movement'
 
 export type InteriorEvents = {
   onPrompt(p: Interactable | null): void
@@ -68,26 +70,34 @@ export class Interior implements GameScene {
     this.house = H
     this.quality = engine.quality
     const s = this.scene
+    const outdoor = !!H.outdoor
+    this.outdoor = outdoor
+    if (outdoor) this.camera.far = 700
     const mood = H.mood ?? 'warm'
     s.background = new THREE.Color(mood === 'cold' ? '#07080c' : '#0b0806')
     s.environment = engine.env
     s.environmentIntensity = mood === 'bright' ? 0.45 : mood === 'cold' ? 0.12 : 0.25
     const hemi = mood === 'bright' ? new THREE.HemisphereLight('#fff2dc', '#5a4a3a', 1.1) : mood === 'cold' ? new THREE.HemisphereLight('#8aa0d0', '#1a1824', 0.42) : new THREE.HemisphereLight('#ffd8b0', '#3a2a20', 0.62)
-    s.add(hemi)
-    // moonlight through the windows: a faint cool key from the front
-    const moon = new THREE.DirectionalLight('#9fb0ff', mood === 'cold' ? 0.35 : 0.22)
-    moon.position.set(2, 6, 8)
-    s.add(moon)
+    if (!outdoor) {
+      s.add(hemi)
+      // moonlight through the windows: a faint cool key from the front
+      const moon = new THREE.DirectionalLight('#9fb0ff', mood === 'cold' ? 0.35 : 0.22)
+      moon.position.set(2, 6, 8)
+      s.add(moon)
+    }
 
     const B = new StaticBatch()
     const D: (THREE.Material | THREE.Texture | THREE.BufferGeometry)[] = []
     this.disposables = D
     const M = interiorMats(D)
+    // an outdoor place gets the real sky: gradient dome + clouds, a shadow-casting sun following the player, a reflection map made from that sky
+    if (outdoor) this.daylight = buildDaylight(s, engine.quality, D, skyPresetFromUrl() === 'sunset' ? 'sunset' : 'afternoon', engine.renderer)
     const spots: Spot[] = []
     const K: Kit = {
       B,
       M,
       scene: s,
+      quality: engine.quality,
       block: (x0, x1, z0, z1, level) => this.boxes.push({ x0, x1, z0, z1, level }),
       light: (x, y, z, color, intensity, dist, flicker = false) => spots.push({ x, y, z, color, intensity, dist, flicker }),
       fire: (x, y, z, scale) => {
@@ -98,9 +108,9 @@ export class Interior implements GameScene {
       inspect: (id, label, x, z, r, y = 0) => this.interactables.push({ id, label, pos: new THREE.Vector3(x, y, z), radius: r, kind: 'info' }),
       anim: (fn) => this.anims.push(fn),
     }
-    const S = shell(K, H)
+    const S = outdoor ? (null as unknown as ReturnType<typeof shell>) : shell(K, H)
     H.build(K, S)
-    B.build(s, false)
+    B.build(s, outdoor && engine.quality !== 'low')
 
     // the brightest spots become real lights (flames flicker); the rest stay as glowing props
     const cap = this.quality === 'high' ? 5 : this.quality === 'medium' ? 3 : 2
@@ -116,13 +126,16 @@ export class Interior implements GameScene {
 
     // interactions: the way out + this house's things to look at
     const { d: Dd } = H.room
-    this.interactables.push({ id: 'exit', label: `Leave ${H.name}`, pos: new THREE.Vector3(0, 0, Dd / 2 - 0.45), radius: 0.95, kind: 'activity' })
+    const ex = H.outdoor ? H.outdoor.exit : ([0, Dd / 2 - 0.45] as [number, number])
+    this.interactables.push({ id: 'exit', label: `Leave ${H.name}`, pos: new THREE.Vector3(ex[0], 0, ex[1]), radius: H.outdoor ? 3 : 0.95, kind: 'activity' })
     for (const [id, L] of Object.entries(H.looks ?? {})) {
       const y = L.level ? H.room.loft!.y : 0
       this.interactables.push({ id: `look:${id}`, label: L.label, pos: new THREE.Vector3(L.at[0], y, L.at[1]), radius: L.r ?? 1.0, kind: 'info' })
     }
   }
   private disposables: (THREE.Material | THREE.Texture | THREE.BufferGeometry)[]
+  private outdoor = false
+  private daylight: ReturnType<typeof buildDaylight> | null = null
 
   private keeper: Character | null = null
   async populate(a: Appearance) {
@@ -175,9 +188,10 @@ export class Interior implements GameScene {
 
   /** just inside the front door, facing into the room */
   spawn() {
-    this.pos.set(0, 0, this.house.room.d / 2 - 2.0)
-    this.yaw = Math.PI
-    this.camYaw = 0
+    const sp = this.house.outdoor?.spawn
+    this.pos.set(sp ? sp.x : 0, 0, sp ? sp.z : this.house.room.d / 2 - 2.0)
+    this.yaw = sp ? sp.yaw : Math.PI
+    this.camYaw = sp ? sp.yaw + Math.PI : 0
     this.level = 0
     this.vel.set(0, 0, 0)
     this.placeCamera(1)
@@ -254,6 +268,35 @@ export class Interior implements GameScene {
   }
 
   private clampCam(v: THREE.Vector3) {
+    if (this.outdoor) {
+      // outdoors the camera is free, but never underground and never inside a building: pull it back along the ray from the player's head to the first collider
+      v.y = Math.max(v.y, 0.5)
+      const ox = this.pos.x
+      const oz = this.pos.z
+      const dx = v.x - ox
+      const dz = v.z - oz
+      let tMin = 1
+      for (const b of this.boxes) {
+        let t0 = 0
+        let t1 = 1
+        for (const [o, d, lo, hi] of [[ox, dx, b.x0 - 0.35, b.x1 + 0.35], [oz, dz, b.z0 - 0.35, b.z1 + 0.35]] as const) {
+          if (Math.abs(d) < 1e-6) {
+            if (o < lo || o > hi) t1 = -1
+          } else {
+            const a = (lo - o) / d
+            const c = (hi - o) / d
+            t0 = Math.max(t0, Math.min(a, c))
+            t1 = Math.min(t1, Math.max(a, c))
+          }
+        }
+        if (t1 >= t0 && t0 > 0.02 && t0 < tMin) tMin = t0
+      }
+      if (tMin < 1) {
+        v.x = ox + dx * tMin
+        v.z = oz + dz * tMin
+      }
+      return v
+    }
     const { w: W, d: D, h: Ht, loft } = this.house.room
     v.x = THREE.MathUtils.clamp(v.x, -W / 2 + 0.25, W / 2 - 0.25)
     v.z = THREE.MathUtils.clamp(v.z, -D / 2 + 0.25, D / 2 - 0.25)
@@ -279,7 +322,7 @@ export class Interior implements GameScene {
       this.camera.lookAt(this.shot.look)
       return
     }
-    const dist = this.portrait ? 4.0 : 3.5
+    const dist = this.outdoor ? (this.portrait ? 6.2 : 5.4) : this.portrait ? 4.0 : 3.5
     const want = new THREE.Vector3(Math.sin(this.camYaw) * Math.cos(this.camPitch) * dist, 1.25 + Math.sin(this.camPitch) * dist, Math.cos(this.camYaw) * Math.cos(this.camPitch) * dist).add(this.pos)
     // squeezed by a wall: trade the lost distance for height, so you look over your shoulder, not into your head
     const wantH = Math.hypot(want.x - this.pos.x, want.z - this.pos.z)
@@ -310,7 +353,7 @@ export class Interior implements GameScene {
     const right = new THREE.Vector3(-fwd.z, 0, fwd.x)
     const wish = fwd.multiplyScalar(mv.z).add(right.multiplyScalar(mv.x))
     const mag = Math.min(1, wish.length())
-    const targetVel = mag > 0.01 ? wish.normalize().multiplyScalar(targetSpeed(mag, mv.run, mv.analog, INDOOR) * 0.9) : new THREE.Vector3()
+    const targetVel = mag > 0.01 ? wish.normalize().multiplyScalar(targetSpeed(mag, mv.run, mv.analog, this.outdoor ? OUTDOOR : INDOOR) * (this.outdoor ? 1 : 0.9)) : new THREE.Vector3()
     const p = this.player
     if (this.input?.takeJump() && !this.paused && this.jumper.tryJump(p)) this.emoter.cancel(p)
     if (mag > 0.05 && this.emoter.busy) this.emoter.cancel(p)
@@ -322,6 +365,12 @@ export class Interior implements GameScene {
     this.pos.x += this.vel.x * dt
     this.pos.z += this.vel.z * dt
     this.collide(this.pos)
+    if (this.outdoor) {
+      const hw = this.house.room.w / 2 - 1
+      const hd = this.house.room.d / 2 - 1
+      this.pos.x = THREE.MathUtils.clamp(this.pos.x, -hw, hw)
+      this.pos.z = THREE.MathUtils.clamp(this.pos.z, -hd, hd)
+    }
     // floors: on the stair you climb; reaching the top puts you on the loft, the bottom back on the ground floor
     const L = this.house.room.loft
     const st = this.onStair(this.pos.x, this.pos.z)
@@ -385,6 +434,7 @@ export class Interior implements GameScene {
     }
 
     this.placeCamera(1 - Math.exp(-dt * 8))
+    this.daylight?.update(dt, this.pos)
     for (const f of this.fires) f.update(this.t)
     for (const fl of this.flickers) fl.light.intensity = fl.base * (0.86 + Math.sin(this.t * 9 + fl.ph) * 0.07 + Math.sin(this.t * 23 + fl.ph * 3) * 0.05)
     for (const a of this.anims) a(this.t)
@@ -393,6 +443,7 @@ export class Interior implements GameScene {
 
   dispose() {
     this.disposed = true
+    this.daylight?.dispose()
     this.pet?.dispose()
     this.events?.onPrompt(null)
     if (this.player) disposeCharacter(this.player)

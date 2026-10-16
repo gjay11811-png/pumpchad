@@ -7,6 +7,8 @@ import * as Fu from './furniture'
 import type { Kit } from './furniture'
 import { HAUNTED_INTERIORS } from './haunted'
 import { SHOP_INTERIORS } from './shops'
+import { DISTRICT_ENABLED } from '../../district/config'
+import { DISTRICT_SPEC } from '../../district'
 import { VALLEY_INTERIORS } from './valleyInteriors'
 import { SHOW_HOME_INTERIORS } from './showHomes'
 import type { VillagerLook } from '../../character/villager'
@@ -32,6 +34,8 @@ export type HouseSpec = {
   /** things to inspect: id → prompt + what you read */
   looks?: Record<string, Line & { at: [number, number]; r?: number; level?: 0 | 1 }>
   build(K: Kit, S: Shell): void
+  /** an OUTDOOR place (the new district): no room shell, daylight sky + sun, a free camera; `room` then only gives the walkable bounds */
+  outdoor?: { spawn: { x: number; z: number; yaw: number }; exit: [number, number] }
   /** a shopkeeper (a villager) behind the counter; talk from `talkAt` (the customer side) */
   keeper?: { look: VillagerLook; at: [number, number]; yaw: number; talkAt: [number, number]; line: Line; shop?: 'fits' | 'pets' }
 }
@@ -669,6 +673,7 @@ export const HOUSES: HouseSpec[] = [
 HOUSES.push(...HAUNTED_INTERIORS)
 // Motor Row: Chad Pets + Chad Motors
 HOUSES.push(...SHOP_INTERIORS)
+if (DISTRICT_ENABLED) HOUSES.push(DISTRICT_SPEC)
 HOUSES.push(...SHOW_HOME_INTERIORS)
 // the valley's own places: the roadside inn, the old watchtower, Mooncrest Manor
 HOUSES.push(...VALLEY_INTERIORS)

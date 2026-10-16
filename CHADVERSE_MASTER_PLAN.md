@@ -281,3 +281,8 @@ This extends the plan above; there is no second plan.
 - Mixamo: needs an Adobe sign-in (not used).
 - Sur-Ron-style bike and street bike are unchanged this pass (they already exist in Chad Rides).
 - Gym exterior/plant wall, arcade finish, builder-piece show homes, village materials/lighting, forest/waterfall/quest, bar swing and rooftop routes, mobile checks on all three characters: not touched in this session. Lanterns still await approval; expansion stays closed.
+
+## NEW DISTRICT ("CHAD CITY" working name) — status (2026-10-16)
+Built as a separate outdoor scene (`src/game/district/`), entered like a house interior but with the real sky and sun; the starter map's scene, buildings and systems are unchanged (it is only reachable with `?district=1` or `window.__chadverse.enterDistrict()`; no entrance exists in the starter map yet). Rename / switch off in `district/config.ts`. Checkpoint tag before the work: `checkpoint-before-new-district`.
+- Phase 3 showcase done: the flagship PumpChad Gym (3 storeys, cantilever, glazing with a visible lit interior, gold lattice feature core with logo and wordmark, timber, recessed step-free entrance, forecourt, planters), a real-scale avenue (PBR asphalt, kerbs, pavements, lane markings, zebra crossings, drains, lamps, signals, bollards, benches), a curved-glass tower, a brick shopfront terrace, an office block on a colonnade, west-side wings, an arcade plot with hoarding and car park, street trees.
+- Not yet: the arcade building, the social plaza, the connection to the starter map, NPCs/cars/ambient audio, golden-hour/night/rain looks, ultra/high/mobile preset tuning, ambient occlusion and other post effects.

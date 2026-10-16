@@ -72,6 +72,8 @@ export type Kit = {
   /** spots that animate (candle flames bobbing, cauldron bubbles, clock pendulum) */
   anim(fn: (t: number) => void): void
   scene: THREE.Scene
+  /** graphics quality of the running game (outdoor places size their detail by it) */
+  quality?: import('../../save').Quality
 }
 
 /** collider for a w×d footprint centred at (x,z) rotated by ry */

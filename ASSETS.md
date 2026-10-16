@@ -102,3 +102,16 @@ Original file kept in `C:/Users/zafe5/Downloads/pumpchad-assets/sketchfab/realis
 |---|---|---|---|---|
 | Island Tree 01 | https://polyhaven.com/a/island_tree_01 (Poly Haven; glTF 1K via the files API) | **CC0** | 1.6 M → 19 K triangles (meshopt), normal/ARM maps dropped, 512 px WebP diffuse → `public/chadverse/models/veg/island_tree_opt.glb` (1.5 MB); instancing loader in `scenes/world/scanTrees.ts` (leaf cards alpha-tested) | **BAKED, NOT WIRED IN**: I could not judge it visually (my test browser lost its graphics context in the forest each time), so the forest still uses the procedural trees. Hook: call `scatterIslandTrees` from `world/wilds.ts` |
 | Fir Tree 01 | https://polyhaven.com/a/fir_tree_01 | CC0 | not downloaded: 7.9 M triangles / ~460 MB, too big to process on this 3.5 GB machine | not used |
+
+## New district — "Chad City" working name (2026-10-16) — asset manifest
+All CC0, from Poly Haven (https://polyhaven.com/a/<name>); no attribution required, credit kept here. Downloaded as 1K JPG (diffuse, GL normal, roughness), resized to 1024 and converted to WebP by `sharp`; files in `public/chadverse/district/tex/` (3.2 MB for all five sets, one request per map).
+
+| Texture | Used for |
+|---|---|
+| `asphalt_04` | the carriageway |
+| `concrete_pavement_03` | the kerb-side furniture strip of the pavements |
+| `large_grey_tiles` | pavements and the gym forecourt |
+| `concrete_wall_007` | concrete facades, plinths, columns |
+| `red_brick_03` | the brick shopfront terrace |
+
+Not downloaded from Poly Haven: every other surface (timber cladding, the gold lattice screen, the logo, the wordmark, shop signs, the curtain-wall facade) is drawn in code. Trees use the village's own tree generator (`scenes/world/foliage.ts`); Poly Haven's Jacaranda and Island Tree 01 were baked and tested but their decimated leaf cards looked too sparse, so they are NOT used in the district (the Island Tree file stays in `models/veg/`, unused). No Sketchfab asset is used in the district.
