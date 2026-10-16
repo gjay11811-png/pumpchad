@@ -38,6 +38,8 @@ export interface Character {
   palmCenter?(out?: THREE.Vector3): THREE.Vector3
   /** real models: world-space palm position of one hand */
   palm?(side: 'l' | 'r', out?: THREE.Vector3): THREE.Vector3
+  /** real models: sit on a bike — pelvis on `seat`, torso leaned forward, feet on the pegs (world points); call after update(), before grip() */
+  ride?(seat: THREE.Vector3, pegA: THREE.Vector3, pegB: THREE.Vector3, lean: number, kneeOut?: number): void
   /** real models: world-space point between the shoulder joints */
   shoulderCenter?(out?: THREE.Vector3): THREE.Vector3
 }

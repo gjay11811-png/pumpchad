@@ -65,13 +65,19 @@ function parked(F: Frame, stand: THREE.Material, standAt: THREE.Vector3) {
 }
 
 /** naked street bike — 17" spoked wheels, finned twin, tank, side exhaust, inverted forks */
-export function streetBike(F0: Frame, paint: THREE.Material, M: MotoMats) {
+/** the dimensions the riding visual needs (axles, head tube, seat, bars, pegs) — kept beside the models so they never drift apart */
+export const BIKE_LAYOUT = {
+  surron: { R: 0.31, rear: [-0.58, 0.31], front: [0.6, 0.31], steerTop: [0.18, 0.96], seat: [-0.32, 0.81], grips: [0.2, 1.0, 0.37], pegs: [-0.08, 0.33, 0.2], frontEndX: 0.12, helmetClear: 0.0 },
+  street: { R: 0.33, rear: [-0.7, 0.33], front: [0.72, 0.33], steerTop: [0.38, 1.09], seat: [-0.3, 0.95], grips: [0.36, 1.09, 0.31], pegs: [-0.12, 0.34, 0.22], frontEndX: 0.22, helmetClear: 0.0 },
+} as const
+
+export function streetBike(F0: Frame, paint: THREE.Material, M: MotoMats, opts: { ride?: boolean } = {}) {
   const R = 0.33
   const rear = V(-0.7, R, 0)
   const front = V(0.72, R, 0)
   const head = V(0.4, 0.95, 0)
   const pivot = V(-0.28, 0.46, 0)
-  const F = parked(F0, M.steel, V(-0.05, 0, 0.1))
+  const F = opts.ride ? F0 : parked(F0, M.steel, V(-0.05, 0, 0.1)) // `ride`: upright, no kickstand (the riding visual draws its own)
   wheel(F, rear, R, 0.075, M, { disc: 0.12 })
   wheel(F, front, R, 0.06, M, { disc: 0.14 })
   // forks: two sprung inverted legs from the triple clamp to the front axle, fender over the wheel
@@ -121,13 +127,13 @@ export function streetBike(F0: Frame, paint: THREE.Material, M: MotoMats) {
 }
 
 /** Sur-Ron-style electric dirt bike — slim frame, big battery housing, a motor at the pivot, long-travel forks, knobbly tyres */
-export function eBike(F0: Frame, paint: THREE.Material, M: MotoMats) {
+export function eBike(F0: Frame, paint: THREE.Material, M: MotoMats, opts: { ride?: boolean } = {}) {
   const R = 0.31
   const rear = V(-0.58, R, 0)
   const front = V(0.6, R, 0)
   const head = V(0.3, 0.8, 0)
   const pivot = V(-0.22, 0.4, 0)
-  const F = parked(F0, M.steel, V(-0.05, 0, 0.1))
+  const F = opts.ride ? F0 : parked(F0, M.steel, V(-0.05, 0, 0.1)) // `ride`: upright, no kickstand (the riding visual draws its own)
   wheel(F, rear, R, 0.065, M, { knobs: true, spokes: 14, disc: 0.1 })
   wheel(F, front, R, 0.055, M, { knobs: true, spokes: 14, disc: 0.12 })
   // long-travel inverted forks (gold) angled back from the bars, a high beak fender

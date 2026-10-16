@@ -1250,6 +1250,58 @@ export class PumpkinChad implements Character {
     })
   }
 
+  /**
+   * RIDING a bike: sit the pelvis on `seat` (a world point), lean the torso forward by `lean` radians, and plant each foot on a peg (world points).
+   * Call after update(), with the root already aligned to the bike (+z forward), and before grip() puts the hands on the bars. Knees point forward and a
+   * little out, like a rider's. The model never leaves its animation rig: this just overrides pelvis, spine and the two legs for the frame.
+   */
+  ride(seat: THREE.Vector3, pegA: THREE.Vector3, pegB: THREE.Vector3, lean: number, kneeOut = 0.3) {
+    const P = this.ik
+    this.root.updateWorldMatrix(true, true)
+    const rq = this.root.getWorldQuaternion(new THREE.Quaternion())
+    const inv = rq.clone().invert()
+    const fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(rq)
+    const up = new THREE.Vector3(0, 1, 0).applyQuaternion(rq)
+    // pelvis on the seat
+    const pelvis = this.bone('pelvis')
+    const pw = seat.clone().addScaledVector(up, 0.13)
+    pelvis.position.copy(pelvis.parent!.worldToLocal(pw))
+    pelvis.updateWorldMatrix(false, true)
+    // torso forward over the tank / bars, the head up
+    const sp = this.bone('spine_01')
+    sp.rotateX(lean * 0.55)
+    this.bone('spine_02').rotateX(lean * 0.3)
+    this.bone('neck_01').rotateX(-lean * 0.55)
+    sp.updateWorldMatrix(false, true)
+    // each foot to the peg nearest it
+    const footL = this.bone('foot_l').getWorldPosition(new THREE.Vector3())
+    const straight = footL.distanceTo(pegA) + this.bone('foot_r').getWorldPosition(new THREE.Vector3()).distanceTo(pegB)
+    const crossed = footL.distanceTo(pegB) + this.bone('foot_r').getWorldPosition(new THREE.Vector3()).distanceTo(pegA)
+    const targets = straight <= crossed ? { l: pegA, r: pegB } : { l: pegB, r: pegA }
+    for (const side of ['l', 'r'] as const) {
+      const thigh = this.bone(`thigh_${side}`)
+      const calf = this.bone(`calf_${side}`)
+      const foot = this.bone(`foot_${side}`)
+      thigh.getWorldPosition(P.hip)
+      calf.getWorldPosition(P.knee)
+      foot.getWorldPosition(P.ankle)
+      const l1 = P.hip.distanceTo(P.knee)
+      const l2 = P.knee.distanceTo(P.ankle)
+      const target = targets[side].clone().addScaledVector(up, 0.09) // the ankle sits just above the sole
+      P.d.subVectors(target, P.hip)
+      const dist = THREE.MathUtils.clamp(P.d.length(), Math.abs(l1 - l2) + 1e-3, l1 + l2 - 1e-3)
+      P.d.normalize()
+      const ang = Math.acos(THREE.MathUtils.clamp((l1 * l1 + dist * dist - l2 * l2) / (2 * l1 * dist), -1, 1))
+      const out = new THREE.Vector3(1, 0, 0).applyQuaternion(rq).multiplyScalar((side === 'l' ? this.leftSign : -this.leftSign) * kneeOut)
+      P.bend.copy(fwd).add(out)
+      P.bend.addScaledVector(P.d, -P.bend.dot(P.d)).normalize()
+      const knee = P.hip.clone().addScaledVector(P.d, Math.cos(ang) * l1).addScaledVector(P.bend, Math.sin(ang) * l1)
+      this.aim(thigh, calf, knee.sub(P.hip).applyQuaternion(inv), 1)
+      calf.getWorldPosition(P.knee)
+      this.aim(calf, foot, target.clone().sub(P.knee).applyQuaternion(inv), 1)
+    }
+  }
+
   update(dt: number) {
     for (const s of this.pose0) {
       s.b.quaternion.copy(s.q)
