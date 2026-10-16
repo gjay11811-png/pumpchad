@@ -256,9 +256,10 @@ const heroLoads = new Map<HeroModel, Promise<THREE.Object3D | null>>()
 function loadHero(model: HeroModel) {
   let pr = heroLoads.get(model)
   if (!pr) {
-    pr = new GLTFLoader()
-      .loadAsync(`${import.meta.env.BASE_URL}chadverse/models/${HERO[model].file}`)
-      .then((g) => {
+    // started a few seconds after the scene is built, so the model and its textures never compete with the world's own loading
+    pr = new Promise<void>((r) => setTimeout(r, 4000))
+      .then(() => new GLTFLoader().loadAsync(`${import.meta.env.BASE_URL}chadverse/models/${HERO[model].file}`)
+      ).then((g) => {
         g.scene.traverse((o) => {
           const m = o as THREE.Mesh
           if (!m.isMesh) return

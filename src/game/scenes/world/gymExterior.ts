@@ -134,7 +134,7 @@ export function gymExterior(T: Town, stoneTex: THREE.Texture) {
   F.box(7.2, 1.25, 0.12, steel, 0.4, 5.55, fz + 0.06)
   F.box(6.9, 0.05, 0.05, led, 0.4, 4.98, fz + 0.14, false)
   F.box(6.9, 0.05, 0.05, led, 0.4, 6.12, fz + 0.14, false)
-  F.box(6.0, 0.62, 0.04, led, 0.4, 5.55, fz + 0.1, false)
+  // (no glow slab behind the letters: it washed the lettering out; the dark fascia lets the lit letters read on their own)
   channelLetters(F.sub(0.4, 5.2, fz + 0.16), 'PUMP GYM', 0.76, 0.26, orange)
 
   // side (south, yard) facade: framed windows over the brick base

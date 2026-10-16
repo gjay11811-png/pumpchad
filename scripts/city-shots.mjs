@@ -143,7 +143,7 @@ const VIEWS = {
   'plan-e': { cam: [[40, 70, 14], [40, 0, 14.1], 55] },
   'plan-w': { cam: [[-40, 70, 14], [-40, 0, 14.1], 55] },
 }
-const b = await chromium.launch({ executablePath: process.env.LOCALAPPDATA + '/ms-playwright/chromium-1228/chrome-win64/chrome.exe' })
+const b = await chromium.launch({ executablePath: process.env.LOCALAPPDATA + '/ms-playwright/chromium-1228/chrome-win64/chrome.exe', args: (process.env.GLARGS ?? '--use-angle=swiftshader --enable-unsafe-swiftshader --disable-gpu-watchdog').split(' ').filter(Boolean) })
 const errs = []
 const p = await b.newPage({ viewport: { width: 1280, height: 720 } })
 p.on('pageerror', (e) => errs.push(e.message))
