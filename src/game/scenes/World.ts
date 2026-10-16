@@ -69,6 +69,7 @@ import { citadel, CITADEL } from './world/citadel'
 import { eastside } from './world/eastside'
 import { westside, type BenchSpot } from './world/westside'
 import { chadRides } from './world/rides'
+import { RideSystem } from '../bike/ride'
 import { lawns, PATCH } from './world/lawns'
 import { streetDetails } from './world/details'
 import { MAPBOARD, WELCOME } from './world/gateway'
@@ -239,6 +240,12 @@ export class World implements GameScene {
   private city: ReturnType<typeof buildChadCity> | null = null
   private daylight: ReturnType<typeof buildDaylight> | null = null
   private disposables: (THREE.Material | THREE.Texture | THREE.BufferGeometry)[] = []
+  /** riding: parked bikes you can climb onto, the ride itself (see bike/ride.ts); inert until a bike is mounted */
+  readonly ride: RideSystem
+  /** where the rider steps down to when getting off */
+  private rideStand: THREE.Vector3 | null = null
+  private camDistBase = 6.4
+  private rideCamOn = false
   paused = false
   private actionCooldown = 0
   /** time of the last manual camera drag (auto-follow waits a moment after it) */
@@ -315,6 +322,7 @@ export class World implements GameScene {
     quality: Quality,
   ) {
     this.quality = quality
+    this.ride = new RideSystem({ scene: this.scene, ground: (x, z) => groundHeight(x, z), resolve: (p, r, y) => this.resolve(p, r, y), input })
     const s = this.scene
     s.environment = engine.env
     s.environmentIntensity = 0.5
@@ -440,6 +448,14 @@ export class World implements GameScene {
     lawns(T, SM.trim, extraSeats, greenery)
     this.seats.push(...extraSeats)
     chadRides(T, SM.trim)
+    // the two rideable bikes on the Chad Rides forecourt (the same Sur-Ron-style e-bike and street bike as the shelter's display bikes, now live)
+    {
+      const pOrange = new THREE.MeshStandardMaterial({ color: '#ff7a1a', metalness: 0.4, roughness: 0.35 })
+      const pPurple = new THREE.MeshStandardMaterial({ color: '#6b3fc8', metalness: 0.4, roughness: 0.35 })
+      this.disposables.push(pOrange, pPurple)
+      this.ride.addParked('surron', 'surron', RIDES.x + 0.9, RIDES.z - 2.3, Math.PI, pOrange, 'Sur-Ron', this.disposables)
+      this.ride.addParked('street', 'street', RIDES.x + 2.9, RIDES.z - 2.3, Math.PI, pPurple, 'Street bike', this.disposables)
+    }
     // the valley city (Downtown, the Gate Plaza, the castle mountain) is built in its own frame, 52 m below the village
     // FIRST RELEASE: the valley stays as distant scenery only (the castle on its mountain, the descending road, the lake + bridge seen from the
     // overlook edge). Chad City (Downtown), the hamlet, woodland trail, watchtower and Mooncrest Manor — buildings, colliders, lights,
@@ -790,6 +806,7 @@ export class World implements GameScene {
     add('citygate', 'Read the welcome board', WELCOME.x + 0.5, WELCOME.z + 1.3, 1.4, 'info')
     add('citymap', 'Study the city map', MAPBOARD.x - 0.5, MAPBOARD.z + 1.3, 1.4, 'info')
     add('rides', 'Look at Chad Rides', RIDES.x - 1.5, RIDES.z - 2.9, 1.6, 'info')
+    for (const b of this.ride.parked) add(`ride:${b.id}`, `Ride the ${b.label}`, b.x, b.z, 1.5, 'activity')
     add('overlook', 'Take in the view from Chad View', OVERLOOK.x + 1.5, OVERLOOK.z + 0.5, 1.8, 'info')
     add('lore_citadel', 'Read the citadel plaque', CITADEL.lore.x + 0.5, CITADEL.lore.z + 0.95, 1.2, 'info')
     add('yard', 'Read the yard board', 17.4, 12.9, 1.3, 'info')
@@ -1267,8 +1284,65 @@ export class World implements GameScene {
   }
 
   /** play an emote from the wheel (ignored mid-air) */
+  /** one frame of riding: the bike's own model drives, the scene follows it (position, heading, camera) */
+  private stepRide(dt: number) {
+    const r = this.ride
+    const tmp = new THREE.Vector3()
+    const prev = r.active
+    const wasOff = prev?.phase === 'dismounting'
+    const standAt = prev ? prev.from.clone() : null
+    r.step(dt, tmp, () => this.input.takeAction(), this.player)
+    if (r.active) {
+      this.rideStand = r.active.phase === 'dismounting' ? r.active.from : null
+      this.playerPos.x = tmp.x
+      this.playerPos.z = tmp.z
+      this.playerPos.y += (groundHeight(tmp.x, tmp.z) - this.playerPos.y) * (1 - Math.exp(-dt * 14))
+      this.playerYaw = r.cam.heading
+      this.playerVel.set(Math.sin(r.cam.heading) * r.cam.speed, 0, Math.cos(r.cam.heading) * r.cam.speed)
+      this.jumper.y = 0
+      // the follow camera: swings in behind the bike (unless you are looking around), sits further back as you go faster, and stays level through a wheelie
+      const sp = r.cam.speed
+      this.rideCamOn = true
+      this.camDist += (this.camDistBase * 1.22 + sp * 0.05 - this.camDist) * (1 - Math.exp(-dt * 2.5))
+      if (this.t - this.lastLookT > 1.4 && !this.input.mouseLooked) {
+        let cd = r.cam.heading + Math.PI - this.camYaw
+        cd = Math.atan2(Math.sin(cd), Math.cos(cd))
+        this.camYaw += cd * (1 - Math.exp(-dt * (1.6 + sp * 0.12)))
+        this.camPitch += (0.3 - this.camPitch) * (1 - Math.exp(-dt * 1.5))
+      }
+    } else {
+      // got off: back on foot beside the bike
+      this.playerVel.set(0, 0, 0)
+      if (wasOff && standAt) {
+        this.playerPos.set(standAt.x, groundHeight(standAt.x, standAt.z), standAt.z)
+        this.resolve(this.playerPos, PLAYER_R, 0)
+      }
+    }
+    if (!r.active && this.rideCamOn) this.endRideCamera()
+  }
+  private endRideCamera() {
+    this.rideCamOn = false
+    this.camDist = this.camDistBase
+    const p = this.player
+    if (p) {
+      p.root.rotation.set(0, this.playerYaw, 0)
+      p.root.position.copy(this.playerPos)
+      p.pose = 'idle'
+    }
+  }
+  /** QA: the rider's bike, mount a parked one, set it going */
+  rideState() {
+    return this.ride.state()
+  }
+  rideMount(id: string) {
+    return this.ride.mount(id, this.player, this.playerPos)
+  }
+  rideSet(o: { x?: number; z?: number; h?: number; v?: number }) {
+    this.ride.qaSet(o)
+  }
+
   emote(id: EmoteId) {
-    if (this.jumper.airborne || this.paused) return null
+    if (this.jumper.airborne || this.paused || this.ride.riding) return null
     return this.emoter.start(this.player, id)
   }
 
@@ -1602,7 +1676,8 @@ export class World implements GameScene {
   resize(w: number, h: number) {
     const portrait = h > w
     this.camera.fov = portrait ? 66 : 55
-    this.camDist = portrait ? 7 : 6.4
+    this.camDistBase = portrait ? 7 : 6.4
+    if (!this.rideCamOn) this.camDist = this.camDistBase
     this.camera.updateProjectionMatrix()
     const pr = this.engine.renderer.getPixelRatio()
     this.smoke?.setPixelScale(h, pr)
@@ -1624,7 +1699,7 @@ export class World implements GameScene {
     let jumpReq = this.input.takeJump()
     const rawMv = mv
     const rawJump = jumpReq
-    if (this.hang) {
+    if (this.hang || this.ride.riding) {
       mv = { x: 0, z: 0, run: false, analog: false }
       jumpReq = false
     }
@@ -1667,6 +1742,7 @@ export class World implements GameScene {
     }
     if (this.hang) this.stepHang(dt, rawMv, rawJump)
     else if (this.trav) this.stepTravel(dt)
+    else if (this.ride.riding) this.stepRide(dt)
     else {
     const fwd = new THREE.Vector3(-Math.sin(this.camYaw), 0, -Math.cos(this.camYaw))
     const right = new THREE.Vector3(-fwd.z, 0, fwd.x)
@@ -1771,6 +1847,7 @@ export class World implements GameScene {
       p.update(dt)
       if (this.hang) this.hangIK(p)
       else if (this.trav) this.travIK(p)
+      else if (this.ride.riding) this.ride.pose(p, this.rideStand)
     }
     this.lastSpeed = speed
     if (this.intro) {
@@ -1791,7 +1868,7 @@ export class World implements GameScene {
     // interaction prompt
     let best: Interactable | null = null
     let bestD = Infinity
-    if (!this.paused && !this.seat && this.lockT === 0 && !this.drill?.active)
+    if (!this.paused && !this.seat && this.lockT === 0 && !this.drill?.active && !this.ride.riding)
       for (const it of this.interactables) {
         const d = Math.hypot(it.pos.x - this.playerPos.x, it.pos.z - this.playerPos.z)
         if (d < it.radius + PLAYER_R && d < bestD) {
@@ -1810,6 +1887,8 @@ export class World implements GameScene {
     } else if (this.input.takeAction() && this.prompt && !this.paused && this.actionCooldown === 0) {
       audio.play('interact')
       if (this.prompt.id.startsWith('bench_')) this.sit(+this.prompt.id.slice(6))
+      if (this.prompt.id.startsWith('ride:')) this.ride.mount(this.prompt.id.slice(5), this.player, this.playerPos)
+      else
       if (this.prompt.id.startsWith('pk:')) this.startParkour(this.prompt.id.slice(3) as CourseId)
       else if (this.prompt.id === 'sword') this.drill?.start()
       else this.events.onInteract(this.prompt.id)

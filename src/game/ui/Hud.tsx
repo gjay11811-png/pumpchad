@@ -1,3 +1,4 @@
+import { RideHud } from './RideHud'
 import { useEffect, useState } from 'react'
 import { AnimatePresence, m } from 'framer-motion'
 import { ACHIEVEMENTS, levelFor, xpForLevel, type SaveData } from '../save'
@@ -101,6 +102,7 @@ export function Hud({
       <ParkourChip touch={touch} />
       <SwordChip touch={touch} />
       <TravHint touch={touch} />
+      <RideHud touch={touch} />
       {/* top bar */}
       <div className="flex items-start justify-between gap-3 safe-t safe-x">
         <button type="button" {...tap(() => onProfile?.())} aria-label="Open profile" data-testid="hud-profile" className="panel pointer-events-auto flex items-center gap-3 rounded-2xl py-2 pl-2 pr-4 text-left transition-transform active:scale-[0.97]">
