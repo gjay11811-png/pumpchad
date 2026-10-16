@@ -19,6 +19,7 @@ import { ACHIEVEMENTS, defaultSave, levelFor, loadSave, writeSave, type SaveData
 import { STAT_FOR, levelsGained, rollDaily, setRewards } from './progression'
 import { Gym, type GymMode } from './scenes/Gym'
 import { Interior } from './scenes/Interior'
+import { DISTRICT, DISTRICT_ENABLED } from './district/config'
 import { HOUSE, HOUSES, doorSpot, setHome } from './scenes/interiors/houses'
 import type { SpawnAt } from './scenes/World'
 import { STATIONS, setXp, type SetState, type StationId } from './workout'
@@ -699,6 +700,15 @@ export function GameApp() {
       world.current?.cooldown()
     })
   }, [phase, discover])
+
+  /* ── the new district (review only): with `?district=1` the game walks straight into it once the village is on screen, once per page load ── */
+  const districtEntered = useRef(false)
+  useEffect(() => {
+    if (!DISTRICT_ENABLED || districtEntered.current || phase !== 'world' || !world.current) return
+    districtEntered.current = true
+    introPending.current = false
+    void go('interior', { house: DISTRICT.id, label: `Entering ${DISTRICT.name}` })
+  }, [phase, go])
 
   /* ── launch scope: a player who already explored the (now closed) expansion is welcomed back at the arrival gate, once ── */
   useEffect(() => {
