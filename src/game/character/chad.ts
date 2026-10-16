@@ -1255,6 +1255,12 @@ export class PumpkinChad implements Character {
    * Call after update(), with the root already aligned to the bike (+z forward), and before grip() puts the hands on the bars. Knees point forward and a
    * little out, like a rider's. The model never leaves its animation rig: this just overrides pelvis, spine and the two legs for the frame.
    */
+  /** the centre of the head (for keeping it clear of a bike's bars): the neck joint plus up the body */
+  headCenter(out = new THREE.Vector3()) {
+    const neck = this.bone('neck_01').getWorldPosition(out)
+    const up = new THREE.Vector3(0, 1, 0).applyQuaternion(this.root.getWorldQuaternion(new THREE.Quaternion()))
+    return neck.addScaledVector(up, 0.24)
+  }
   ride(seat: THREE.Vector3, pegA: THREE.Vector3, pegB: THREE.Vector3, lean: number, kneeOut = 0.3) {
     const P = this.ik
     this.root.updateWorldMatrix(true, true)

@@ -314,7 +314,8 @@ export class BikeSim {
     const fade = 1 / (1 + Math.pow(av / s.steerFade, 1.7))
     // with the front wheel in the air the bars still turn but the bike answers less: gentle corrections only
     const air = this.pitch > 0.1 ? Math.max(0.42, 1 - this.pitch * 1.1) : 1
-    const target = inp.steer * s.steerMax * fade
+    // the bars get lighter as the nose comes up: a wheelie is steered with small inputs
+    const target = inp.steer * s.steerMax * fade * (this.pitch > 0.1 ? Math.max(0.35, 1 - this.pitch * 0.9) : 1)
     const maxStep = s.steerRate * dt * (Math.abs(inp.steer) < 0.02 ? 1.7 : 1)
     this.delta += Math.max(-maxStep, Math.min(maxStep, target - this.delta))
     let yawRate = (-this.v * Math.tan(this.delta)) / L // + = left

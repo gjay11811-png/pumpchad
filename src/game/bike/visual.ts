@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { Frame } from '../scenes/world/signs'
 import { BIKE_LAYOUT, eBike, motoMats, streetBike, type MotoMats } from '../scenes/world/motorbikes'
-import type { BikeSim } from './sim'
+import type { BikeView } from './sim'
 
 /**
  * THE BIKE'S LOOK, SEPARATE FROM ITS HANDLING. A `BikeVisual` is a small scene graph with named parts and attachment points; the riding model (`sim.ts`)
@@ -27,7 +27,7 @@ export interface BikeRig {
   pegL: THREE.Object3D
   pegR: THREE.Object3D
   /** pose it from the riding model (and a parked lean) */
-  apply(sim: BikeSim, groundPitch?: number): void
+  apply(view: BikeView, groundPitch?: number): void
   /** stand it up parked on its kickstand, leaning, with no rider */
   park(): void
   dispose(): void
@@ -171,11 +171,11 @@ export class ModelBikeVisual implements BikeRig {
     this.wheelF.rotation.z = 0
   }
 
-  apply(sim: BikeSim, groundPitch = 0) {
+  apply(sim: BikeView, groundPitch = 0) {
     this.stand.visible = false
     this.tilt.rotation.z = groundPitch
     this.roll.rotation.x = -sim.roll // + roll = leaning right; the bike's +z is its left, so right-lean is a negative rotation about +x
-    this.pitchPivot.rotation.z = sim.pitch
+    this.pitchPivot.rotation.z = sim.pitch + sim.chassis
     // the body settles on the rear shock (the wheel stays put); the unsprung front sinks into the fork travel
     this.pitchPivot.position.y = this.rear.y - sim.shockC * 0.7 - (sim.pitch > 0.05 ? 0 : sim.forkC * 0.25)
     this.frontPivot.quaternion.setFromAxisAngle(this.axis, -sim.delta) // + delta = steering right = clockwise seen from above = negative about the up axis

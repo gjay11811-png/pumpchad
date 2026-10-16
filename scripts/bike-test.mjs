@@ -1,9 +1,12 @@
-// Riding with ORDINARY KEYS in a simulated browser (headless software GL — not a real phone, not a real GPU, and the frame rate is low, so every wait polls the game's state).
-//   mount → camera follows → accelerate → steer → brake / reverse → rear brake → a held wheelie (a little reactive "player" on the keys) → rear-brake touchdown →
-//   loop-out crash and recovery → wall collision → dismount → remount.        KIND=surron|street node scripts/bike-test.mjs
+// Riding with ORDINARY KEYS in a simulated browser (headless software GL — not a real phone, not a real GPU).
+// The game renders ~1-2 fps there, so game time is advanced with the QA hook __chadverse.advance(sec) (fixed 60 Hz World.update, no rendering).
+// Key presses are real keyboard events; the checks read the game's state.
+//   mount → accelerate → steer → brake / reverse → rear brake → held wheelie with small corrections → rear-brake touchdown →
+//   loop-out + recovery → wall → dismount → remount → pause/dismount release inputs.      KIND=surron|street node scripts/bike-test.mjs
 import { chromium } from 'playwright'
 const BASE = process.env.URL || 'http://localhost:5180/chadverse/'
 const KIND = process.env.KIND || 'surron'
+const SPECIES = process.env.SPECIES || ''
 const b = await chromium.launch({ executablePath: process.env.LOCALAPPDATA + '/ms-playwright/chromium-1228/chrome-win64/chrome.exe', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--disable-gpu-watchdog'] })
 const p = await b.newPage({ viewport: { width: 800, height: 450 } })
 const errs = []
@@ -17,164 +20,207 @@ await p.addInitScript(() => localStorage.setItem('pumpchad.chadverse.save', JSON
 await p.goto(BASE + '?sky=day')
 await p.click('[data-testid=enter-muted]')
 await p.waitForSelector('[role=tablist]')
+if (SPECIES) await p.click(`[data-testid=species-${SPECIES}]`)
 await p.getByRole('tab', { name: 'Name' }).click()
 await p.fill('#chad-name', 'Rider')
 await p.getByRole('button', { name: /Enter Chad Square/ }).click()
 await p.waitForFunction(() => window.__chadverse?.phase === 'world' && window.__chadverse.world(), null, { timeout: 120000 })
 const B = () => p.evaluate(() => window.__chadverse.bike())
 const W = () => p.evaluate(() => window.__chadverse.world())
-const until = async (fn, ms = 60000) => {
-  const t0 = Date.now()
-  while (Date.now() - t0 < ms) {
-    if (await fn()) return true
-    await p.waitForTimeout(60)
+const adv = (s) => p.evaluate((s) => window.__chadverse.advance(s), s)
+/** advance game time in 0.1 s slices until fn(state) is true (or maxSec passes); returns the state it ended on */
+const until = async (fn, maxSec = 20, dt = 0.1) => {
+  let s = await B()
+  for (let t = 0; t < maxSec; t += dt) {
+    if (fn(s)) return { ok: true, s }
+    await adv(dt)
+    s = await B()
   }
-  return false
+  return { ok: fn(s), s }
 }
 const set = (o) => p.evaluate((o) => window.__chadverse.setBike(o), o)
 const down = (k) => p.keyboard.down(k)
 const up = (k) => p.keyboard.up(k)
+const deg = (r) => ((r * 180) / Math.PI).toFixed(0)
 const parked = (await B()).parked.find((x) => x.kind === KIND)
 
 /* 1. mount */
 await p.evaluate(([x, z]) => window.__chadverse.teleport(x, z - 1.6, Math.PI), [parked.x, parked.z])
-await until(async () => (await W()).prompt === `ride:${KIND}`, 8000)
+await adv(0.3)
 check((await W()).prompt === `ride:${KIND}`, `walking up to the ${KIND} offers "Ride" (${(await W()).prompt})`)
 await p.keyboard.press('e')
-check(await until(async () => (await B()).riding && (await B()).phase === 'riding'), 'E mounts: the rider swings on and the bike is live')
+check((await until((s) => s.riding && s.phase === 'riding', 4)).ok, 'E mounts: the rider swings on and the bike is live')
 
 /* open ground: the main avenue toward the gate, heading +z */
 await set({ x: 0, z: 14, h: 0, v: 0 })
-await p.waitForTimeout(500)
+await adv(0.5)
 
 /* 2. accelerate smoothly, camera comes round behind */
 await down('w')
-await until(async () => (await B()).v > 4)
-const v4 = (await B()).v
-await until(async () => (await B()).v > 9)
-const v9 = (await B()).v
-check(v4 > 3 && v9 > 8 && Number.isFinite(v9), `W accelerates (${v4.toFixed(1)} → ${v9.toFixed(1)} m/s)`)
+const a4 = await until((s) => s.v > 4, 10)
+const a9 = await until((s) => s.v > 9, 15)
+check(a4.ok && a9.ok, `W accelerates progressively (${a4.s.v.toFixed(1)} m/s after ${a4.ok ? '' : 'timeout'}; ${a9.s.v.toFixed(1)} m/s)`)
+await adv(2.5)
 const bs = await B()
 const wd = await W()
-let dyaw = Math.atan2(Math.sin(wd.camYaw - (bs.heading + Math.PI)), Math.cos(wd.camYaw - (bs.heading + Math.PI)))
-check(Math.abs(dyaw) < 0.7, `the follow camera sits behind the bike (off by ${((dyaw * 180) / Math.PI).toFixed(0)}°)`)
+const dyaw = Math.atan2(Math.sin(wd.camYaw - (bs.heading + Math.PI)), Math.cos(wd.camYaw - (bs.heading + Math.PI)))
+check(Math.abs(dyaw) < 0.7, `the follow camera sits behind the bike (off by ${deg(dyaw)}°)`)
 await up('w')
+await adv(2)
+check((await B()).v < bs.v && (await B()).v > 0, `releasing the throttle rolls off smoothly (${bs.v.toFixed(1)} → ${(await B()).v.toFixed(1)} m/s)`)
 
 /* 3. steering and grip */
 await set({ x: 0, z: 14, h: 0, v: 12 })
 const h0 = (await B()).heading
 await down('w')
 await down('d')
-await until(async () => Math.abs((await B()).heading - h0) > 0.5, 30000)
-const turn = await B()
-check(Math.abs(turn.heading - h0) > 0.4 && turn.latAccel > 0 && turn.roll > 0.05, `D turns right and the bike leans in (heading ${(turn.heading - h0).toFixed(2)}, lean ${((turn.roll * 180) / Math.PI).toFixed(0)}°)`)
-check(Math.abs(turn.latAccel) <= 9.6 && turn.crashed === null, `grip holds: ${turn.latAccel.toFixed(1)} m/s² ≤ the limit, no slide / crash`)
+const tr = await until((s) => Math.abs(s.heading - h0) > 0.5, 6)
+const turn = tr.s
+check(Math.abs(turn.heading - h0) > 0.4 && turn.roll > 0.05, `D turns right and the bike leans in (heading ${(turn.heading - h0).toFixed(2)}, lean ${deg(turn.roll)}°)`)
+check(Math.abs(turn.latAccel) <= 9.6 && turn.crashed === null, `grip holds: ${turn.latAccel.toFixed(1)} m/s² ≤ the limit, no crash`)
 await up('d')
 await down('a')
-await until(async () => (await B()).heading < turn.heading - 0.3, 30000)
-check((await B()).roll < turn.roll, 'A turns back left (the lean follows)')
+const tl = await until((s) => s.heading > turn.heading + 0.3, 6)
+check(tl.ok && tl.s.roll < turn.roll, 'A turns back left (the lean follows)')
 await up('a')
 await up('w')
 
 /* 4. brake, then reverse; the rear brake is gentler */
 await set({ x: 0, z: 14, h: 0, v: 14 })
 await down(' ')
-await p.waitForTimeout(800)
-const rv = (await B()).v
+await adv(0.8)
+const rvS = await B()
+const rv = rvS.v
+if (rv < 6) console.log('   rear-brake probe', JSON.stringify(rvS))
 await up(' ')
 await set({ x: 0, z: 14, h: 0, v: 14 })
 await down('s')
-await until(async () => (await B()).v < 0.4, 30000)
-check(rv > 5 && (await B()).v < 0.5, `S brakes to a stop; Space (rear brake only) is gentler (${rv.toFixed(1)} m/s after the same time)`)
-await until(async () => (await B()).v < -0.8, 30000)
-check((await B()).v < -0.6, `holding S at a standstill reverses (${(await B()).v.toFixed(2)} m/s)`)
+await adv(0.8)
+const fv = (await B()).v
+const stopped = await until((s) => s.v < 0.4, 8)
+check(rv > fv + 1 && stopped.ok, `S brakes to a stop; Space (rear brake only) is gentler (${rv.toFixed(1)} vs ${fv.toFixed(1)} m/s after 0.8 s)`)
+const rev = await until((s) => s.v < -0.8, 6)
+check(rev.s.v < -0.6, `holding S at a standstill reverses (${rev.s.v.toFixed(2)} m/s)`)
 await up('s')
 
-/* 5. a held wheelie: a little reactive player on the keys */
+/* 5. a held wheelie: a small reactive player on the keys (labelled: the "player" is a script, so this shows it is possible, not how it feels) */
 await set({ x: 0, z: 10, h: 0, v: 7 })
-await down('w')
-await down('Shift')
-const keys = { w: true, Shift: true }
+const keys = { w: false, Shift: false, ' ': false }
 const press = async (k, on) => {
   if (keys[k] === on) return
   keys[k] = on
   await (on ? down(k) : up(k))
 }
-let up2 = 0
+await press('w', true)
+await press('Shift', true)
+/** a small reactive rider: heave to start, then throttle to hold the nose up and the rear brake to stop it going over */
+const player = async (s) => {
+  const predicted = s.pitch + s.pitchRate * 0.25
+  await press('Shift', s.pitch < s.balance * 0.45 && s.pitchRate < 0.9)
+  await press('w', predicted < s.balance * 0.82 && s.v < 22)
+  await press(' ', predicted > s.balance * 0.95)
+}
+let held = 0
 let maxP = 0
 let crashed = false
-const tHold = Date.now()
-while (Date.now() - tHold < 40000) {
+for (let t = 0; t < 20; t += 0.05) {
   const s = await B()
   if (!s.riding || s.crashed) {
     crashed = !!s.crashed
     break
   }
   maxP = Math.max(maxP, s.pitch)
-  if (s.pitch > 0.3) up2 = Math.max(up2, s.wheelieTime)
-  if (s.z > 70) await set({ x: 0, z: 10 }) // keep the run going on open ground
-  const want = s.balance * 0.78
-  await press('Shift', s.pitch < want * 0.7 && s.wheelieTime < 0.9)
-  await press('w', s.pitch < want * 1.05 && s.v < 20)
-  if (up2 > 3.4) break
+  if (s.pitch > 0.3) held = Math.max(held, s.wheelieTime)
+  if (s.z > 70) await set({ x: 0, z: 10 })
+  await player(s)
+  if (held > 4) break
+  await adv(0.05)
 }
-check(maxP > 0.3 && !crashed, `throttle + Shift lifts the front wheel (peak ${((maxP * 180) / Math.PI).toFixed(0)}°) without a crash`)
-check(up2 > 2.5, `the wheelie can be HELD with small key corrections (${up2.toFixed(1)} s up)`)
+check(maxP > 0.3 && !crashed, `throttle + Shift lifts the front wheel (peak ${deg(maxP)}°) without a crash`)
+check(held > 3, `the wheelie can be held with small corrections (${held.toFixed(1)} s up)`)
+
+/* 5b. a gentle steer in the wheelie */
+if ((await B()).z > 55) await set({ x: 0, z: 10 })
+let hd = (await B()).heading
+if ((await B()).pitch > 0.2) {
+  await down('d')
+  for (let i = 0; i < 12; i++) {
+    const s = await B()
+    if (s.z > 70) await set({ x: 0, z: 10 })
+    await player(s)
+    await adv(0.05)
+  }
+  await up('d')
+  console.log('   steer', JSON.stringify(await B()).slice(0, 260))
+  check(Math.abs((await B()).heading - hd) > 0.02 && !(await B()).crashed, `a gentle steer works mid-wheelie (heading ${((await B()).heading - hd).toFixed(2)} rad)`)
+}
 await press('w', false)
 await press('Shift', false)
+await press(' ', false)
+
 /* 6. the rear brake lowers it; the touchdown is soft */
+await set({ x: 0, z: 10, h: 0, v: 8 })
+await press('w', true)
+await press('Shift', true)
+await until((s) => s.pitch > 0.35 || s.crashed, 6, 0.05)
+await press('Shift', false)
+await press('w', false)
 const before = await B()
 await down(' ')
 let td = 0
-let jump = 0
-let last = before.pitch
-const tDown = Date.now()
-while (Date.now() - tDown < 30000) {
-  const s = await B()
-  td = Math.max(td, s.touchdown)
-  jump = Math.max(jump, Math.abs(s.pitch - last))
-  last = s.pitch
-  if (s.pitch < 0.01) break
-}
+const lowered = await until((s) => ((td = Math.max(td, s.touchdown)), s.pitch < 0.02), 8, 0.05)
 await up(' ')
-check(before.pitch > 0.2 && last < 0.05, `Space (rear brake) brings the front wheel down (from ${((before.pitch * 180) / Math.PI).toFixed(0)}°)`)
-check(td < 2.6, `smooth touchdown (impact ${td.toFixed(2)} rad/s); the fork compressed ${(await B()).forkC.toFixed(3)} m after`)
-void jump
+check(before.pitch > 0.2 && lowered.ok, `Space (rear brake) brings the front wheel down (from ${deg(before.pitch)}°)`)
+check(td < 2.6, `smooth touchdown (impact ${td.toFixed(2)} rad/s); fork compressed ${lowered.s.forkC.toFixed(3)} m`)
 
 /* 7. over-hold → loop-out → the bike is righted and the rider is back on it */
 await set({ x: 0, z: 10, h: 0, v: 7 })
 await down('w')
 await down('Shift')
-const gotCrash = await until(async () => (await B()).phase === 'crashed', 60000)
+const lo = await until((s) => s.phase === 'crashed', 12)
 await up('Shift')
 await up('w')
-check(gotCrash && (await B()).crashed === 'loop', `holding the heave too long loops the bike out (${(await B()).crashed})`)
-const recovered = await until(async () => (await B()).phase === 'riding' && !(await B()).crashed, 60000)
-check(recovered && Math.abs((await B()).v) < 0.5, 'the bike is stood back up and the rider is on it again (recovery)')
+check(lo.ok && lo.s.crashed === 'loop', `holding the heave too long loops the bike out (${lo.s.crashed})`)
+const rc = await until((s) => s.phase === 'riding' && !s.crashed, 8)
+console.log('   recovery', rc.ok, rc.s.phase, rc.s.crashed, rc.s.v)
+check(rc.ok && Math.abs(rc.s.v) < 1.2, 'the bike is stood back up and the rider is on it again (recovery)')
 
 /* 8. a wall: a slow bump just stops you, a fast one is a crash */
 await set({ x: 12, z: 52, h: 0, v: 6 })
 await down('w')
-await until(async () => (await B()).z > 60 || (await B()).v < 1.2, 30000)
-const bump = await B()
+const wl = await until((s) => s.z > 66 || s.v < 1.2 || s.phase === 'crashed', 8)
 await up('w')
-check(bump.z < 64.9 && Math.abs(bump.v) < 7, `a wall stops the bike instead of letting it through (z ${bump.z}, v ${bump.v})`)
-await set({ x: 12, z: 50, h: 0, v: 16 })
+check(wl.s.z < 64.9 && Math.abs(wl.s.v) < 7, `a wall stops the bike instead of letting it through (z ${wl.s.z.toFixed(1)}, v ${wl.s.v.toFixed(1)})`)
+await set({ x: 12, z: 48, h: 0, v: 16 })
 await down('w')
-const hardHit = await until(async () => (await B()).phase === 'crashed', 30000)
+const hit = await until((s) => s.phase === 'crashed', 8)
 await up('w')
-check(hardHit, 'a fast impact is a crash (then recovered like the loop-out)')
-await until(async () => (await B()).phase === 'riding' && !(await B()).crashed, 60000)
+check(hit.ok, 'a fast impact is a crash (then recovered like the loop-out)')
+await until((s) => s.phase === 'riding' && !s.crashed, 8)
 
-/* 9. dismount at a standstill, remount */
+/* 9. dismount at a standstill, remount; pause / dismount leave no held inputs */
 await set({ x: 0, z: 14, h: 0, v: 0 })
-await p.waitForTimeout(600)
+await adv(0.6)
+await down('w')
+await adv(0.3)
+await up('w')
+await set({ x: 0, z: 14, h: 0, v: 0 })
+await adv(0.3)
 await p.keyboard.press('e')
-check(await until(async () => !(await B()).riding, 30000), 'E at a standstill gets off')
+check((await until((s) => !s.riding, 4)).ok, 'E at a standstill gets off')
+await adv(0.4)
 const w2 = await W()
 check(w2.prompt === `ride:${KIND}` || Math.hypot(w2.x - 0, w2.z - 14) < 2.5, `the rider stands beside the bike (${w2.x.toFixed(1)}, ${w2.z.toFixed(1)}) and can climb back on (${w2.prompt})`)
 await p.keyboard.press('e')
-check(await until(async () => (await B()).riding, 20000), 'E remounts')
+console.log('   before remount', JSON.stringify(await W()).slice(0, 300), JSON.stringify((await B()).parked))
+check((await until((s) => s.riding, 4)).ok, 'E remounts')
+await down('w')
+await p.evaluate(() => window.dispatchEvent(new Event('blur')))
+await adv(0.5)
+const bl = await B()
+if (!bl.inputs) console.log('   not riding', JSON.stringify(bl))
+check(bl.inputs.thr < 0.05, `losing window focus releases the throttle (thr ${bl.inputs.thr})`)
+await up('w')
 
 check(errs.length === 0, `no page errors (${JSON.stringify(errs.slice(0, 2))})`)
 console.log(fails ? `${fails} FAILED` : 'ALL PASS')

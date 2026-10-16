@@ -242,6 +242,8 @@ export class World implements GameScene {
   private disposables: (THREE.Material | THREE.Texture | THREE.BufferGeometry)[] = []
   /** riding: parked bikes you can climb onto, the ride itself (see bike/ride.ts); inert until a bike is mounted */
   readonly ride: RideSystem
+  /** QA only: a stand-in ground height for the riding sim (slope tests), never set in normal play */
+  private qaGround: ((x: number, z: number) => number) | null = null
   /** where the rider steps down to when getting off */
   private rideStand: THREE.Vector3 | null = null
   private camDistBase = 6.4
@@ -322,7 +324,7 @@ export class World implements GameScene {
     quality: Quality,
   ) {
     this.quality = quality
-    this.ride = new RideSystem({ scene: this.scene, ground: (x, z) => groundHeight(x, z), resolve: (p, r, y) => this.resolve(p, r, y), input })
+    this.ride = new RideSystem({ scene: this.scene, ground: (x, z) => (this.qaGround ? this.qaGround(x, z) : groundHeight(x, z)), resolve: (p, r, y) => this.resolve(p, r, y), input, paused: () => this.paused })
     const s = this.scene
     s.environment = engine.env
     s.environmentIntensity = 0.5
@@ -1296,7 +1298,7 @@ export class World implements GameScene {
       this.rideStand = r.active.phase === 'dismounting' ? r.active.from : null
       this.playerPos.x = tmp.x
       this.playerPos.z = tmp.z
-      this.playerPos.y += (groundHeight(tmp.x, tmp.z) - this.playerPos.y) * (1 - Math.exp(-dt * 14))
+      this.playerPos.y += ((this.qaGround ? this.qaGround(tmp.x, tmp.z) : groundHeight(tmp.x, tmp.z)) - this.playerPos.y) * (1 - Math.exp(-dt * 14))
       this.playerYaw = r.cam.heading
       this.playerVel.set(Math.sin(r.cam.heading) * r.cam.speed, 0, Math.cos(r.cam.heading) * r.cam.speed)
       this.jumper.y = 0
@@ -1331,14 +1333,23 @@ export class World implements GameScene {
     }
   }
   /** QA: the rider's bike, mount a parked one, set it going */
+  /** QA: run `sec` seconds of game time at a fixed 60 Hz without waiting for rendered frames (a software-rendered test browser draws ~1-2 fps) */
+  qaAdvance(sec: number) {
+    const n = Math.max(1, Math.round(sec * 60))
+    for (let i = 0; i < n; i++) this.update(1 / 60)
+  }
   rideState() {
     return this.ride.state()
   }
   rideMount(id: string) {
     return this.ride.mount(id, this.player, this.playerPos)
   }
-  rideSet(o: { x?: number; z?: number; h?: number; v?: number }) {
+  rideSet(o: { x?: number; z?: number; h?: number; v?: number; assist?: number; surface?: number }) {
     this.ride.qaSet(o)
+  }
+  /** QA: a simulated slope under the bike, `grade` rise per metre along +z from z0 (null = the real ground) */
+  rideGround(o: { grade: number; z0: number } | null) {
+    this.qaGround = o ? (_x: number, z: number) => (z - o.z0) * o.grade : null
   }
 
   emote(id: EmoteId) {
@@ -1740,6 +1751,11 @@ export class World implements GameScene {
         mv = { x: 0, z: 0, run: false, analog: false }
       }
     }
+    // a bike stays where it was left: its "Ride" prompt follows it
+    for (const b of this.ride.parked) {
+      const it = this.interactables.find((i) => i.id === `ride:${b.id}`)
+      if (it) it.pos.set(b.x, 0, b.z)
+    }
     if (this.hang) this.stepHang(dt, rawMv, rawJump)
     else if (this.trav) this.stepTravel(dt)
     else if (this.ride.riding) this.stepRide(dt)
@@ -1847,7 +1863,7 @@ export class World implements GameScene {
       p.update(dt)
       if (this.hang) this.hangIK(p)
       else if (this.trav) this.travIK(p)
-      else if (this.ride.riding) this.ride.pose(p, this.rideStand)
+      else if (this.ride.riding) this.ride.pose(p, this.rideStand, dt)
     }
     this.lastSpeed = speed
     if (this.intro) {
@@ -2444,6 +2460,7 @@ export class World implements GameScene {
 
   dispose() {
     this.disposed = true
+    this.ride.dispose()
     window.removeEventListener('chad-parkour-cmd', this.onParkourCmd)
     window.removeEventListener('keydown', this.onParkourKey)
     window.removeEventListener('chad-sword-cmd', this.onSwordCmd)

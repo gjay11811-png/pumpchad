@@ -382,6 +382,82 @@ class AudioEngine {
     }
   }
 
+  /* ── riding: a procedural motor note per bike, driven by speed and load (no recorded audio is used) ── */
+  private ride: { kind: 'surron' | 'street'; osc: OscillatorNode[]; gains: GainNode[]; noise: AudioBufferSourceNode; nGain: GainNode; lp: BiquadFilterNode; out: GainNode } | null = null
+  rideStart(kind: 'surron' | 'street') {
+    if (!this.ctx) return
+    this.rideStop()
+    const ctx = this.ctx
+    const out = ctx.createGain()
+    out.gain.value = 0
+    out.connect(this.sfxGain)
+    const lp = ctx.createBiquadFilter()
+    lp.type = 'lowpass'
+    lp.frequency.value = kind === 'surron' ? 3200 : 600
+    lp.connect(out)
+    const mk = (type: OscillatorType, g: number) => {
+      const o = ctx.createOscillator()
+      o.type = type
+      const gn = ctx.createGain()
+      gn.gain.value = g
+      o.connect(gn).connect(lp)
+      o.start()
+      return { o, gn }
+    }
+    const parts = kind === 'surron' ? [mk('sine', 0.5), mk('triangle', 0.25)] : [mk('sawtooth', 0.4), mk('square', 0.22), mk('triangle', 0.3)]
+    const noise = ctx.createBufferSource()
+    noise.buffer = this.noise
+    noise.loop = true
+    const nf = ctx.createBiquadFilter()
+    nf.type = kind === 'surron' ? 'bandpass' : 'lowpass'
+    nf.frequency.value = kind === 'surron' ? 900 : 500
+    const nGain = ctx.createGain()
+    nGain.gain.value = 0
+    noise.connect(nf).connect(nGain).connect(out)
+    noise.start()
+    out.gain.setTargetAtTime(0.5, ctx.currentTime, 0.15)
+    this.ride = { kind, osc: parts.map((p) => p.o), gains: parts.map((p) => p.gn), noise, nGain, lp, out }
+  }
+  /** called every frame while riding: speed 0..1 and the engine's load shape the note, smoothly */
+  rideTick(s: { kind: 'surron' | 'street'; v: number; vmax: number; thr: number; brake: number; rpm: number; gear: number; wheelie: number; touchdown: number; crashed: boolean }) {
+    const r = this.ride
+    const ctx = this.ctx
+    if (!r || !ctx) return
+    const t = ctx.currentTime
+    const sf = Math.min(1, s.v / s.vmax)
+    const k = 0.06
+    if (s.kind === 'surron') {
+      // an electric motor: a rising whine with speed, louder on load; the tyres and chain add a soft whirr
+      const f = 150 + 1050 * Math.pow(sf, 0.85) + 160 * s.thr + 120 * Math.min(1, s.wheelie * 2)
+      r.osc[0].frequency.setTargetAtTime(f, t, k)
+      r.osc[1].frequency.setTargetAtTime(f * 2.005, t, k)
+      r.out.gain.setTargetAtTime(s.crashed ? 0 : 0.16 + 0.34 * s.thr + 0.14 * sf, t, 0.08)
+      r.nGain.gain.setTargetAtTime(0.01 + 0.12 * sf * sf, t, 0.1)
+    } else {
+      // a four-stroke: a low note that climbs through each gear (drops at the change), a rasp that opens with the throttle
+      const f = 36 + 92 * s.rpm + 5 * s.gear
+      r.osc[0].frequency.setTargetAtTime(f, t, k * 0.8)
+      r.osc[1].frequency.setTargetAtTime(f * 0.5, t, k)
+      r.osc[2].frequency.setTargetAtTime(f * 2, t, k)
+      r.lp.frequency.setTargetAtTime(380 + 2600 * s.thr + 600 * s.rpm, t, 0.08)
+      r.out.gain.setTargetAtTime(s.crashed ? 0 : 0.2 + 0.34 * s.thr + 0.1 * s.rpm, t, 0.08)
+      r.nGain.gain.setTargetAtTime(0.01 + 0.1 * s.thr, t, 0.08)
+    }
+    if (s.touchdown > 0.6 && this.ready) this.play('thud')
+  }
+  rideStop() {
+    const r = this.ride
+    if (!r || !this.ctx) return
+    const t = this.ctx.currentTime
+    r.out.gain.setTargetAtTime(0, t, 0.08)
+    setTimeout(() => {
+      r.osc.forEach((o) => o.stop())
+      r.noise.stop()
+      r.out.disconnect()
+    }, 400)
+    this.ride = null
+  }
+
   dispose() {
     this.amb?.stop()
     document.removeEventListener('visibilitychange', this.onVis)

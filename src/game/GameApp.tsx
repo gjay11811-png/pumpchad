@@ -1092,9 +1092,11 @@ export function GameApp() {
         return pt ? { kind: pt.kind, x: +pt.root.position.x.toFixed(2), y: +pt.root.position.y.toFixed(2), z: +pt.root.position.z.toFixed(2) } : null
       },
       houses: () => HOUSES.map((h) => ({ id: h.id, name: h.name, door: doorSpot(h), room: h.room, looks: Object.fromEntries(Object.entries(h.looks ?? {}).map(([k, v]) => [k, { at: v.at, level: v.level ?? 0 }])) })),
+      advance: (sec: number) => world.current?.qaAdvance(sec),
       bike: () => world.current?.rideState() ?? null,
       mountBike: (id: string) => world.current?.rideMount(id) ?? false,
-      setBike: (o: { x?: number; z?: number; h?: number; v?: number }) => world.current?.rideSet(o),
+      setBike: (o: { x?: number; z?: number; h?: number; v?: number; assist?: number; surface?: number }) => world.current?.rideSet(o),
+      setRideGround: (o: { grade: number; z0: number } | null) => world.current?.rideGround(o),
       enterDistrict: () => void go('interior', { house: 'chadcity', label: 'Entering Chad City' }),
       interiorTeleport: (x: number, z: number, yaw?: number, level?: 0 | 1) => interior.current?.teleport(x, z, yaw, level),
       gymPhoto: (o: Parameters<Gym['setPhoto']>[0]) => gym.current?.setPhoto(o),

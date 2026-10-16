@@ -1,0 +1,28 @@
+import { chromium } from 'playwright'
+const b = await chromium.launch({ executablePath: process.env.LOCALAPPDATA + '/ms-playwright/chromium-1228/chrome-win64/chrome.exe', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--disable-gpu-watchdog'] })
+const p = await b.newPage({ viewport: { width: 800, height: 450 } })
+await p.addInitScript(() => localStorage.setItem('pumpchad.chadverse.save', JSON.stringify({ version: 2, character: null, progress: { discoveries: ['intro_seen'], xp: 800 }, settings: { quality: 'low', muted: true } })))
+await p.goto('http://localhost:5180/chadverse/?sky=day')
+await p.click('[data-testid=enter-muted]')
+await p.waitForSelector('[role=tablist]')
+await p.getByRole('tab', { name: 'Name' }).click()
+await p.fill('#chad-name', 'Rider')
+await p.getByRole('button', { name: /Enter Chad Square/ }).click()
+await p.waitForFunction(() => window.__chadverse?.phase === 'world' && window.__chadverse.world(), null, { timeout: 120000 })
+const B = () => p.evaluate(() => window.__chadverse.bike())
+const bk = (await B()).parked[0]
+await p.evaluate(([x, z]) => window.__chadverse.teleport(x, z - 1.6, Math.PI), [bk.x, bk.z])
+await p.waitForTimeout(800)
+await p.keyboard.press('e')
+await p.waitForFunction(() => window.__chadverse.bike().phase === 'riding', null, { timeout: 60000 })
+await p.evaluate(() => window.__chadverse.setBike({ x: 0, z: 14, h: 0, v: 14 }))
+await p.keyboard.down('s')
+const t0 = Date.now()
+for (let i = 0; i < 16; i++) {
+  const s = await B()
+  console.log(((Date.now() - t0) / 1000).toFixed(1), 'v', s.v, 'z', s.z, 'fork', s.forkC)
+  await p.waitForTimeout(700)
+}
+await p.keyboard.up('s')
+console.log('fps probe: frames in 2s =', await p.evaluate(() => new Promise((r) => { let n = 0; const t = performance.now(); const f = () => { n++; performance.now() - t < 2000 ? requestAnimationFrame(f) : r(n) }; f() })))
+await b.close()
