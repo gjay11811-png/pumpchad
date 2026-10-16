@@ -1333,6 +1333,12 @@ export class World implements GameScene {
     }
   }
   /** QA: the rider's bike, mount a parked one, set it going */
+  /** QA: colliders that touch a box (to find clear ground) */
+  qaCollidersIn(x0: number, x1: number, z0: number, z1: number) {
+    return this.colliders
+      .filter((c) => (c.kind === 'circle' ? c.x + c.r > x0 && c.x - c.r < x1 && c.z + c.r > z0 && c.z - c.r < z1 : c.maxX > x0 && c.minX < x1 && c.maxZ > z0 && c.minZ < z1))
+      .map((c) => (c.kind === 'circle' ? { k: 'c', x: +c.x.toFixed(1), z: +c.z.toFixed(1), r: c.r } : { k: 'b', x: [+c.minX.toFixed(1), +c.maxX.toFixed(1)], z: [+c.minZ.toFixed(1), +c.maxZ.toFixed(1)] }))
+  }
   /** QA: run `sec` seconds of game time at a fixed 60 Hz without waiting for rendered frames (a software-rendered test browser draws ~1-2 fps) */
   qaAdvance(sec: number) {
     const n = Math.max(1, Math.round(sec * 60))

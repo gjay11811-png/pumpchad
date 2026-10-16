@@ -1093,6 +1093,11 @@ export function GameApp() {
       },
       houses: () => HOUSES.map((h) => ({ id: h.id, name: h.name, door: doorSpot(h), room: h.room, looks: Object.fromEntries(Object.entries(h.looks ?? {}).map(([k, v]) => [k, { at: v.at, level: v.level ?? 0 }])) })),
       advance: (sec: number) => world.current?.qaAdvance(sec),
+      freeze: (on: boolean) => {
+        if (engine.current) engine.current.qaFrozen = on
+      },
+      collidersIn: (a: number, b: number, c: number, d: number) => world.current?.qaCollidersIn(a, b, c, d),
+      renders: () => engine.current?.qaRenders ?? 0,
       bike: () => world.current?.rideState() ?? null,
       mountBike: (id: string) => world.current?.rideMount(id) ?? false,
       setBike: (o: { x?: number; z?: number; h?: number; v?: number; assist?: number; surface?: number }) => world.current?.rideSet(o),

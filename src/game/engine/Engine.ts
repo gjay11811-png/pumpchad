@@ -274,6 +274,10 @@ export class Engine {
     this.renderer.setAnimationLoop(null)
   }
 
+  /** QA: when set the scene is only RENDERED each frame (game time is advanced by hand with the scene's own fixed steps) so footage can be captured frame by frame */
+  qaFrozen = false
+  qaRenders = 0
+
   private tick = (ts?: number) => {
     this.timer.update(ts)
     const raw = this.timer.getDelta()
@@ -281,9 +285,10 @@ export class Engine {
     const t = this.timer.getElapsed()
     if (this.current) {
       this.renderer.info.reset() // accumulate stats across all passes of this frame
-      this.current.update(dt, t)
+      if (!this.qaFrozen) this.current.update(dt, t)
       if (this.composer) this.composer.render(dt)
       else this.renderer.render(this.current.scene, this.current.camera)
+      this.qaRenders++
     }
     this.frames++
     this.acc += raw
