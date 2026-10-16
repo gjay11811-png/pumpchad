@@ -12,14 +12,7 @@ await p.addInitScript(() => localStorage.setItem('pumpchad.chadverse.save', JSON
 await p.goto(BASE)
 await p.click('[data-testid=enter-muted]')
 await p.waitForSelector('[role=tablist]')
-if (process.env.SPECIES) {
-  const t = p.getByRole('tab', { name: new RegExp(process.env.SPECIES, 'i') })
-  if (await t.count()) await t.first().click()
-  else {
-    const btn = p.getByRole('button', { name: new RegExp(process.env.SPECIES, 'i') })
-    if (await btn.count()) await btn.first().click()
-  }
-}
+if (process.env.SPECIES) await p.locator(`[data-testid=species-${process.env.SPECIES}]`).click()
 await p.getByRole('tab', { name: 'Name' }).click()
 await p.fill('#chad-name', 'Climber')
 await p.getByRole('button', { name: /Enter Chad Square/ }).click()
