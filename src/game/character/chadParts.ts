@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import type { Appearance } from './types'
+import { buildPumpkinHeadV3, buildShadesV3 } from './pumpkinHead'
 
 type D = (THREE.Material | THREE.BufferGeometry | THREE.Texture)[]
 /**
@@ -151,6 +152,7 @@ function pumpkinTextures(skin: string, glow: string) {
 
 /* ───────────── the head ───────────── */
 export function buildPumpkinHead(a: Appearance, D: D) {
+  if (V2) return buildPumpkinHeadV3(a, D) // v3 exterior (pumpkinHead.ts); ?pumpkin=classic keeps the original model below
   const group = new THREE.Group()
   const geo = new THREE.SphereGeometry(1, 60, 36)
   const p = geo.attributes.position as THREE.BufferAttribute
@@ -212,6 +214,7 @@ export function buildPumpkinHead(a: Appearance, D: D) {
 
 /* ───────────── sunglasses (or a glowing visor if a colour is given) ───────────── */
 export function buildShades(D: D, visorColor?: string) {
+  if (V2) return buildShadesV3(D, visorColor)
   const g = new THREE.Group()
   const lensShape = new THREE.Shape()
   lensShape.moveTo(-0.05, 0.02)
