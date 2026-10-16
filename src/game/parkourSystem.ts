@@ -59,6 +59,8 @@ export type TravPlan = {
   yaw: number
   /** the obstacle's top */
   top: number
+  /** where the hands go: a vault plants on the middle of the top, a mantle on the near edge */
+  hand: { x: number; z: number; y: number }
 }
 export type TravWhy = 'none' | 'no-obstacle' | 'too-high' | 'too-low' | 'headroom' | 'landing-blocked' | 'not-climbable'
 
@@ -100,7 +102,7 @@ export function planTraverse(x: number, z: number, y: number, yaw: number, block
     if (blocked(lx, lz, ly) || list.some((p) => p !== hit && p.top > ly + STEP && (p.bottom ?? 0) < ly + BODY_H && platformInside(p, lx, lz, 0.35))) return { plan: null, why: 'landing-blocked' }
     if (y - ly > 1.6) return { plan: null, why: 'landing-blocked' }
     return {
-      plan: { kind: 'vault', from: { x, z, y }, edge: { x: x + fx * (near - 0.2), z: z + fz * (near - 0.2) }, to: { x: lx, z: lz, y: ly }, peak: Math.max(hit.top, ly) + 0.38, dur: 0.64, yaw, top: hit.top },
+      plan: { kind: 'vault', from: { x, z, y }, edge: { x: x + fx * (near - 0.2), z: z + fz * (near - 0.2) }, to: { x: lx, z: lz, y: ly }, peak: Math.max(hit.top, ly) + 0.38, dur: 0.64, yaw, top: hit.top, hand: { x: x + fx * (near + depth * 0.5), z: z + fz * (near + depth * 0.5), y: hit.top + 0.02 } },
       why: 'none',
     }
   }
@@ -114,7 +116,7 @@ export function planTraverse(x: number, z: number, y: number, yaw: number, block
   if (list.some((p) => p !== hit && (p.bottom ?? 0) >= hit.top - 0.05 && (p.bottom ?? 0) < hit.top + HEADROOM && platformInside(p, ux, uz, 0.3))) return { plan: null, why: 'headroom' }
   if (blocked(ux, uz, hit.top)) return { plan: null, why: 'landing-blocked' }
   return {
-    plan: { kind: 'mantle', from: { x, z, y }, edge: { x: x + fx * (near - 0.28), z: z + fz * (near - 0.28) }, to: { x: ux, z: uz, y: hit.top }, peak: hit.top + 0.2, dur: 0.8, yaw, top: hit.top },
+    plan: { kind: 'mantle', from: { x, z, y }, edge: { x: x + fx * (near - 0.28), z: z + fz * (near - 0.28) }, to: { x: ux, z: uz, y: hit.top }, peak: hit.top + 0.2, dur: 0.8, yaw, top: hit.top, hand: { x: x + fx * (near + 0.1), z: z + fz * (near + 0.1), y: hit.top + 0.02 } },
     why: 'none',
   }
 }

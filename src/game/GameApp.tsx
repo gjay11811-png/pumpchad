@@ -962,6 +962,8 @@ export function GameApp() {
       parkour: () => world.current?.parkourState() ?? null,
       sword: () => world.current?.swordState() ?? null,
       hang: () => world.current?.hangState() ?? null,
+      palms: () => world.current?.palms() ?? null,
+      handTargets: () => world.current?.handTargets() ?? null,
       stage: (o: { yaw?: number; auto?: boolean; zoom?: number }) => {
         const r = showroom.current
         if (!r) return

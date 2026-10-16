@@ -19,7 +19,7 @@ import { GARDEN, SPAWN, VALLEY_GATE, bridgeHeight, clampToCity } from './world/c
 import { EXPANSION_OPEN, LANTERN_ROLLOUT, SAFE_ARRIVAL, isLocked } from '../launch'
 import { COURSES, PLATFORMS, SECRET, YARD, fmtMs, type CourseId } from '../parkour'
 import type { Platform } from '../parkour'
-import { SHIMMY_SPEED, END_MARGIN, cornerNext, findCatch, handPoints, hangPose, ledgeGeom, pullUpSpot, type LedgeGeom } from '../ledge'
+import { END_MARGIN, HANG_DROP, cornerNext, edgeAt, findCatch, hangPose, ledgeGeom, pullUpSpot, type LedgeGeom } from '../ledge'
 import { ParkourRun, planTraverse, platformFloor, platformResolve, travAt, type RunResult, type TravFrame, type TravPlan } from '../parkourSystem'
 import { PARKOUR_LAMPS, parkourYard, type ParkourBuild } from './world/parkourYard'
 import { lanternFamily } from './world/lanternFamily'
@@ -108,6 +108,8 @@ export type WorldEvents = {
 }
 
 /** the parkour platforms as camera blockers (the lens must not sit inside a roof; slabs you can walk under are left out) */
+/** +1 when the right hand (facing the wall) lies toward +s of the ledge, −1 when toward −s */
+const handSign = (g: LedgeGeom) => g.nz * g.tx - g.nx * g.tz
 const PLATFORM_BOXES = PLATFORMS.filter((p) => !p.bottom).map((p) => ({ kind: 'box' as const, minX: p.minX, maxX: p.maxX, minZ: p.minZ, maxZ: p.maxZ, h: p.top }))
 
 /** six hidden pumpkins: fair, reachable spots (no climbing), one per district */
@@ -270,8 +272,14 @@ export class World implements GameScene {
     phase: number
     endHold: number
     pitch: number
+    roll?: number
     /** the player must let go of the controls once after the catch before anything they press counts (a held W must not pull straight up) */
     armed: boolean
+    /** the two hands' places along the ledge (s), and the hand that is stepping now */
+    sL: number
+    sR: number
+    step: { hand: 'L' | 'R'; t: number; dur: number; from: number; to: number } | null
+    twist: number
     next?: { side: 'n' | 's' | 'w' | 'e'; s: number }
   } | null = null
   private catchCool = 0
@@ -1158,6 +1166,7 @@ export class World implements GameScene {
       const v = tr.plan.kind === 'vault' ? 3.4 : 1.2
       this.playerVel.set(Math.sin(tr.plan.yaw) * v, 0, Math.cos(tr.plan.yaw) * v)
       this.jumper.landed = true
+      this.jumper.sinceLand = 0
       this.trav = null
     }
   }
@@ -1741,9 +1750,9 @@ export class World implements GameScene {
         fd = Math.max(fd, 0.1 * land * (0.4 + fs * 0.6))
         fp = Math.max(fp, 0.12 * land * (0.3 + fs * 0.7))
       }
-      p.root.position.y -= this.trav ? 0 : fd
-      p.root.rotation.x = this.trav ? this.trav.f.pitch : fp
-      p.root.rotation.z = this.trav ? this.trav.f.roll : 0
+      p.root.position.y -= this.trav || this.hang ? 0 : fd
+      p.root.rotation.x = this.trav ? this.trav.f.pitch : this.hang ? this.hang.pitch : fp
+      p.root.rotation.z = this.trav ? this.trav.f.roll : this.hang ? this.hang.roll ?? 0 : 0
       if (this.trav) p.setGrounded?.(false)
       this.pet?.update(dt, this.playerPos, this.playerYaw, groundHeight, (q) => this.resolve(q, 0.2))
       p.speed = speed / SPEED_UNIT
@@ -1757,6 +1766,7 @@ export class World implements GameScene {
       }
       p.update(dt)
       if (this.hang) this.hangIK(p)
+      else if (this.trav) this.travIK(p)
     }
     this.lastSpeed = speed
     if (this.intro) {
@@ -1942,6 +1952,10 @@ export class World implements GameScene {
       endHold: 0,
       pitch: 0,
       armed: false,
+      sL: c.s - handSign(c.g) * 0.24,
+      sR: c.s + handSign(c.g) * 0.24,
+      step: null,
+      twist: 0,
     }
     this.playerVel.set(0, 0, 0)
     this.jumper.vy = 0
@@ -2010,48 +2024,94 @@ export class World implements GameScene {
           h.endHold = 0.001
           this.emitHint('No room to pull up here')
         }
-      } else if (toward < -0.6) {
+      } else if (toward < -0.6 && Math.abs(toward) > Math.abs(along) * 1.5) {
+        // pulling away from the wall (not just a sideways push with the camera slightly off-axis)
         this.releaseHang('player')
         return
-      } else if (Math.abs(along) > 0.25) {
-        const dir = Math.sign(along)
-        h.phase += dt * 7
-        const ns = h.s + dir * SHIMMY_SPEED * dt
+      } else {
+        // ── SHIMMY BY HAND STEPS: one hand stays planted on the ledge while the other lifts, reaches along it and re-grips, then they swap; the body follows the
+        //    midpoint between the hands (so the weight travels with the hands), the shoulders twist toward the reaching hand and the torso leans into the move ──
+        const dir = Math.abs(along) > 0.25 ? Math.sign(along) : 0
         const lo = END_MARGIN
         const hi = h.g.len - END_MARGIN
-        if (ns < lo || ns > hi) {
-          h.s = Math.min(hi, Math.max(lo, ns))
-          h.endHold += dt
-          if (h.endHold > 0.35) {
-            // pressing on at the end of the ledge: round a convex corner of the same box when the next side is free, else stop (an unsupported end)
-            const nx = cornerNext(h.plat, h.g, dir as 1 | -1)
-            if (nx) {
-              const ng = ledgeGeom(h.plat, nx.side)
-              const sTo = nx.s === 0 ? END_MARGIN : ng.len - END_MARGIN
-              const to = hangPose(ng, sTo)
-              if (this.freeBody(to.x, to.z, to.y)) {
-                h.mode = 'corner'
-                h.t = 0
-                h.dur = 0.5
-                h.from = { x: this.playerPos.x, z: this.playerPos.z, y: this.jumper.y, yaw: this.playerYaw }
-                h.to = to
-                h.next = { side: nx.side, s: sTo }
-                this.hangLog = `corner ${h.g.side}→${nx.side}`
-              } else h.endHold = 0
-            } else h.endHold = 0
+        const sg = handSign(h.g)
+        if (h.step) {
+          h.step.t += dt
+          if (h.step.t >= h.step.dur) {
+            if (h.step.hand === 'L') h.sL = h.step.to
+            else h.sR = h.step.to
+            h.step = null
           }
-        } else {
-          h.s = ns
-          h.endHold = 0
         }
+        if (!h.step) {
+          const stepHand = (hand: 'L' | 'R', to: number) => {
+            h.step = { hand, t: 0, dur: dir ? 0.36 : 0.3, from: hand === 'L' ? h.sL : h.sR, to }
+          }
+          if (dir) {
+            // the TRAILING hand (smaller s·dir) reaches past the leading one by a step
+            const lead = dir > 0 ? Math.max(h.sL, h.sR) : Math.min(h.sL, h.sR)
+            const trail: 'L' | 'R' = (h.sL - h.sR) * dir > 0 ? 'R' : 'L'
+            const to = lead + dir * 0.3
+            if (to < lo || to > hi) {
+              h.endHold += dt
+              if (h.endHold > 0.35) {
+                // pressing on at the end of the ledge: round a convex corner of the same box when the next side is free, else stop (an unsupported end)
+                const nx = cornerNext(h.plat, h.g, dir as 1 | -1)
+                if (nx) {
+                  const ng = ledgeGeom(h.plat, nx.side)
+                  const sTo = nx.s === 0 ? END_MARGIN : ng.len - END_MARGIN
+                  const toP = hangPose(ng, sTo)
+                  if (this.freeBody(toP.x, toP.z, toP.y)) {
+                    h.mode = 'corner'
+                    h.t = 0
+                    h.dur = 0.5
+                    h.from = { x: this.playerPos.x, z: this.playerPos.z, y: this.jumper.y, yaw: this.playerYaw }
+                    h.to = toP
+                    h.next = { side: nx.side, s: sTo }
+                    this.hangLog = `corner ${h.g.side}→${nx.side}`
+                  } else h.endHold = 0
+                } else h.endHold = 0
+              }
+            } else {
+              h.endHold = 0
+              stepHand(trail, to)
+            }
+          } else {
+            h.endHold = 0
+            // idle: settle into a stable hang — bring a hand that has drifted too far (or crossed) back beside the body
+            const mid = (h.sL + h.sR) / 2
+            const dL = mid - sg * 0.24
+            const dR = mid + sg * 0.24
+            const eL = Math.abs(h.sL - dL)
+            const eR = Math.abs(h.sR - dR)
+            if (Math.max(eL, eR) > 0.1) {
+              if (eL > eR) stepHand('L', Math.min(hi, Math.max(lo, dL)))
+              else stepHand('R', Math.min(hi, Math.max(lo, dR)))
+            }
+          }
+        }
+        // the body: follow the hands' midpoint (+ the stepping hand's progress)
+        let mid = (h.sL + h.sR) / 2
+        let sw = 0
+        if (h.step) {
+          const u = Math.min(1, h.step.t / h.step.dur)
+          const hs = h.step.from + (h.step.to - h.step.from) * (u * u * (3 - 2 * u))
+          mid = (h.step.hand === 'L' ? hs + h.sR : hs + h.sL) / 2
+          sw = Math.sin(u * Math.PI) * (h.step.hand === 'R' ? 1 : -1)
+        }
+        h.s += (mid - h.s) * Math.min(1, dt * 7)
+        h.s = Math.min(hi, Math.max(lo, h.s))
+        h.twist += (sw * 0.16 - h.twist) * Math.min(1, dt * 10)
+        h.phase = sw
         const pose = hangPose(h.g, h.s)
         this.playerPos.x = pose.x
         this.playerPos.z = pose.z
-      } else {
-        h.endHold = 0
+        this.playerYaw = pose.yaw + h.twist
       }
-      this.jumper.y = h.g.top - 1.92 + Math.sin(this.t * 1.6) * 0.012 // a faint settle, so a held hang is not frozen
-      h.pitch = 0.04 + Math.abs(Math.sin(h.phase)) * 0.02
+      // a faint settle (so a held hang is not frozen) and a dip as a hand lifts: the weight hangs from the OTHER arm
+      this.jumper.y = h.g.top - HANG_DROP + Math.sin(this.t * 1.6) * 0.012 - Math.abs(h.phase) * 0.035
+      h.pitch = 0.05 + Math.abs(h.phase) * 0.05
+      h.roll = h.phase * 0.05 * (h.step ? 1 : 0)
     } else if (h.mode === 'corner') {
       const u = ease(Math.min(1, h.t / h.dur))
       this.playerPos.x = lerp(h.from.x, h.to.x, u)
@@ -2104,15 +2164,73 @@ export class World implements GameScene {
     this.hintT -= dt
     void p
   }
+  /**
+   * Hand contact during a vault / mantle (after the clip has posed the body): a vault plants one hand on the MIDDLE of the obstacle's top and the other just
+   * behind it, held while the hips swing over, then released; a mantle puts both hands on the near edge, then pushes on the top as the body rises. The palm is
+   * blended from where the clip left it to the contact point, so the hand reaches and lets go instead of snapping.
+   */
+  private travIK(p: NonNullable<typeof this.player>) {
+    const t = this.trav
+    if (!t || !p.grip || !p.palm) return
+    const u = Math.min(1, t.t / t.plan.dur)
+    const hp = t.plan.hand
+    const fx = Math.sin(t.plan.yaw)
+    const fz = Math.cos(t.plan.yaw)
+    const rx = -fz
+    const rz = fx
+    const win = (a: number, b: number, c: number, d: number) => (u < a || u > d ? 0 : u < b ? (u - a) / (b - a) : u < c ? 1 : 1 - (u - c) / (d - c))
+    const mk = (side: -1 | 1, w: number, push: number) => {
+      if (w <= 0.001) return null
+      const target = new THREE.Vector3(hp.x + rx * 0.17 * side + fx * push * (side > 0 ? 0 : 0.12), hp.y, hp.z + rz * 0.17 * side + fz * push * (side > 0 ? 0 : 0.12))
+      return p.palm!(side > 0 ? 'r' : 'l').lerp(target, w)
+    }
+    let L: THREE.Vector3 | null
+    let R: THREE.Vector3 | null
+    if (t.plan.kind === 'vault') {
+      // the vaulting hand (the one on the side the legs swing away from) plants early; the other follows and both leave as the hips pass
+      L = mk(-1, win(0.1, 0.28, 0.5, 0.64) * 0.6, 0)
+      R = mk(1, win(0.06, 0.22, 0.54, 0.7), 0)
+    } else {
+      L = mk(-1, win(0.0, 0.2, 0.62, 0.86), u > 0.45 ? (u - 0.45) * 0.9 : 0)
+      R = mk(1, win(0.0, 0.2, 0.62, 0.86), u > 0.45 ? (u - 0.45) * 0.9 : 0)
+    }
+    if (L || R) p.grip(L, R)
+  }
+  private lastHandTargets: { L: THREE.Vector3; R: THREE.Vector3 } | null = null
+  /** QA: where the hang IK is asking each hand to be (ledge contact points) */
+  handTargets() {
+    const t = this.lastHandTargets
+    return t ? { L: [t.L.x, t.L.y, t.L.z], R: [t.R.x, t.R.y, t.R.z] } : null
+  }
+  /** QA: world positions of both palms */
+  palms() {
+    const p = this.player
+    if (!p?.palm) return null
+    const l = p.palm('l')
+    const r = p.palm('r')
+    return { l: [+l.x.toFixed(3), +l.y.toFixed(3), +l.z.toFixed(3)], r: [+r.x.toFixed(3), +r.y.toFixed(3), +r.z.toFixed(3)] }
+  }
   /** the hands on the ledge (after the clip has posed the body): arm IK to two points on the edge, alternating a little while shimmying */
   private hangIK(p: NonNullable<typeof this.player>) {
     const h = this.hang
     if (!h) return
     p.setGrounded?.(false)
     p.root.rotation.order = 'YXZ'
-    const pts = handPoints(h.g, h.s, h.phase)
-    const L = new THREE.Vector3(pts.left.x, pts.left.y, pts.left.z)
-    const R = new THREE.Vector3(pts.right.x, pts.right.y, pts.right.z)
+    const into = 0.07
+    const place = (hand: 'L' | 'R') => {
+      let sh = hand === 'L' ? h.sL : h.sR
+      let lift = 0
+      if (h.step && h.step.hand === hand) {
+        const u = Math.min(1, h.step.t / h.step.dur)
+        sh = h.step.from + (h.step.to - h.step.from) * (u * u * (3 - 2 * u))
+        lift = Math.sin(u * Math.PI) * 0.1 // the free hand lifts off the ledge, travels, and sets down
+      }
+      const e = edgeAt(h.g, sh)
+      return new THREE.Vector3(e.x - h.g.nx * (into - lift * 0.4), h.g.top + 0.02 + lift, e.z - h.g.nz * (into - lift * 0.4))
+    }
+    const L = place('L')
+    const R = place('R')
+    this.lastHandTargets = { L: L.clone(), R: R.clone() }
     // during the pull-up's second half the hands let go of the edge and push on the top
     if (h.mode === 'pullup' && h.t / h.dur > 0.55) {
       const k = Math.min(1, (h.t / h.dur - 0.55) / 0.45)

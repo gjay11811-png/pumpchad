@@ -89,27 +89,73 @@ h = await H()
 check(h.hanging && h.mode === 'hang' && Math.abs(h.y - y0) < 0.05, 'the hang is sustained for 2.5 s (no auto-vault onto the roof)')
 await shot('hang')
 /* 5. shimmy along the ledge (both ways) */
+// start well inside the ledge (the catch is near one end), so the sampled moves stay on the west face
+await down('a')
+await until(async () => { const q = await H(); return q.s > 4.5 || q.side !== 'w' }, 4000)
+await up('a')
+await wait(500)
 const s0 = (await H()).s
+// sample both palms while shimmying: ONE hand must stay planted while the other moves (hand-over-hand), then they swap
+const PL = () => p.evaluate(() => window.__chadverse.palms())
+const samples = []
+const TG = () => p.evaluate(() => window.__chadverse.handTargets())
 await down('d')
-await wait(1100)
+for (let i = 0; i < 44; i++) {
+  samples.push({ pal: await PL(), tg: await TG(), h: await H() })
+  await wait(35)
+}
 await up('d')
+const d3 = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2])
+// logic: in each interval exactly one hand TARGET moves while the other stays put (hand-over-hand), and both hands take turns
+let lOnly = 0
+let rOnly = 0
+let both = 0
+let maxErr = 0
+let anchoredErr = 0
+for (let i = 1; i < samples.length; i++) {
+  if (samples[i].h.side !== 'w' || samples[i].h.mode !== 'hang' || samples[i - 1].h.side !== 'w') break // the end of the ledge: a wrap round the corner is a different move
+  const dl = d3(samples[i].tg.L, samples[i - 1].tg.L)
+  const dr = d3(samples[i].tg.R, samples[i - 1].tg.R)
+  if (dl > 0.004 && dr < 0.0005) lOnly++
+  else if (dr > 0.004 && dl < 0.0005) rOnly++
+  else if (dl > 0.004 && dr > 0.004) both++
+  const stepL = dl > 0.0005
+  const stepR = dr > 0.0005
+  const eL = d3(samples[i].pal.l, samples[i].tg.L)
+  const eR = d3(samples[i].pal.r, samples[i].tg.R)
+  if (!stepL) anchoredErr = Math.max(anchoredErr, eL)
+  if (!stepR) anchoredErr = Math.max(anchoredErr, eR)
+  maxErr = Math.max(maxErr, eL, eR)
+  if (process.env.DEBUG && Math.max(eL, eR) > 0.2) console.log('  err', i, eL.toFixed(2), eR.toFixed(2), JSON.stringify({ l: samples[i].pal.l, tg: samples[i].tg.L, r: samples[i].pal.r, tr: samples[i].tg.R }))
+}
+check(lOnly >= 3 && rOnly >= 3 && both <= 12, `hand-over-hand: the left hand steps while the right stays planted (${lOnly} intervals) and vice versa (${rOnly}); overlap only at the hand-over instants (${both} of 43)`)
+check(anchoredErr < 0.15 && maxErr < 0.25, `the palms reach their ledge contact points (planted hand within ${(anchoredErr * 100).toFixed(0)} cm, the stepping hand within ${(maxErr * 100).toFixed(0)} cm)`)
 const s1 = (await H()).s
 await down('a')
-await wait(1100)
+await wait(1700)
 await up('a')
 const s2 = (await H()).s
 check(Math.abs(s1 - s0) > 0.8 && Math.abs(s2 - s1) > 0.8 && Math.sign(s1 - s0) !== Math.sign(s2 - s1), `A / D shimmy along the ledge, both directions (s ${s0} → ${s1} → ${s2})`)
 await shot('shimmy')
 /* 6. an unsupported end: hold toward it, the hands stop (corner wrap needs the player to keep pressing) */
 await down('a')
-await wait(3000)
+await until(async () => { const q = await H(); return !q.hanging || q.side !== 'w' || q.s < 0.9 }, 3500)
+await wait(700)
 h = await H()
 await up('a')
 check(h.hanging && (h.side === 'w' || h.side === 'n' || h.side === 's'), `holding on past the end does not throw the body off (${JSON.stringify(h)})`)
 /* 7. back to the west face, then a deliberate release */
+// (the end hold may have wrapped the corner onto another face: shimmy back round to the west face, where there is room on top to stand)
 await down('d')
-await wait(600)
+await until(async () => (await H()).side === 'w' || !(await H()).hanging, 5000)
+await wait(500)
 await up('d')
+h = await H()
+if (h.side !== 'w') {
+  await down('a')
+  await until(async () => (await H()).side === 'w' || !(await H()).hanging, 5000)
+  await up('a')
+}
 /* 8. pull-up */
 await down('w')
 await wait(150)

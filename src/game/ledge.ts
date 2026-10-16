@@ -9,8 +9,8 @@ import { platformInside, type Platform } from './parkour'
  * must reach the edge, the spot below must be free, and a pull-up needs standing room and head clearance on top.
  */
 export type Side = 'n' | 's' | 'w' | 'e'
-export const HANG_DROP = 1.92 // feet this far under the ledge when the hands are on it
-export const BODY_OFF = 0.42 // body centre this far out from the face
+export const HANG_DROP = 1.74 // feet this far under the ledge when the hands are on it
+export const BODY_OFF = 0.36 // body centre this far out from the face
 export const SHIMMY_SPEED = 1.15 // m/s along the ledge
 export const REACH_BAND: [number, number] = [-0.32, 0.22] // hand height relative to the top at which a catch can happen (hands = feet + HANG_DROP)
 export const PULL_ROOM = 0.7 // how far in from the edge the pull-up stands
