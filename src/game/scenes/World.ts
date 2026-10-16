@@ -1489,14 +1489,18 @@ export class World implements GameScene {
   }
 
   private snapCamera() {
-    this.camTarget.set(this.playerPos.x, this.playerPos.y + (this.player?.headHeight ?? 1.9) * 0.82, this.playerPos.z)
+    this.camTarget.set(this.playerPos.x, this.playerPos.y + this.jumper.y + (this.player?.headHeight ?? 1.9) * 0.82, this.playerPos.z)
     this.camDistNow = this.camDist
     this.placeCamera(1)
   }
 
   private placeCamera(k: number) {
-    const target = new THREE.Vector3(this.playerPos.x, this.playerPos.y + (this.player?.headHeight ?? 1.9) * 0.82, this.playerPos.z)
+    // the body's height above the ground (jumper.y: a roof, a ledge, a jump) counts too, or the camera stays down at street level while you climb;
+    // the vertical follow is a little softer than the horizontal one so a jump doesn't bob the view
+    const target = new THREE.Vector3(this.playerPos.x, this.playerPos.y + this.jumper.y + (this.player?.headHeight ?? 1.9) * 0.82, this.playerPos.z)
+    const ty = this.camTarget.y
     this.camTarget.lerp(target, k)
+    this.camTarget.y = ty + (target.y - ty) * Math.min(1, k * 0.7)
     const cp = Math.cos(this.camPitch)
     const dirX = Math.sin(this.camYaw) * cp
     const dirZ = Math.cos(this.camYaw) * cp
