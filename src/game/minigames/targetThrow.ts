@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 
 /**
  * PUMPKIN TOSS — a target range. Ten throws at painted boards: click (or tap) a board and a pumpkin flies to that spot.
@@ -15,6 +16,9 @@ export const TOSS = {
   xpDiv: 18,
   xpCap: 60,
 } as const
+
+/** where the Service Pistol model sits in the hand group (grip at the fist, muzzle forward along +z) */
+const PISTOL_FIT = { scale: 1.15, y: 0.05, z: 0.045 }
 
 /** the second weapon on the same range: a stylised pumpkin-seed pistol — a straight, fast shot at the same boards, scored the same way */
 export type Weapon = 'toss' | 'pistol'
@@ -59,6 +63,8 @@ export class TargetRange {
   private aimPt = new THREE.Vector3()
   private armed: THREE.Object3D | null = null
   private flashMesh: THREE.Mesh | null = null
+  /** 1 at the shot, easing to 0: the pistol kicks back and up in the hand */
+  private recoil = 0
   private fwd: THREE.Vector3
   private right: THREE.Vector3
   private disposables: (THREE.BufferGeometry | THREE.Material)[] = []
@@ -231,6 +237,23 @@ export class TargetRange {
       part(new THREE.BoxGeometry(0.008, 0.012, 0.012), accent, 0, 0.056, 0.17)
       part(new THREE.BoxGeometry(0.006, 0.006, 0.07), accent, 0.0175, 0.032, 0.08)
       this.pistol = g
+      // the Poly Haven Service Pistol (CC0, 27 K triangles, one 1K WebP set) replaces the stand-in once loaded; the stand-in covers the wait
+      void new GLTFLoader()
+        .loadAsync(`${import.meta.env.BASE_URL}chadverse/models/service_pistol.glb`)
+        .then((m) => {
+          if (this.pistol !== g) return
+          const model = m.scene
+          model.scale.setScalar(PISTOL_FIT.scale)
+          model.rotation.y = -Math.PI / 2 // the model's muzzle is +x: turn it to +z (forward)
+          model.position.set(0, PISTOL_FIT.y, PISTOL_FIT.z)
+          model.traverse((o) => {
+            const me = o as THREE.Mesh
+            if (me.isMesh) me.castShadow = true
+          })
+          for (const c of [...g.children]) c.visible = false
+          g.add(model)
+        })
+        .catch(() => {})
     }
     this.pistol.position.set(0, 0.08, 0.04)
     this.pistol.rotation.set(-Math.PI / 2, 0, 0) // the hand bone points its length along +y: lay the barrel along it, then forward by the grip IK
@@ -328,6 +351,7 @@ export class TargetRange {
       this.flashMesh.scale.setScalar(0.6)
       this.root.add(this.flashMesh)
       this.flash = { mesh: this.flashMesh, t: 0 }
+      this.recoil = 1
     }
     this.flying = { mesh, from, to: to.clone(), t: 0, pts, label, last: this.stats.thrown + 1 >= TOSS.throws }
     mesh.visible = true
@@ -339,6 +363,11 @@ export class TargetRange {
 
   update(dt: number) {
     this.t += dt
+    if (this.pistol && this.armed) {
+      this.recoil = Math.max(0, this.recoil - dt * 7)
+      this.pistol.position.set(0, 0.08 + this.recoil * 0.012, 0.04 - this.recoil * 0.035)
+      this.pistol.rotation.x = -Math.PI / 2 - this.recoil * 0.22
+    }
     for (const b of this.boards) {
       if (b.slide) {
         const p = this.boardCentre(b)
