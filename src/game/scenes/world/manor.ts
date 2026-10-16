@@ -11,7 +11,7 @@ import { flowerTub } from './ornament'
 import { parkBench, type BenchSpot } from './westside'
 import { inFrame } from './frame'
 import { pathRibbon } from './hamlet'
-import { CARS, sportsCar } from './vehicles'
+import { CARS, heroCarAt } from './vehicles'
 import { isNight } from './daylight'
 import { plantCrown } from './treegeo'
 
@@ -354,7 +354,7 @@ export function manor(T: Town, q: Quality, stoneTex: THREE.Texture, seats: Bench
         for (const dx of [-1.6, 1.6]) CF.box(0.3, 3.1, 0.3, P.stoneLight, sx * 2.9 + dx, 1.55, 3.55)
       }
       CF.put(new THREE.CircleGeometry(0.5, 16), P.gold, 0, 5.4, 3.6, 0, 0, 0, false)
-      sportsCar(CF.sub(-2.9, 0.1, 5.4, 0, 0.35, 0), CARS[1], D)
+      heroCarAt(CF.sub(-2.9, 0.1, 5.4, 0, 0.35, 0), T.scene, CARS[1].paint)
       L.colliders.push({ kind: 'box', minX: cx - 3.8, maxX: cx + 3.8, minZ: cz - 6.2, maxZ: cz + 6.2, h: 4.4 })
       // framing trees (mixed), planted deliberately so the lake stays visible from the terrace
       const treePts: [number, number, number, number][] = [[18, -14, 1.2, 0], [20, 6, 1.3, 1], [22, 16, 1.1, 0], [-8, -34, 1.2, 1], [12, -37, 1.0, 0], [-16, 24, 1.15, 0], [-8, 33, 1.2, 1], [26, -2, 1.0, 2], [-34, -16, 1.25, 0], [-34, 16, 1.25, 1], [-14, -18, 1.0, 2]]

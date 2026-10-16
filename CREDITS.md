@@ -24,3 +24,4 @@ Leaf and bark texture detail derived from the "Jacaranda Tree" textures by Rico 
 - Antique Estoc (sword) — Poly Haven, CC0 (modelling Ulan Cabanilla, texturing James Ray Cock). https://polyhaven.com/a/antique_estoc
 
 - "Realistic Sports Car" — Sketchfab, CC BY 4.0, https://sketchfab.com/3d-models/realistic-sports-car-df14049903224e5b892c53be1bdd6ae7 (author: see the model page; add the name here). Decimated and repainted for Chadverse.
+- "Porsche 911 GT3 RS" — Sketchfab model (author and licence to be confirmed from the model page; add here). Cleaned and repainted for Chadverse.

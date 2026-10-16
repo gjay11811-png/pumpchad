@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { Frame } from '../world/signs'
 import { WORKSHOP } from '../world/workshop'
-import { CARS, heroCar, sportsCar } from '../world/vehicles'
+import { CARS, heroCar } from '../world/vehicles'
 import * as Fu from './furniture'
 import type { HouseSpec } from './houses'
 
@@ -84,7 +84,7 @@ export const GARAGE_INTERIOR: HouseSpec = {
       K.light(cx, 4.5, cz, '#fff6e8', 6, 9)
     }
     // ── a second car waiting its turn (floor level) ──
-    sportsCar(Frame.at(K.B, 3.3, 0.0, -1.5, -Math.PI / 2 + 0.25), CARS[1], M.D)
+    heroCar(K.scene, 3.3, 0, -1.5, -Math.PI / 2 + 0.25, CARS[1].paint, 'gt3')
     Fu.footprint(K, 3.3, -1.5, 4.6, 2.4, 0.25)
     K.light(3.3, 4.5, -1.5, '#fff0dc', 4, 8)
     // ── the back wall: workbench with a vice, a tool chest, a parts shelf, a pegboard ──

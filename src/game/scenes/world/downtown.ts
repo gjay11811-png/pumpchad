@@ -3,7 +3,7 @@ import type { Town } from './buildings'
 import { boxUV, rng } from './kit'
 import { Frame, PANEL, channelLetters, panelTexture } from './signs'
 import { isNight } from './daylight'
-import { CARS, sportsCar } from './vehicles'
+import { CARS, heroCarAt } from './vehicles'
 import { planterBox } from './architecture'
 import { insideCity } from './city'
 import { lampPosts } from './props'
@@ -229,7 +229,7 @@ export function downtown(T: Town) {
     [BLV_X + 3.4, -18, 0, 2], [BLV_X - 3.4, -44, Math.PI, 0], [74, CROSS_Z + 2.4, Math.PI / 2, 0], [96, CROSS_Z - 2.4, -Math.PI / 2, 1],
   ]
   for (const [x, z, ry, k] of carSpots) {
-    sportsCar(Frame.at(T.batch, x, 0.03, z, ry), CARS[k], D)
+    heroCarAt(Frame.at(T.batch, x, 0.03, z, ry), T.scene, CARS[k].paint)
     T.colliders.push({ kind: 'box', minX: x - (Math.abs(Math.sin(ry)) > 0.5 ? 2.4 : 1.2), maxX: x + (Math.abs(Math.sin(ry)) > 0.5 ? 2.4 : 1.2), minZ: z - (Math.abs(Math.sin(ry)) > 0.5 ? 1.2 : 2.4), maxZ: z + (Math.abs(Math.sin(ry)) > 0.5 ? 1.2 : 2.4), h: 1.3 })
   }
   const leaf = new THREE.MeshStandardMaterial({ color: '#2f5c36', roughness: 0.95 })

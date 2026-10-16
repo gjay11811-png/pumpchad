@@ -26,6 +26,8 @@ const ITEMS = [
   ['Cars — Chad Motors', 'awaiting visual review', 'After — side', 'car3-side.jpg'],
   ['Cars — Chad Motors', 'awaiting visual review', 'Hero car (Sketchfab, CC BY 4.0): front, soft white display lighting', 'hero-car-front.jpg'],
   ['Cars — Chad Motors', 'awaiting visual review', 'Hero car: side', 'hero-car-side.jpg'],
+  ['Cars — Chad Motors', 'awaiting visual review', 'Showroom: the three podium cars (gold hero car, purple and orange GT3 RS)', 'showroom-three-cars.jpg'],
+  ['Cars — Chad Motors', 'awaiting visual review', 'Seen through the showroom window from the street', 'motors-front-window.jpg'],
   ['Cars — Chad Motors', 'awaiting visual review', 'After — rear (partly behind ivy)', 'car3-rear.jpg'],
   ['Chad Motors Service — workshop interior (new, enterable)', 'awaiting visual review', 'Reception door → garage: car on a two-post lift, a second car, workbench, tool chest, parts shelf, Dex the mechanic', 'garage-interior-1.jpg'],
   ['Chad Motors Service — workshop interior (new, enterable)', 'awaiting visual review', 'Under the lift', 'garage-interior-2.jpg'],

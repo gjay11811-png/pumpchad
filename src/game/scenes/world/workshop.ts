@@ -4,7 +4,7 @@ import { boxUV } from './kit'
 import { Frame, PANEL, channelLetters, panelTexture, postedBoard } from './signs'
 import { archMats } from './architecture'
 import { ornateSign } from './ornament'
-import { CARS, sportsCar } from './vehicles'
+import { CARS, heroCarAt } from './vehicles'
 
 /**
  * CHAD MOTORS SERVICE — the workshop, laid out like a real garage (enterable by the RECEPTION door — see interiors/garage.ts).
@@ -124,7 +124,7 @@ export function workshop(T: Town, stoneTex: THREE.Texture) {
       F.box(Math.abs(cx - x) - 0.3, 0.1, 0.12, steel, (x + cx) / 2 - side * 0.0, 1.38, 0.5 + dz * 0.6)
       F.put(new THREE.CylinderGeometry(0.1, 0.11, 0.1, 10), rubber, cx - side * 0.6 + (side > 0 ? 0 : 0), 1.46, 0.5 + dz * 0.6)
     }
-    sportsCar(F.sub(cx, 1.5, 0.5, 0, 0, 0), CARS[2], D) // nose toward the street, between the two columns
+    heroCarAt(F.sub(cx, 1.5, 0.5, 0, 0, 0), T.scene, CARS[2].paint) // nose toward the street, between the two columns
     // a trolley jack, axle stands and an oil drip tray under the raised car
     F.box(1.2, 0.12, 0.5, red, cx + 0.2, 0.2, 2.0)
     F.box(0.6, 0.35, 0.3, steel, cx - 0.5, 0.18, -1.0)

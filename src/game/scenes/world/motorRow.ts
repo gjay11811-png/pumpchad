@@ -4,7 +4,7 @@ import { boxUV } from './kit'
 import { Frame, PANEL, hangingSign, panelTexture, type SignMats } from './signs'
 import { archMats, displayMaterial, shop } from './architecture'
 import { climbers, flowerTub, ornamentMats, ornateSign } from './ornament'
-import { CARS, heroCar, sportsCar } from './vehicles'
+import { CARS, heroCar, heroCarAt } from './vehicles'
 import { isNight } from './daylight'
 import { workshop } from './workshop'
 
@@ -86,7 +86,7 @@ export function motorRow(T: Town, stoneTex: THREE.Texture) {
     for (const [bx, ry, car] of [[-4.2, 0.55, CARS[1]], [4.2, -0.55, CARS[2]]] as const) {
       F.put(new THREE.CylinderGeometry(2.6, 2.7, 0.14, 36), trim, bx, 0.07, -0.8)
       F.put(new THREE.TorusGeometry(2.62, 0.03, 6, 40).rotateX(Math.PI / 2), O.goldTrim, bx, 0.15, -0.8)
-      sportsCar(F.sub(bx, 0.14, -0.8, 0, ry, 0), car, D)
+      heroCarAt(F.sub(bx, 0.14, -0.8, 0, ry, 0), T.scene, car.paint)
     }
     // reception: a curved desk at the back with a lit crest, a lamp, and a plant either side
     F.put(boxUV(3.6, 1.0, 0.9, 1.2), trim, 0, 0.5, -Dd / 2 + 1.5)
