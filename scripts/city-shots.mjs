@@ -132,6 +132,15 @@ const VIEWS = {
   'plan-hq': { cam: [[-80, 75, 3], [-80, 0, 3.1], 50] },
   'motor-row': { cam: [[30.5, 2.4, 35.2], [50, 2.6, 43], 58] },
   'pets-front': { cam: [[36.4, 1.9, 37.6], [38.4, 2.6, 44], 60] },
+  'pod-front': { cam: [[55.4, 1.15, 37.6], [50, 0.75, 41.4], 40] },
+  // downtown's kerbside GT3 (local (48,−51.6) in the valley city frame; the group sits at CASTLE_AT = (−120, −52, 470)); needs ?expansion=open
+  'kerb-front': { cam: [[-64.5, -50.7, 418.4], [-72, -51.3, 418.4], 42] },
+  'kerb-side': { cam: [[-72, -51.0, 424.9], [-72, -51.3, 418.4], 42] },
+  'kerb-34': { cam: [[-66.6, -50.4, 423.0], [-72, -51.3, 418.4], 44] },
+  // the service-bay lift outside the workshop: car at world (67.1, 1.5, 48.5), nose toward −z (the street)
+  'lift-front': { cam: [[67.1, 2.3, 43.4], [67.1, 2.1, 48.5], 44] },
+  'lift-side': { cam: [[63.6, 2.2, 48.5], [67.1, 2.1, 48.5], 44] },
+  'lift-34': { cam: [[62.6, 2.8, 43.6], [67.1, 2.1, 48.5], 46] },
   'car-34': { cam: [[54.2, 1.5, 37.6], [50, 0.7, 41.4], 42] },
   'car-side': { cam: [[47.05, 0.9, 37.35], [50, 0.7, 41.4], 40] },
   'car-rear': { cam: [[45.4, 1.6, 44.8], [50, 0.7, 41.4], 42] },

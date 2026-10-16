@@ -115,3 +115,15 @@ All CC0, from Poly Haven (https://polyhaven.com/a/<name>); no attribution requir
 | `red_brick_03` | the brick shopfront terrace |
 
 Not downloaded from Poly Haven: every other surface (timber cladding, the gold lattice screen, the logo, the wordmark, shop signs, the curtain-wall facade) is drawn in code. Trees use the village's own tree generator (`scenes/world/foliage.ts`); Poly Haven's Jacaranda and Island Tree 01 were baked and tested but their decimated leaf cards looked too sparse, so they are NOT used in the district (the Island Tree file stays in `models/veg/`, unused). No Sketchfab asset is used in the district.
+
+### Car audit (2026-10-16) — what is actually displayed
+| Place | Cars | File | Notes |
+|---|---|---|---|
+| Podium outside Chad Motors | gold hero car | `sports_car_hero.glb` | night + day checked |
+| Showroom podium 1 | gold hero car (Pumpkin Phantom GT) | `sports_car_hero.glb` | |
+| Showroom podiums 2 and 3 | purple and orange GT3 RS (Nightshade V8, Gourd Raptor) | `gt3.glb` | |
+| Cars seen through the showroom window from Motor Row | purple + orange GT3 RS | `gt3.glb` | |
+| Workshop service-bay lift (outside) | orange GT3 RS | `gt3.glb` | |
+| Garage interior | gold hero car on the lift, purple GT3 RS on the floor | both | |
+| Downtown kerbside (8 cars) and the manor carriage house | GT3 RS in the three paints | `gt3.glb` | **only built when the closed expansion is open** (`?expansion=open`): not visible in the shipped first release, and NOT photographed |
+`sportsCar()` (the old procedural car) is still in `vehicles.ts` but nothing calls it now. Hero car re-baked 2026-10-16 at ~55 K triangles (was 31 K) because the panels looked lumpy; file 1.5 MB.

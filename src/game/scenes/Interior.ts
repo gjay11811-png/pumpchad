@@ -79,6 +79,7 @@ export class Interior implements GameScene {
     s.environmentIntensity = mood === 'bright' ? 0.45 : mood === 'cold' ? 0.12 : 0.25
     const hemi = mood === 'bright' ? new THREE.HemisphereLight('#fff2dc', '#5a4a3a', 1.1) : mood === 'cold' ? new THREE.HemisphereLight('#8aa0d0', '#1a1824', 0.42) : new THREE.HemisphereLight('#ffd8b0', '#3a2a20', 0.62)
     if (!outdoor) {
+      hemi.intensity *= H.ambient ?? 1
       s.add(hemi)
       // moonlight through the windows: a faint cool key from the front
       const moon = new THREE.DirectionalLight('#9fb0ff', mood === 'cold' ? 0.35 : 0.22)

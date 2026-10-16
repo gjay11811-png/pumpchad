@@ -31,6 +31,8 @@ export type HouseSpec = {
   look: { wall: [Parameters<typeof wallpaper>[1], string, string]; floor: string | { tiles: [string, string] }; trim: string; ceiling?: string }
   /** ambient level (the hollow house is dark and cold) */
   mood?: 'warm' | 'cold' | 'bright'
+  /** multiplier on the room's ambient (hemisphere) light: showrooms that must show off their contents clearly use > 1 */
+  ambient?: number
   /** things to inspect: id → prompt + what you read */
   looks?: Record<string, Line & { at: [number, number]; r?: number; level?: 0 | 1 }>
   build(K: Kit, S: Shell): void

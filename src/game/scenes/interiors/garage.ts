@@ -20,6 +20,7 @@ export const GARAGE_INTERIOR: HouseSpec = {
   room: { w: 13, d: 9, h: 5 },
   look: { wall: ['plaster', '#efe6d6', '#e0d4c0'], floor: { tiles: ['#5a5662', '#4c4856'] }, trim: '#c89a48', ceiling: '#f4ece0' },
   mood: 'bright',
+  ambient: 1.1,
   keeper: {
     look: { body: 'm', outfit: 'peasant', cloth: '#2a3a5a', skin: -0.2, hair: 'buzzed', hairColor: '#2a1c12', hat: 'cap', hatColor: '#e8a21a', beard: true, apron: '#3a3a40' },
     at: [6.0, 2.0],

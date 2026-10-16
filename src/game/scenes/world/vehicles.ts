@@ -272,6 +272,15 @@ function loadHero(model: HeroModel) {
           }
           m.castShadow = true
           m.receiveShadow = false
+          // a texture that failed to decode (a starved GPU / browser) leaves a white part: give such materials a plausible flat colour instead
+          for (const mm of Array.isArray(m.material) ? m.material : [m.material]) {
+            const sm = mm as THREE.MeshStandardMaterial
+            if (sm.map && !(sm.map as THREE.Texture).image) {
+              sm.map = null
+              sm.color.set(/tyre/i.test(sm.name) ? '#17171a' : /rim|wheel|disk/i.test(sm.name) ? '#2c2c30' : /interior|driver/i.test(sm.name) ? '#34343a' : /carbon/i.test(sm.name) ? '#18181a' : '#8a8a8e')
+              sm.needsUpdate = true
+            }
+          }
         })
         return g.scene
       })
@@ -282,6 +291,7 @@ function loadHero(model: HeroModel) {
 }
 export function heroCar(scene: THREE.Object3D, x: number, y: number, z: number, ry: number, paint = '#e0a83e', model: HeroModel = 'vette') {
   const cfg = HERO[model]
+  const night = isNight() // at night the paint carries a little light of its own, so a car away from the display lights never reads as a black silhouette
   void loadHero(model).then((src) => {
     if (!src) return
     const car = src.clone(true)
@@ -299,7 +309,7 @@ export function heroCar(scene: THREE.Object3D, x: number, y: number, z: number, 
       } else if (cfg.paint.includes(name) || cfg.rims.includes(name)) {
         const rim = cfg.rims.includes(name)
         // a per-car copy: glossy clearcoat paint with a little self-light so the shadows lift and the body shape reads
-        m.material = new THREE.MeshPhysicalMaterial({ color: rim ? '#e6c46e' : paint, metalness: rim ? 0.9 : 0.62, roughness: rim ? 0.22 : 0.2, clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: 2.4, emissive: rim ? '#2a1c04' : paint, emissiveIntensity: rim ? 0.15 : 0.1 })
+        m.material = new THREE.MeshPhysicalMaterial({ color: rim ? '#e6c46e' : paint, metalness: rim ? 0.9 : 0.62, roughness: rim ? 0.22 : 0.2, clearcoat: 1, clearcoatRoughness: 0.1, envMapIntensity: night ? 2.3 : 1.7, emissive: rim ? '#2a1c04' : paint, emissiveIntensity: rim ? 0.15 : night ? 0.3 : 0.12 })
       }
     })
     scene.add(car)

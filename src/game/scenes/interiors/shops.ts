@@ -76,6 +76,7 @@ export const SHOP_INTERIORS: HouseSpec[] = [
     room: { w: 16, d: 12, h: 6 },
     look: { wall: ['plaster', '#efe6d6', '#e0d4c0'], floor: { tiles: ['#5a5662', '#4c4856'] }, trim: '#c89a48', ceiling: '#f4ece0' },
     mood: 'bright',
+    ambient: 1.3, // the showroom must show its cars clearly, not just flatter them
     keeper: {
       look: { body: 'm', outfit: 'peasant', cloth: '#d8d0e8', skin: -0.5, hair: 'buzzed', hairColor: '#1a1210', hat: 'cap', hatColor: '#1a1a20', beard: true },
       at: [6.7, 1.6],

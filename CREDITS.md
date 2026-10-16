@@ -25,3 +25,8 @@ Leaf and bark texture detail derived from the "Jacaranda Tree" textures by Rico 
 
 - "Realistic Sports Car" — Sketchfab, CC BY 4.0, https://sketchfab.com/3d-models/realistic-sports-car-df14049903224e5b892c53be1bdd6ae7 (author: see the model page; add the name here). Decimated and repainted for Chadverse.
 - "Porsche 911 GT3 RS" — Sketchfab model (author and licence to be confirmed from the model page; add here). Cleaned and repainted for Chadverse.
+
+## Car models (verified from the metadata inside the downloaded files, 2026-10-16)
+- **"realistic sports car"** — by **Vertex_Bro** (Sketchfab profile https://sketchfab.com/Blend_GUY), licensed **CC BY 4.0** (https://creativecommons.org/licenses/by/4.0/). Source: https://sketchfab.com/3d-models/realistic-sports-car-df14049903224e5b892c53be1bdd6ae7. Modified for Chadverse: decimated, re-shaded, repainted per car, parts renamed/removed.
+- **"Porsche 911 GT3 RS"** — by **Racing Carz U3D** (Sketchfab profile https://sketchfab.com/jsa201022), licensed **CC BY 4.0**. Source: https://sketchfab.com/3d-models/porsche-911-gt3-rs-408cfa1873614dd4a6c55f987fd35cf3. Modified for Chadverse: collision/shadow helper meshes and the driver figure removed, rescaled, textures recompressed, repainted per car.
+- *Downloaded, NOT used:* **"cinema building"** — by **hellotaia** (https://sketchfab.com/hellotaia), CC BY 4.0, https://sketchfab.com/3d-models/cinema-building-d446658d7bb645a2a80afe11f35a947d (a building, not a car; if it is used later this credit applies).
