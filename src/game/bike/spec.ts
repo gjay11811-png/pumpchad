@@ -20,7 +20,12 @@ export type BikeSpec = {
   brakeFront: number // m/s² deceleration, front brake alone
   brakeRear: number // m/s² deceleration, rear brake alone
   reverse: number // max reverse speed (m/s)
-  drag: number // 1/s: rolling + air drag
+  drag: number // 1/s: air drag
+  rollRes: number // m/s²: rolling resistance (constant while rolling)
+  /** how sharply motor torque falls with speed: 1 = steady taper (engine), larger = flat torque then a cliff (electric) */
+  powerPow: number
+  /** gears (0 = a single-speed electric drive): the acceleration dips a little at each shift, and the engine note follows */
+  gears: number
   /** steering */
   steerMax: number // max steering angle at low speed (rad)
   steerFade: number // speed (m/s) at which the available angle has dropped to ~40 %
@@ -34,8 +39,8 @@ export type BikeSpec = {
   shift: number // how far the rider can move the balance point by leaning back / forward (m of COM travel)
   rearBrakeTorque: number // rad/s² of nose-down torque from the rear brake at full application
   pitchDamp: number // 1/s damping on pitch rate
-  /** balance assist (0..1): near the balance point the rider instinctively steadies the bike, so a wheelie can be held with small throttle / lean / brake adjustments */
-  assist: number
+  /** how much a rider's wheelie assist can do for this bike (the player's setting scales it): extra damping of the pitch rate around the balance point, and a softer runaway past it. It never pulls toward a target, so a wheelie is never held for you. */
+  assistGain: number
   maxPitch: number // the bike flips over backwards beyond this (rad)
   /** suspension (visual travel, m): fork and rear shock */
   forkTravel: number
@@ -57,7 +62,10 @@ export const SURRON: BikeSpec = {
   brakeFront: 8.5,
   brakeRear: 5.5,
   reverse: 2.2,
-  drag: 0.045,
+  drag: 0.04,
+  rollRes: 0.18,
+  powerPow: 2.2,
+  gears: 0,
   steerMax: 0.62,
   steerFade: 9,
   steerRate: 4.2,
@@ -67,10 +75,10 @@ export const SURRON: BikeSpec = {
   shift: 0.1,
   rearBrakeTorque: 8.5,
   pitchDamp: 1.1,
-  assist: 0.85,
+  assistGain: 1,
   maxPitch: 1.28,
-  forkTravel: 0.12,
-  shockTravel: 0.1,
+  forkTravel: 0.2,
+  shockTravel: 0.16,
   mass: 55,
 }
 
@@ -88,7 +96,10 @@ export const STREET: BikeSpec = {
   brakeFront: 11,
   brakeRear: 6.5,
   reverse: 1.6,
-  drag: 0.03,
+  drag: 0.028,
+  rollRes: 0.12,
+  powerPow: 1.25,
+  gears: 5,
   steerMax: 0.5,
   steerFade: 14,
   steerRate: 3.4,
@@ -98,9 +109,9 @@ export const STREET: BikeSpec = {
   shift: 0.1,
   rearBrakeTorque: 9.5,
   pitchDamp: 1.3,
-  assist: 0.7,
+  assistGain: 0.9,
   maxPitch: 1.25,
-  forkTravel: 0.1,
-  shockTravel: 0.08,
+  forkTravel: 0.12,
+  shockTravel: 0.09,
   mass: 190,
 }
