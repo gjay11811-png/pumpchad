@@ -1,4 +1,6 @@
 import * as THREE from 'three'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import type { Frame } from './signs'
 import { isNight } from './daylight'
 
@@ -240,3 +242,70 @@ function finishCar(F: Frame, M: Record<string, THREE.Material>, m: CarModel, L: 
   }
   F.box(1.5, 0.01, 3.4, M.under, 0, 0.04, 0, false)
 }
+
+/**
+ * The hero car: "Realistic Sports Car" from Sketchfab (CC BY 4.0, see CREDITS.md), decimated from 762 K to ~20 K triangles with one tiny
+ * texture set (gltf-transform; see ASSETS.md). Loaded once, then cloned wherever a showpiece car stands; until it arrives the procedural car
+ * (`sportsCar`) is already in place, so a slow load never leaves an empty podium. `fallback` is hidden when the model lands.
+ */
+let heroLoad: Promise<THREE.Object3D | null> | null = null
+export function heroCar(scene: THREE.Object3D, x: number, y: number, z: number, ry: number, paint = '#e0a83e', onLoad?: () => void) {
+  heroLoad ??= new GLTFLoader()
+    .loadAsync(`${import.meta.env.BASE_URL}chadverse/models/sports_car_hero.glb`)
+    .then((g) => {
+      g.scene.traverse((o) => {
+        const m = o as THREE.Mesh
+        if (m.isMesh) {
+          // smooth the decimated mesh: weld coincident vertices and average their normals (the file ships flat-faceted after decimation)
+          try {
+            const g = m.geometry.clone()
+            g.deleteAttribute('normal')
+            if (g.attributes.uv) g.deleteAttribute('uv')
+            const w = mergeVertices(g, 1e-4)
+            w.computeVertexNormals()
+            m.geometry = w
+          } catch {
+            /* keep the shipped geometry */
+          }
+          const mats = Array.isArray(m.material) ? m.material : [m.material]
+          for (const mm of mats) {
+            const sm = mm as THREE.MeshStandardMaterial
+            if (sm.flatShading) {
+              sm.flatShading = false // GLTFLoader flat-shades a mesh that ships without normals
+              sm.needsUpdate = true
+            }
+          }
+          m.castShadow = true
+          m.receiveShadow = false
+        }
+      })
+      return g.scene
+    })
+    .catch(() => null)
+  void heroLoad.then((src) => {
+    if (!src) return
+    const car = src.clone(true)
+    car.scale.setScalar(0.96)
+    // the body panels are the model's black paint: give each car its own colour (a per-car copy of that material, glossy with a clearcoat)
+    car.traverse((o) => {
+      const m = o as THREE.Mesh
+      if (m.isMesh && (m.material as THREE.Material).name === 'Material_325') {
+        // the glasshouse: a lighter, glossy tint so the windows read against the body and the dark room
+        const gm = new THREE.MeshPhysicalMaterial({ color: '#27384e', metalness: 0.2, roughness: 0.55, transparent: true, opacity: 0.7, envMapIntensity: 1.2, clearcoat: 0, emissive: '#0c1624', emissiveIntensity: 0.5 })
+        m.material = gm
+      }
+      if (m.isMesh && ['Material_283', 'Material_240'].includes((m.material as THREE.Material).name)) {
+        const rim = (m.material as THREE.Material).name === 'Material_240'
+        const pm = new THREE.MeshPhysicalMaterial({ color: rim ? '#e6c46e' : paint, metalness: rim ? 0.9 : 0.62, roughness: rim ? 0.22 : 0.2, clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: 2.4, emissive: rim ? '#2a1c04' : paint, emissiveIntensity: rim ? 0.15 : 0.1 })
+        pm.name = 'hero-paint'
+        m.material = pm
+      }
+    })
+    car.position.set(x, y, z)
+    car.rotation.y = ry + HERO_YAW
+    scene.add(car)
+    onLoad?.()
+  })
+}
+/** the model's nose points along ±z: turn it so it matches sportsCar (nose toward local +z) */
+const HERO_YAW = 0

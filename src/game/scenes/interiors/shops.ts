@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { Frame } from '../world/signs'
 import { MOTORS, PETS } from '../world/motorRow'
-import { CARS, sportsCar } from '../world/vehicles'
+import { CARS, heroCar, sportsCar } from '../world/vehicles'
 import * as Fu from './furniture'
 import type { HouseSpec } from './houses'
 import { GARAGE_INTERIOR } from './garage'
@@ -116,7 +116,11 @@ export const SHOP_INTERIORS: HouseSpec[] = [
         const [x, z, ry] = spots[i]
         K.B.put(new THREE.CylinderGeometry(2.7, 2.8, 0.22, 40), M.stoneLight, x, 0.11, z)
         K.B.put(new THREE.TorusGeometry(2.72, 0.035, 6, 48).rotateX(Math.PI / 2), M.brass, x, 0.23, z)
-        sportsCar(Frame.at(K.B, x, 0.22, z, ry), c, M.D) // noses toward the entrance
+        if (i === 0) {
+          heroCar(K.scene, x, 0.22, z, ry, c.paint) // the Sketchfab showpiece (the podium is bare for the instant it loads)
+        } else sportsCar(Frame.at(K.B, x, 0.22, z, ry), c, M.D) // noses toward the entrance
+        // soft white display lighting from the front and both sides of each podium
+        for (const [dx, dz] of [[0, 3.2], [-3.2, 0.4], [3.2, 0.4]] as const) K.light(x + dx, 3.4, z + dz, '#fff8ee', 4.2, 7)
         K.block(x - 2.75, x + 2.75, z - 2.75, z + 2.75)
         K.light(x, 4.6, z, '#fff4e0', 5, 7)
         const lx = x + (i === 2 ? -2.0 : 2.0)

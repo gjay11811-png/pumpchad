@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { Frame } from '../world/signs'
 import { WORKSHOP } from '../world/workshop'
-import { CARS, sportsCar } from '../world/vehicles'
+import { CARS, heroCar, sportsCar } from '../world/vehicles'
 import * as Fu from './furniture'
 import type { HouseSpec } from './houses'
 
@@ -79,7 +79,7 @@ export const GARAGE_INTERIOR: HouseSpec = {
         for (const sx of [-1.4, 1.2]) F.put(new THREE.CylinderGeometry(0.08, 0.1, 0.12, 10), rubber, sx, 1.25, sz * 1.45) // lift pads
       }
       F.box(3.9, 0.12, 0.2, steel, -0.1, 3.4, 0) // the overhead beam
-      sportsCar(Frame.at(K.B, cx, 1.28, cz, Math.PI / 2), CARS[0], M.D)
+      heroCar(K.scene, cx, 1.28, cz, Math.PI / 2) // the Sketchfab showpiece on the lift
       Fu.footprint(K, cx, cz, 4.8, 3.6, 0)
       K.light(cx, 4.5, cz, '#fff6e8', 6, 9)
     }

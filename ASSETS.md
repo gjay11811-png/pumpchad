@@ -87,3 +87,9 @@ Source: Poly Haven, CC0 (licence page verified; attribution not required, credit
 | PumpChad head v3 | original (procedural geometry + canvas textures) | own work | `character/pumpkinHead.ts` | in use |
 | Chad Motors cars | original designs (lofted superellipse body, lathe tyres, ten-spoke alloys); not a licensed or real make | own work | `scenes/world/vehicles.ts` | in use. The McLaren-style Sketchfab candidate and the Realistic Sports Car stay **unused**: both need a Sketchfab login to download, which I cannot do |
 | Mixamo | animation library | needs an Adobe sign-in | **not used** (the FAQ page returned 403 and downloads need an account) | existing Quaternius UAL and chad_anims clips stay the animation sources |
+
+### Hero car (added 2026-10-16)
+| Asset | Source | Licence | Modifications | Status |
+|---|---|---|---|---|
+| "Realistic Sports Car" | https://sketchfab.com/3d-models/realistic-sports-car-df14049903224e5b892c53be1bdd6ae7 (downloaded by Jay from his Sketchfab account; author name to be copied from the model page into CREDITS.md) | **CC BY 4.0** — credit required | 762 K → 31.6 K triangles (meshopt simplify, welded, smooth normals recomputed), node names stripped, 2 tiny textures kept → `public/chadverse/models/sports_car_hero.glb` (2.5 MB); body and rims repainted per car, glass retinted in `vehicles.ts` | **IN USE**: podium car outside Chad Motors, the first showroom podium, and the car on the garage lift. The model's internal names show it is a real production make: it is shown unbadged by name; do not market it as one |
+Original file kept in `C:/Users/zafe5/Downloads/pumpchad-assets/sketchfab/realistic_sports_car.glb`.

@@ -22,3 +22,5 @@ Free Demon Character (GameAssetsFin). If used later they must be credited by nam
 Leaf and bark texture detail derived from the "Jacaranda Tree" textures by Rico Cilliers (with Rob Tuytel, guidance) — https://polyhaven.com/a/jacaranda_tree — CC0, credit appreciated.
 
 - Antique Estoc (sword) — Poly Haven, CC0 (modelling Ulan Cabanilla, texturing James Ray Cock). https://polyhaven.com/a/antique_estoc
+
+- "Realistic Sports Car" — Sketchfab, CC BY 4.0, https://sketchfab.com/3d-models/realistic-sports-car-df14049903224e5b892c53be1bdd6ae7 (author: see the model page; add the name here). Decimated and repainted for Chadverse.

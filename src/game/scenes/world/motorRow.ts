@@ -4,7 +4,7 @@ import { boxUV } from './kit'
 import { Frame, PANEL, hangingSign, panelTexture, type SignMats } from './signs'
 import { archMats, displayMaterial, shop } from './architecture'
 import { climbers, flowerTub, ornamentMats, ornateSign } from './ornament'
-import { CARS, sportsCar } from './vehicles'
+import { CARS, heroCar, sportsCar } from './vehicles'
 import { isNight } from './daylight'
 import { workshop } from './workshop'
 
@@ -151,9 +151,11 @@ export function motorRow(T: Town, stoneTex: THREE.Texture) {
     T.batch.put(new THREE.CylinderGeometry(2.7, 2.85, 0.32, 40), trim, px, 0.16, pz)
     T.batch.put(new THREE.TorusGeometry(2.78, 0.04, 6, 48).rotateX(Math.PI / 2), O.goldTrim, px, 0.33, pz)
     T.batch.put(new THREE.RingGeometry(2.3, 2.62, 48).rotateX(-Math.PI / 2), O.glow, px, 0.325, pz, 0, 1, 1, 1, { cast: false })
-    sportsCar(Frame.at(T.batch, px, 0.32, pz, 2.2), CARS[0], D)
+    heroCar(T.scene, px, 0.32, pz, 2.2) // the Sketchfab showpiece on the podium (replaces the procedural stand-in)
     T.colliders.push({ kind: 'circle', x: px, z: pz, r: 2.85, h: 1.2 })
     T.lights.push({ x: px, y: 3.2, z: pz, color: '#fff0d8', intensity: 6, dist: 7, priority: 2 })
+    // soft white display lighting: a key from the front of the car and two fills from its sides (the car's nose points along (sin 2.2, cos 2.2))
+    for (const [dx, dz, k] of [[0.99, 0.1, 4.2], [-0.59, -0.81, 3.6], [0.59, 0.81, 3.6]] as const) T.lights.push({ x: px + dx * k, y: 3.0, z: pz + dz * k, color: '#fff8ee', intensity: 3.6, dist: 8, priority: 2 })
     // a small info lectern by the podium
     const info = new THREE.MeshStandardMaterial({ map: panelTexture('PUMPKIN PHANTOM GT', 'gold paint · gold rims · zero chill', 2.2, PANEL.dark, D), roughness: 0.6 })
     D.push(info)

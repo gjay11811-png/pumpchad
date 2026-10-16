@@ -24,6 +24,8 @@ const ITEMS = [
   ['Cars — Chad Motors', 'before', 'Before: boxy extruded body (showroom front)', 'car-before-showroom.jpg'],
   ['Cars — Chad Motors', 'awaiting visual review', 'After: lofted body, bulged tyres, ten-spoke alloys — front three-quarter (original design, not a licensed model)', 'car3-front34.jpg'],
   ['Cars — Chad Motors', 'awaiting visual review', 'After — side', 'car3-side.jpg'],
+  ['Cars — Chad Motors', 'awaiting visual review', 'Hero car (Sketchfab, CC BY 4.0): front, soft white display lighting', 'hero-car-front.jpg'],
+  ['Cars — Chad Motors', 'awaiting visual review', 'Hero car: side', 'hero-car-side.jpg'],
   ['Cars — Chad Motors', 'awaiting visual review', 'After — rear (partly behind ivy)', 'car3-rear.jpg'],
   ['Chad Motors Service — workshop interior (new, enterable)', 'awaiting visual review', 'Reception door → garage: car on a two-post lift, a second car, workbench, tool chest, parts shelf, Dex the mechanic', 'garage-interior-1.jpg'],
   ['Chad Motors Service — workshop interior (new, enterable)', 'awaiting visual review', 'Under the lift', 'garage-interior-2.jpg'],
