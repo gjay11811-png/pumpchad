@@ -10,6 +10,23 @@ const OUT = 'C:/Users/zafe5/Desktop/Chadverse-Review-Pack'
 mkdirSync(join(OUT, 'images'), { recursive: true })
 // [section, status, caption, file]
 const ITEMS = [
+  ['PumpChad head — before / after', 'before', 'Before — front', 'head-before-front.jpg'],
+  ['PumpChad head — before / after', 'awaiting visual review', 'After (v3) — front: ribbed lobes, grooves, rind bump, ridged stem', 'head-after2-front.jpg'],
+  ['PumpChad head — before / after', 'before', 'Before — three-quarter', 'head-before-threequarter.jpg'],
+  ['PumpChad head — before / after', 'awaiting visual review', 'After — three-quarter', 'head-after2-threequarter.jpg'],
+  ['PumpChad head — before / after', 'before', 'Before — side', 'head-before-side.jpg'],
+  ['PumpChad head — before / after', 'awaiting visual review', 'After — side', 'head-after2-side.jpg'],
+  ['PumpChad head — before / after', 'before', 'Before — back', 'head-before-back.jpg'],
+  ['PumpChad head — before / after', 'awaiting visual review', 'After — back', 'head-after2-back.jpg'],
+  ['Traversal v3 — hand-over-hand hang (ordinary keys)', 'functionally checked · visual review pending', 'Jump catches the Workshop ledge', 'trav3-catch.jpg'],
+  ['Traversal v3 — hand-over-hand hang (ordinary keys)', 'functionally checked · visual review pending', 'Shimmy: one hand planted, the other reaching; the body follows', 'trav3-hang-handoverhand.jpg'],
+  ['Traversal v3 — hand-over-hand hang (ordinary keys)', 'functionally checked · visual review pending', 'Pull-up, then the roof run', 'trav3-roof.jpg'],
+  ['Cars — Chad Motors', 'before', 'Before: boxy extruded body (showroom front)', 'car-before-showroom.jpg'],
+  ['Cars — Chad Motors', 'awaiting visual review', 'After: lofted body, bulged tyres, ten-spoke alloys — front three-quarter (original design, not a licensed model)', 'car3-front34.jpg'],
+  ['Cars — Chad Motors', 'awaiting visual review', 'After — side', 'car3-side.jpg'],
+  ['Cars — Chad Motors', 'awaiting visual review', 'After — rear (partly behind ivy)', 'car3-rear.jpg'],
+  ['Motorbike — Chad Rides', 'awaiting visual review', 'Street bike (unchanged this pass)', 'bike-street-side.jpg'],
+  ['Weapons', 'functionally checked', 'Pistol Range: Poly Haven Service Pistol (CC0) in the right hand', 'pistol3-servicepistol.jpg'],
   ['Housing — Chadville Heights', 'before', 'Before: the four original plots (A–D) and the estate lane', 'wall2-estates-aerial.jpg'],
   ['Housing — Chadville Heights', 'awaiting visual review', 'After, in daylight: the district from the south-east — four rows of plots either side of two lanes, show homes by the entrance, the parkour yard at the far end', 'day2-heights-aerial.jpg'],
   ['Housing — Chadville Heights', 'awaiting visual review', 'Show homes seen from the lane: the Premium, the Contemporary and the Cottage', 'hs2-show-homes.jpg'],
@@ -37,10 +54,10 @@ const ITEMS = [
   ['Lanterns (L01 gaslight post · L02 crook · L03 pillar) — demo only', 'awaiting your approval', 'Daylight', 'lantern-afternoon-lantern-demo.jpg'],
   ['Lanterns (L01 gaslight post · L02 crook · L03 pillar) — demo only', 'awaiting your approval', 'Night', 'lantern-night-lantern-demo.jpg'],
   ['Arcade', 'awaiting visual review', 'Forecourt: the end shops stepped back, lawns either side', 'ar2-arcade-high.jpg'],
-  ['Weapons', 'functionally checked', 'Pistol Range: arm aimed with the pistol', 'pistol-side-near.jpg'],
   ['Weapons', 'functionally checked', 'Sword Drill: the Antique Estoc (CC0)', 'sword-cut-side.jpg'],
   ['Haunted Quarter', 'awaiting visual review', 'Quarter square (before the Victorian detailing pass)', 'hq1-hq-square.jpg'],
 ]
+const VIDEOS = [['trav3-sequence.webm', 'Continuous traversal, simulated browser with a tracking camera: run → sprint jump → fence vault → ledge catch → hang → shimmy both ways → pull-up → roof run → jump → landing (PumpChad, night)']]
 const ok = []
 const missing = []
 for (const [sec, status, cap, file] of ITEMS) {
@@ -82,6 +99,7 @@ const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta n
 .g{display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:18px}figure{margin:0;background:#18141f;border-radius:12px;overflow:hidden}img{width:100%;display:block}figcaption{padding:10px 12px;font-size:13px}
 .s{display:inline-block;margin-right:8px;padding:1px 8px;border-radius:9px;background:#3a2a55;font-size:11px;text-transform:uppercase;letter-spacing:.06em}.before{background:#4a3a2a}</style></head><body>
 <h1>Chadverse — review pack</h1><p>All stills are from a <b>simulated</b> browser (software rendering, synthetic input); none from a real phone or real mouse. Labels: <i>before</i> = how it was; <i>awaiting visual review</i> = built, checked by me, needs your eyes; <i>functionally checked</i> = scripted test passes.</p>
+${VIDEOS.filter(([f]) => existsSync(join(OUT, f))).map(([f, c]) => `<h2>Video</h2><figure><video src="${f}" controls muted style="width:100%;max-width:960px"></video><figcaption>${c}</figcaption></figure>`).join('')}
 <p><a href="contact-sheet.jpg">Contact sheet (all ${ok.length} images)</a></p>
 ${[...bySec].map(([sec, items]) => `<h2>${sec}</h2><div class="g">${items.map((i) => `<figure><a href="images/${i.file}"><img loading="lazy" src="images/${i.file}" alt=""></a><figcaption><span class="s ${i.status === 'before' ? 'before' : ''}">${i.status}</span>${i.cap}</figcaption></figure>`).join('')}</div>`).join('\n')}
 ${missing.length ? `<h2>Not captured</h2><ul>${missing.map((m) => `<li>${m}</li>`).join('')}</ul>` : ''}

@@ -76,3 +76,14 @@ Source: Poly Haven, CC0 (licence page verified; attribution not required, credit
 * **Mixamo** (https://www.mixamo.com/) — **not used, not verified.** The Adobe FAQ page (`helpx.adobe.com/creative-cloud/faq/mixamo-faq.html`) returned HTTP 403 to an automated fetch, so the licence wording could not be read here; Mixamo downloads also need an Adobe sign-in, which only Jay can provide. I have **not** claimed it contains every requested parkour clip (vault / mantle / ledge hang / shimmy / pull-up) — that has to be checked by browsing its library signed in. Manual step, once: sign in → search "climb", "hang", "vault", "jump" → note the exact clip names and the licence text on the FAQ → tell me which to retarget (the rig is the shared PumpChad / Skeleton / Demon skeleton with `hand_l/r`, `lowerarm_l/r`, `upperarm_l/r`, `foot_l/r`).
 * **Threepeat parkour animations** (https://www.threepeatgames.com/parkour_anims/) — Unity-oriented; format and licence unverified; **no purchase authorised or made**. Comparison only.
 * **What the game does today instead**: the existing Universal Animation Library clips (jump start / loop / land, idle, run) plus **procedural arm IK** (`PumpkinChad.grip`) to put both hands on the ledge, a procedural pull-up path, and a root pitch/roll lean for vaults and mantles. This is *procedural motion on the existing rig, not motion capture*, and the three species share the one rig so the same motion plays on PumpChad, Skeleton and Demon (visual check on all three still to do).
+
+
+## Overnight quality pass (2026-10-16)
+
+| Asset | Source / author | Licence | Modifications | Status |
+|---|---|---|---|---|
+| Service Pistol | https://polyhaven.com/a/service_pistol (Poly Haven; glTF 1K via `https://api.polyhaven.com/files/service_pistol`) | **CC0** | Kept pistol A only (frame, slide, hammer, trigger; 11.2 K tris after dropping the second pistol, magazines and bullet), ARM map dropped to metal/rough constants, 1K WebP textures → `public/chadverse/models/service_pistol.glb`; scaled 1.15, turned muzzle +x → +z, recoil kick added in `targetThrow.ts` | **IN USE** (Pistol Range). The procedural stand-in shows while it loads |
+| Antique Estoc | Poly Haven | CC0 | unchanged since 2026-10-15 | in use (Sword Drill) |
+| PumpChad head v3 | original (procedural geometry + canvas textures) | own work | `character/pumpkinHead.ts` | in use |
+| Chad Motors cars | original designs (lofted superellipse body, lathe tyres, ten-spoke alloys); not a licensed or real make | own work | `scenes/world/vehicles.ts` | in use. The McLaren-style Sketchfab candidate and the Realistic Sports Car stay **unused**: both need a Sketchfab login to download, which I cannot do |
+| Mixamo | animation library | needs an Adobe sign-in | **not used** (the FAQ page returned 403 and downloads need an account) | existing Quaternius UAL and chad_anims clips stay the animation sources |

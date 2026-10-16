@@ -259,3 +259,24 @@ Labels: **implemented** (in the build) · **functionally checked** (scripted tes
 | 17 | Sword route / pistol | implemented · functionally checked | map marker "Sword Drill" at the yard, fingerpost; the pistol range is on the map as "Pumpkin Toss & Pistol Range" (110, 64) |
 
 Next batch (not started): bar grab/swing/release; rooftop routes on existing buildings; builder-piece show homes + new builder pieces; gym machines; garage/bay interior; vehicles; forest.
+
+
+## OVERNIGHT QUALITY AND GAMEPLAY PASS — status (updated 2026-10-16)
+This extends the plan above; there is no second plan.
+
+**Completed**
+- PumpChad head v3 (lobes, grooves, rind bump, ridged stem, shades): `character/pumpkinHead.ts`; before/after stills in the review pack.
+- Ledge traversal: hand-over-hand shimmy (planted hand stays, free hand lifts, reaches and re-grips; body follows the hands' midpoint; shoulders twist toward the reaching hand), hang fitted to the arms (HANG_DROP 1.74, BODY_OFF 0.36), vault/mantle hand targets in code, stray-release fix. `traversal-test`, `jump-test`, `parkour-test` pass.
+- Continuous traversal recording with a tracking camera (`scripts/trav-sequence.mjs`) → `trav3-sequence.webm` in the review pack.
+- Pistol: Poly Haven Service Pistol (CC0) in hand with recoil + existing muzzle flash/tracer; Pistol Range test passes.
+- Cars: new lofted body, bulged tyres, ten-spoke alloys, interior hints (original design).
+
+**Partial**
+- Vault/mantle/pull-up/landing poses: functional and sequenced, but I have not yet reviewed them frame by frame on Skeleton and Demon.
+- Cars: better silhouette, still an original stylised design; headlights and arches are simple.
+
+**Not started / blocked**
+- McLaren-style and Realistic Sports Car candidates: Sketchfab login required (blocked).
+- Mixamo: needs an Adobe sign-in (not used).
+- Sur-Ron-style bike and street bike are unchanged this pass (they already exist in Chad Rides).
+- Workshop interior, gym exterior/plant wall, arcade finish, builder-piece show homes, village materials/lighting, forest/waterfall/quest, bar swing and rooftop routes, mobile checks on all three characters: not touched in this session. Lanterns still await approval; expansion stays closed.
