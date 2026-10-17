@@ -121,7 +121,7 @@ export function Hud({
             </div>
           </div>
         </button>
-        <div className="pointer-events-auto flex gap-2">
+        <div className="pointer-events-auto ml-auto flex gap-2">
           {onMap && (
             <IconBtn label="Map and journal" onClick={onMap}>
               <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -153,7 +153,7 @@ export function Hud({
           <ChallengeTab save={save} onOpen={onChallenges} />
         </div>
       ) : (
-      <div className="mt-2 safe-x">
+      <div className="mt-2 safe-x" data-testid="objective-wrap">
         <div className="inline-flex max-w-[min(92vw,26rem)] items-start gap-2.5 rounded-xl bg-ink/55 px-3 py-2 backdrop-blur-sm">
           <span className="mt-1 h-2 w-2 shrink-0 rotate-45 bg-pump" aria-hidden="true" />
           <div>

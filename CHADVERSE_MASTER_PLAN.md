@@ -286,3 +286,22 @@ This extends the plan above; there is no second plan.
 Built as a separate outdoor scene (`src/game/district/`), entered like a house interior but with the real sky and sun; the starter map's scene, buildings and systems are unchanged (it is only reachable with `?district=1` or `window.__chadverse.enterDistrict()`; no entrance exists in the starter map yet). Rename / switch off in `district/config.ts`. Checkpoint tag before the work: `checkpoint-before-new-district`.
 - Phase 3 showcase done: the flagship PumpChad Gym (3 storeys, cantilever, glazing with a visible lit interior, gold lattice feature core with logo and wordmark, timber, recessed step-free entrance, forecourt, planters), a real-scale avenue (PBR asphalt, kerbs, pavements, lane markings, zebra crossings, drains, lamps, signals, bollards, benches), a curved-glass tower, a brick shopfront terrace, an office block on a colonnade, west-side wings, an arcade plot with hoarding and car park, street trees.
 - Not yet: the arcade building, the social plaza, the connection to the starter map, NPCs/cars/ambient audio, golden-hour/night/rain looks, ultra/high/mobile preset tuning, ambient occlusion and other post effects.
+
+## COMPLETE UPGRADE BRIEF (17 Oct 2026) — working checklist
+Status words: **implemented** (code in) · **visually reviewed** (I opened the screenshots/footage) · **ordinary-input tested** (real key / touch events in the headless browser, game time fast-forwarded) · **real-device tested** (nobody has done this yet: Jay's phone is the only real device). Environment: software-rendered headless Chromium (~1 fps), 3.5 GB RAM; all browser results are SIMULATED.
+
+| # | Item | Status |
+|---|---|---|
+| 1 | Audit, baseline, checklist | this table; baseline captures in the review pack `before/` |
+| 3 | Three downloads: inspect, record, optimise, integrate | MX4: **split + optimised + integrated + visually reviewed**; stone house: optimised (255 → 24 MB GPU textures), integration pending; Victorian: see ASSETS.md |
+| 4 | Plots enlarged (all 52) with migration | pending |
+| 5 | Mobile riding screen | compact HUD **implemented + ordinary-touch tested (emulated CDP multi-touch)**; portrait + landscape captures pending |
+| 6 | Riding / wheelies / REV / MX4 / street bike / three characters / camera / sound | sim + REV + pose fit **implemented, ordinary-key tested**; footage pending final re-record |
+| 7 | Ledge grabbing throughout | pending |
+| 8–9 | Starter street, ground, buildings | pending |
+| 10 | Chad Motors, gym, arcade | pending |
+| 11 | Parkour + signage | pending |
+| 12 | Lighting, head, descent road, forest + waterfall | pending |
+| 13 | Performance | pending (measurements below when taken) |
+| 14 | Backlog (show homes, interiors, castle chapters, forest quest, accessibility, audio, save export) | carried, statuses kept in the earlier tables above |
+| 15 | Review pack | pending |

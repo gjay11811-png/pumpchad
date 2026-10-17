@@ -51,11 +51,11 @@ export type BikeSpec = {
 
 export const SURRON: BikeSpec = {
   id: 'surron',
-  name: 'Sur-Ron',
-  wheelbase: 1.18,
-  wheelR: 0.31,
-  comD: 0.56,
-  comH: 0.62,
+  name: 'Talaria MX4',
+  wheelbase: 1.268, // the MX4 scan: 1.27 m between axles
+  wheelR: 0.305,
+  comD: 0.6,
+  comH: 0.64,
   gyr2: 1.1,
   maxSpeed: 22,
   accel: 6.4,

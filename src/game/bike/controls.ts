@@ -34,6 +34,8 @@ export function releaseAllRideButtons() {
 export class RideControls {
   private keys = new Set<string>()
   private on = false
+  /** REV (Shift / the REV button), eased: it builds while held and eases off on release, so it never snaps the bike to an angle */
+  private rev = 0
   constructor(private input: Input) {}
 
   private down = (e: KeyboardEvent) => {
@@ -54,6 +56,7 @@ export class RideControls {
     if (this.on) return
     this.on = true
     this.keys.clear()
+    this.rev = 0
     window.addEventListener('keydown', this.down)
     window.addEventListener('keyup', this.up)
     window.addEventListener('blur', this.clear)
@@ -74,7 +77,7 @@ export class RideControls {
   }
 
   /** the rider's intent right now */
-  read(): RideInput {
+  read(dt = 1 / 60): RideInput {
     const k = this.keys
     const mv = this.input.move() // WASD / arrows, or the joystick
     const touchStick = mv.analog
@@ -86,7 +89,12 @@ export class RideControls {
     if (rideBtn.throttle) throttle = 1
     if (rideBtn.brake) brake = 1
     const rear = k.has(' ') || rideBtn.rear ? 1 : 0
-    const back = k.has('shift') || rideBtn.heave ? 1 : 0
+    const revOn = k.has('shift') || rideBtn.heave
+    this.rev += ((revOn ? 1 : 0) - this.rev) * (1 - Math.exp(-dt / (revOn ? 0.22 : 0.14)))
+    if (this.rev < 0.003) this.rev = 0
+    // REV is a throttle surge AND the rider's weight going back: both come in together, progressively
+    if (this.rev > 0 && brake < 0.3) throttle = Math.max(throttle, this.rev * 0.9)
+    const back = this.rev
     const fwd = k.has('c') || k.has('control') || rideBtn.forward ? 1 : 0
     return { throttle, brake, rear, steer, lean: back - fwd }
   }

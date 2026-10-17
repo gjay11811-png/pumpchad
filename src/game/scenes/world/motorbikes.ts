@@ -68,7 +68,7 @@ function parked(F: Frame, stand: THREE.Material, standAt: THREE.Vector3) {
 /** the dimensions the riding visual needs (axles, head tube, seat, bars, pegs) — kept beside the models so they never drift apart */
 export const BIKE_LAYOUT = {
   surron: { R: 0.31, rear: [-0.58, 0.31], front: [0.6, 0.31], steerTop: [0.18, 0.96], seat: [-0.32, 0.81], grips: [0.2, 1.0, 0.37], pegs: [-0.08, 0.33, 0.2], frontEndX: 0.12, helmetClear: 0.0 },
-  street: { R: 0.33, rear: [-0.7, 0.33], front: [0.72, 0.33], steerTop: [0.38, 1.09], seat: [-0.3, 0.95], grips: [0.36, 1.09, 0.31], pegs: [-0.12, 0.34, 0.22], frontEndX: 0.22, helmetClear: 0.0 },
+  street: { R: 0.33, rear: [-0.7, 0.33], front: [0.72, 0.33], steerTop: [0.38, 1.09], seat: [-0.2, 0.95], grips: [0.36, 1.09, 0.31], pegs: [-0.12, 0.34, 0.22], frontEndX: 0.22, helmetClear: 0.0 },
 } as const
 
 export function streetBike(F0: Frame, paint: THREE.Material, M: MotoMats, opts: { ride?: boolean } = {}) {

@@ -32,6 +32,7 @@ type Active = {
   rig: BikeRig
   spec: BikeSpec
   phase: 'mounting' | 'riding' | 'dismounting' | 'crashed'
+  fit?: { handL: number; handR: number; headBars: number; lean: number }
   t: number
   from: THREE.Vector3
   gp: number
@@ -69,11 +70,11 @@ export function saveRideSettings(s: RideSettings) {
 
 /** the short optional lessons (see `RideSystem.schoolStep`): what to do, and how it is recognised from the actual riding */
 const LESSONS = [
-  { text: 'Accelerate: hold W (or the Gas button) up to 12 m/s', done: (a: Active) => Math.abs(a.sim.v) > 12 },
+  { text: 'Accelerate: hold W (or Gas) up to about 45 km/h', done: (a: Active) => Math.abs(a.sim.v) > 12 },
   { text: 'Brake: slow right down with S (the Brake button)', done: (a: Active) => a.school.t > 0.4 && Math.abs(a.sim.v) < 1.2 },
   { text: 'Turn: steer with A / D (the stick) through a quarter turn', done: (a: Active) => Math.abs(angleDiff(a.sim.h, a.school.t)) > 1.2 },
-  { text: 'Front-wheel lift: hold W + Shift (Gas + Wheelie) and ease off as it rises', done: (a: Active) => a.sim.pitch > 0.17 },
-  { text: 'Recover: bring it down with the rear brake (Space / Rear brake)', done: (a: Active) => a.school.t > 0.5 && a.sim.pitch < 0.02 },
+  { text: 'Front-wheel lift: roll on the Gas, then ease in REV (Shift). Let REV go as the front rises', done: (a: Active) => a.sim.pitch > 0.17 },
+  { text: 'Recover: ease off REV and touch the rear brake (Space)', done: (a: Active) => a.school.t > 0.5 && a.sim.pitch < 0.02 },
 ]
 const angleDiff = (a: number, b: number) => Math.atan2(Math.sin(a - b), Math.cos(a - b))
 
@@ -106,6 +107,21 @@ export class RideSystem {
     const p: Parked = { id, kind, x, z, yaw, rig, label }
     this.parked.push(p)
     return p
+  }
+
+  /** swap a parked bike's visual for another one (the scan finished loading); a bike being ridden keeps its current visual until it is put down */
+  replaceRig(id: string, make: () => BikeRig) {
+    const p = this.parked.find((q) => q.id === id)
+    if (!p || this.active?.parked === p) return false
+    const old = p.rig
+    const rig = make()
+    rig.park()
+    rig.root.position.copy(old.root.position)
+    rig.root.rotation.copy(old.root.rotation)
+    this.host.scene.add(rig.root)
+    old.dispose()
+    p.rig = rig
+    return true
   }
 
   /** the nearest parked bike within reach (for the scene's interaction prompt) */
@@ -235,7 +251,7 @@ export class RideSystem {
       sim.advance(dt, { ...idle, brake: 1 }, this.groundFor(sim))
       if (a.t >= 0.5) a.phase = 'riding'
     } else if (a.phase === 'riding') {
-      const inp = paused ? idle : this.controls.read()
+      const inp = paused ? idle : this.controls.read(dt)
       const act = !paused && (takeAction() || takeGetOff())
       if (act) {
         const out = new V3()
@@ -420,22 +436,42 @@ export class RideSystem {
     const lean0 = pz.lean * blend + (1 - blend) * 0.1
     const gl = rig.gripL.getWorldPosition(new V3())
     const gr = rig.gripR.getWorldPosition(new V3())
-    // pose, then check the head is clear of the bars (PumpChad's pumpkin is big) and lean back a little if it is not
+    // pose, then fit the torso: hands must reach the grips (lean forward until they do) while the head (PumpChad's pumpkin is big) stays clear of the bars (lean back if not)
     let lean = lean0
-    for (let i = 0; i < 3; i++) {
-      player.ride?.(hip, pegL, pegR, lean, 0.3 + pz.stand * 0.25)
+    let slide = 0 // the rider scoots forward on the saddle when the bars are a long reach away
+    const palmOf = (player as unknown as { palm?: (s: 'l' | 'r', o?: THREE.Vector3) => THREE.Vector3 }).palm
+    for (let i = 0; i < 9; i++) {
+      // ride() puts the pelvis 0.13 above the point it is given; `hip` already includes that, so hand it the saddle surface
+      const seatPt = hip.clone().addScaledVector(up, -0.13).addScaledVector(fwd, slide)
+      player.ride?.(seatPt, pegL, pegR, lean, 0.3 + pz.stand * 0.25)
       player.grip?.(gl, gr)
+      player.grip?.(gl, gr) // a second pass: the palm offset follows the forearm, which the first pass just moved
       const head = player.headCenter?.(new V3())
       if (!head) break
       const barMid = gl.clone().add(gr).multiplyScalar(0.5)
       const clear = head.distanceTo(barMid)
-      const need = 0.52
-      if (clear >= need || i === 2) break
-      lean -= (need - clear) * 1.1
+      const need = 0.5
+      const reach = palmOf ? Math.max(palmOf.call(player, 'l', new V3()).distanceTo(gl), palmOf.call(player, 'r', new V3()).distanceTo(gr)) : 0
+      let next = lean
+      if (clear < need) next -= (need - clear) * 1.1
+      else if (reach > 0.03 && lean < 0.9) next += Math.min(0.25, reach * 1.2)
+      else if (reach > 0.03 && slide < 0.14) {
+        slide += Math.min(0.07, reach)
+        next = lean + 0.0001
+      } else break
+      if (i === 8) break
+      lean = THREE.MathUtils.clamp(next, -0.3, 0.95)
       player.update(0) // re-pose from the animation so the lean is not applied twice
       root.position.copy(rootPos)
       root.quaternion.copy(seatQ).multiply(qAlign)
       root.updateMatrixWorld(true)
+    }
+    // QA: how well the body meets the bike (metres)
+    const pl = (player as unknown as { palm?: (s: 'l' | 'r', o?: THREE.Vector3) => THREE.Vector3 }).palm
+    if (pl) {
+      const head = player.headCenter?.(new V3())
+      const barMid = gl.clone().add(gr).multiplyScalar(0.5)
+      a.fit = { handL: +pl.call(player, 'l', new V3()).distanceTo(gl).toFixed(3), handR: +pl.call(player, 'r', new V3()).distanceTo(gr).toFixed(3), headBars: head ? +head.distanceTo(barMid).toFixed(3) : -1, lean: +lean.toFixed(3) }
     }
   }
 
@@ -495,6 +531,7 @@ export class RideSystem {
       gear: s.gear,
       rpm: +s.rpm.toFixed(2),
       pose: { ...a.pose },
+      fit: a.fit ?? null,
       school: a.school.step,
       assist: this.settings.assist,
       buttons: { ...rideBtn },

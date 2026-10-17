@@ -34,8 +34,10 @@ const send = async (type) => cdp.send('Input.dispatchTouchEvent', { type, touchP
 const touchStart = async (id, x, y) => (touches.set(id, [x, y]), send('touchStart'))
 const touchMove = async (id, x, y) => (touches.set(id, [x, y]), send('touchMove'))
 const touchEnd = async (id) => {
+  const pt = touches.get(id)
   touches.delete(id)
-  await send('touchEnd')
+  // CDP touchEnd lists the fingers that LIFT (touchCancel takes none and cancels all)
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [{ x: pt[0], y: pt[1], id }] })
 }
 const center = async (tid) => {
   const r = await p.locator(`[data-testid=${tid}]`).boundingBox()
@@ -46,6 +48,7 @@ await p.evaluate(([x, z]) => window.__chadverse.teleport(x, z - 1.6, Math.PI), [
 await adv(0.3)
 await p.evaluate((k) => window.__chadverse.mountBike(k), KIND)
 await adv(1)
+await p.evaluate(() => window.__chadverse.freeze(true)) // game time moves only when this script says so
 await set({ x: 0, z: 14, h: 0, v: 8 })
 await adv(0.3)
 check((await B()).riding, 'mounted (touch layout)')
@@ -74,33 +77,41 @@ const [hx, hy] = await center('ride-heave')
 const jx = jz ? jz.x + jz.width / 2 : 120
 const jy = jz ? jz.y + jz.height / 2 : 300
 await touchStart(1, gx, gy)
+console.log('   probe', JSON.stringify(await p.evaluate(([x, y]) => { const e = document.elementFromPoint(x, y); return { tag: e?.tagName, id: e?.getAttribute('data-testid'), btn: window.__chadverse.bike().buttons } }, [gx, gy])), gx, gy)
 await touchStart(2, hx, hy)
 await touchStart(3, jx, jy)
 await touchMove(3, jx + 55, jy)
-await adv(0.6)
+await adv(0.3)
 let s = await B()
 check(s.buttons.throttle && s.buttons.heave, `gas and lean-back are both held (${JSON.stringify({ t: s.buttons.throttle, h: s.buttons.heave })})`)
 check(s.inputs.thr > 0.5 && s.inputs.lean > 0.3, `the bike answers both (throttle ${s.inputs.thr}, lean ${s.inputs.lean})`)
 check(Math.abs(s.delta) > 0.01, `the joystick steers at the same time (bars ${s.delta})`)
 
 /* a camera drag in empty screen space with a fourth finger must not release the held buttons */
+console.log('   before4', JSON.stringify((await B()).buttons))
 await touchStart(4, VW / 2, 120)
+console.log('   after4', JSON.stringify((await B()).buttons))
 await touchMove(4, VW / 2 + 60, 140)
-await adv(0.3)
+console.log('   move4', JSON.stringify((await B()).buttons))
+await adv(0.1)
 s = await B()
+console.log('   after drag', JSON.stringify({ b: s.buttons, i: s.inputs, phase: s.phase }))
 check(s.buttons.throttle && s.buttons.heave && s.inputs.thr > 0.5, 'a camera-drag finger does not steal the throttle or lean')
 await touchEnd(4)
+console.log('   after end4', JSON.stringify((await B()).buttons))
 
 /* lifting one finger releases only that control */
 await touchEnd(2)
-await adv(0.2)
+await adv(0.1)
 s = await B()
+console.log('   after lift', JSON.stringify({ b: s.buttons, i: s.inputs, phase: s.phase }))
 check(s.buttons.throttle && !s.buttons.heave, 'lifting the lean-back finger releases only lean-back')
 
 /* brake + rear brake together with gas released */
 const [bx, by] = await center('ride-brake')
 const [rx, ry] = await center('ride-rear')
 await touchEnd(1)
+await set({ x: 0, z: 14, h: 0, v: 8 })
 await touchStart(5, bx, by)
 await touchStart(6, rx, ry)
 await adv(0.5)
@@ -108,8 +119,8 @@ s = await B()
 check(s.buttons.brake && s.buttons.rear && s.inputs.brk > 0.5 && s.inputs.rbk > 0.5, `brake and rear brake can be held together (${s.inputs.brk}, ${s.inputs.rbk})`)
 
 /* touch cancel clears everything */
-await send('touchCancel')
 touches.clear()
+await cdp.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] })
 await adv(0.3)
 s = await B()
 check(!s.buttons.throttle && !s.buttons.brake && !s.buttons.rear && !s.buttons.heave && s.inputs.brk < 0.5, 'a cancelled touch releases all held buttons')
@@ -126,10 +137,10 @@ await touchEnd(7)
 /* pause (hidden tab) */
 await touchStart(8, gx, gy)
 await adv(0.2)
-await p.evaluate(() => { Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true }); document.dispatchEvent(new Event('visibilitychange')) })
+await p.evaluate(() => { Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true }); Object.defineProperty(document, 'hidden', { value: true, configurable: true }); document.dispatchEvent(new Event('visibilitychange')) })
 await adv(0.2)
 check(!(await B()).buttons.throttle, 'the page being hidden / paused releases the buttons')
-await p.evaluate(() => { Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true }); document.dispatchEvent(new Event('visibilitychange')) })
+await p.evaluate(() => { Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true }); Object.defineProperty(document, 'hidden', { value: false, configurable: true }); document.dispatchEvent(new Event('visibilitychange')) })
 await touchEnd(8)
 
 /* Get off with a held button */
