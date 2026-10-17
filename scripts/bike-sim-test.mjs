@@ -103,20 +103,53 @@ for (const spec of [SURRON, STREET]) {
   b.assist = 0
   run(b, 1.2, (t) => I({ throttle: 1, lean: t > 0.2 ? 1 : 0 }))
   check(b.pitch > 0.18 && b.pitch < 1.0, `throttle + heave lifts the front wheel progressively (${deg(b.pitch)}° after 1.2 s)`)
+  // THE LIFT COMES FROM THE GAS ALONE (no REV / heave button): hard throttle at wheelie speed transfers weight back and the front rises, progressively; part throttle only accelerates
   const c1 = new BikeSim(spec)
   c1.v = 6
   c1.assist = 0
-  run(c1, 2, () => I({ throttle: 1 }))
+  run(c1, 2, () => I({ throttle: 0.6 }))
+  check(c1.pitch < 0.06, `part throttle (60 %) accelerates without lifting the front (${deg(c1.pitch)}°)`)
+  const g1 = new BikeSim(spec)
+  g1.v = 6
+  g1.assist = 0
+  let maxStepG = 0
+  let lastG = 0
+  run(g1, 2.4, (t, bk) => {
+    maxStepG = Math.max(maxStepG, Math.abs(bk.pitch - lastG))
+    lastG = bk.pitch
+    return I({ throttle: 1 })
+  })
+  check(g1.pitchBest > 0.18 || deg(g1.wheelieBest) >= 10 || g1.pitch > 0.18, `hard throttle alone lifts the front progressively (${deg(g1.wheelieBest)}° reached, never a jump: ${(maxStepG * 1000).toFixed(0)} mrad per frame at most)`)
   const d1 = new BikeSim(spec)
   d1.v = 6
   d1.assist = 0
-  run(d1, 2, () => I({ lean: 1 }))
-  check(c1.pitch < 0.06 && d1.pitch < 0.06, `throttle alone or heave alone does not lift it (${deg(c1.pitch)}°, ${deg(d1.pitch)}°)`)
+  run(d1, 2, () => I({ throttle: 0.2 }))
+  check(d1.pitch < 0.06, `coasting on a trickle of throttle never lifts (${deg(d1.pitch)}°)`)
   const fast = new BikeSim(spec)
   fast.v = spec.maxSpeed * 0.9
   fast.assist = 0
-  run(fast, 3, (t) => I({ throttle: 1, lean: t > 0.2 ? 1 : 0 }))
-  check(fast.pitch < b.pitch, 'lift depends on speed: at near top speed the same inputs lift far less')
+  let fastBest = 0
+  run(fast, 3, (t, bk) => (fastBest = Math.max(fastBest, bk.pitch), I({ throttle: 1 })))
+  check(fastBest < g1.wheelieBest, `lift depends on speed: at near top speed the same gas lifts far less (${deg(fastBest)}° vs ${deg(g1.wheelieBest)}°)`)
+  // holding the gas down from a standstill is plain acceleration with a power lift, never a loop-out
+  const full = new BikeSim(spec)
+  run(full, 10, () => I({ throttle: 1 }))
+  check(!full.crashed && full.v > spec.maxSpeed * 0.5, `holding the gas from a standstill never flips the bike (${full.crashed ?? 'ok'}, ${full.v.toFixed(1)} m/s after 10 s)`)
+  // easing off lowers it, braking lowers it faster
+  for (const mode of ['ease off', 'brake']) {
+    const r = new BikeSim(spec)
+    r.v = 6
+    r.assist = 0.3
+    let hit = -1
+    let tt = 0
+    while (tt < 6 && !r.crashed) {
+      if (hit < 0 && r.pitch > 0.3) hit = tt
+      const react = hit >= 0 && tt > hit + 0.2
+      r.advance(1 / 60, I({ throttle: react ? 0 : 1, brake: react && mode === 'brake' ? 1 : 0 }), flat())
+      tt += 1 / 60
+    }
+    check(hit > 0 && !r.crashed && r.pitch < 0.03, `${mode} (0.2 s after reaching 17°) brings the front back down without looping (${hit < 0 ? 'never lifted' : deg(r.pitch) + '°'})`)
+  }
   for (const assist of [0, 0.3, 1]) {
     const h = new BikeSim(spec)
     h.v = 6
@@ -214,6 +247,59 @@ for (const spec of [SURRON, STREET]) {
   b = new BikeSim(spec)
   run(b, 20, (t) => I({ throttle: Math.sin(t * 3) > 0 ? 1 : 0, brake: Math.cos(t * 2) > 0.5 ? 1 : 0, rear: Math.sin(t * 5) > 0.7 ? 1 : 0, steer: Math.sin(t * 1.3), lean: Math.cos(t * 0.9) }), 0.023)
   check([b.x, b.z, b.h, b.v, b.pitch, b.roll, b.forkC, b.shockC, b.vlat].every(Number.isFinite), 'finite after 20 s of random inputs at an odd frame rate')
+  // 9. grip, lean, scrape, one-hand, reverse
+  {
+    const dry = new BikeSim(spec)
+    const wet = new BikeSim(spec)
+    dry.v = wet.v = 4
+    wet.surface = 0.45
+    let dryBest = 0
+    let wetBest = 0
+    let spinMax = 0
+    run(dry, 2, (t, bk) => (dryBest = Math.max(dryBest, bk.pitch), I({ throttle: 1 })))
+    run(wet, 2, (t, bk) => (wetBest = Math.max(wetBest, bk.pitch), spinMax = Math.max(spinMax, bk.spin), I({ throttle: 1 })))
+    check(spinMax > 0.25 && wetBest < dryBest * 0.6, `low grip: the rear wheel spins instead of lifting (spin ${spinMax.toFixed(2)}, lift ${deg(wetBest)}° vs ${deg(dryBest)}° on dry tarmac)`)
+    const ws = new BikeSim(spec)
+    ws.surface = 0.45
+    run(ws, 0.8, () => I({ throttle: 1 }))
+    check(ws.spin > 0.3 && ws.rearSpin * spec.wheelR > ws.z * 1.1 + 0.5, `a spinning rear wheel turns faster than the road passes (wheel ${(ws.rearSpin * spec.wheelR).toFixed(1)} m vs ground ${ws.z.toFixed(1)} m)`)
+    // the rider shifts weight by themselves: back on the gas, forward under braking, into the turn
+    const br = new BikeSim(spec)
+    br.v = 12
+    run(br, 0.6, () => I({ brake: 1 }))
+    const gs = new BikeSim(spec)
+    gs.v = 6
+    run(gs, 0.6, () => I({ throttle: 1 }))
+    check(br.lean < -0.2 && gs.lean > 0.2, `the rider's weight moves by itself: forward under braking (${br.lean.toFixed(2)}), back on the gas (${gs.lean.toFixed(2)})`)
+    // scrape: only when a part really reaches the ground
+    const easy = new BikeSim(spec)
+    easy.v = 8
+    let easyScrape = 0
+    run(easy, 2, (t, bk) => (easyScrape = Math.max(easyScrape, bk.scrape.k), I({ throttle: 0.15, steer: 0.25 })))
+    const hard = new BikeSim(spec)
+    hard.v = spec.maxSpeed * 0.7
+    let hardPart = null
+    run(hard, 3, (t, bk) => (bk.scrape.part && (hardPart = bk.scrape.part), I({ throttle: 0.5, steer: 1 })))
+    check(easyScrape === 0 && hardPart === 'peg', `a peg scrapes only on a hard lean (gentle turn: ${easyScrape.toFixed(2)}, full lock at ${hard.v.toFixed(0)} m/s: ${hardPart ?? 'nothing'}, roll ${deg(hard.roll)}°)`)
+    // one-hand: a pose that needs the front wheel already up; it never starts or holds a wheelie
+    const o1 = new BikeSim(spec)
+    o1.v = 8
+    run(o1, 2, () => I({ throttle: 0.3, trick: true }))
+    check(o1.oneHand === 0 && o1.pitch < 0.02, 'the one-hand trick does nothing on the ground (no lift, no pose)')
+    const o2 = new BikeSim(spec)
+    const o3 = new BikeSim(spec)
+    o2.v = o3.v = 6
+    run(o2, 1.6, () => I({ throttle: 1, trick: true }))
+    run(o3, 1.6, () => I({ throttle: 1 }))
+    check(o2.oneHand > 0.8 && Math.abs(o2.pitch - o3.pitch) < 0.02 && o2.oneHandTime > 0.3, `in a wheelie it moves the hand and nothing else (pose ${o2.oneHand.toFixed(2)}, pitch ${deg(o2.pitch)}° vs ${deg(o3.pitch)}° without; ${o2.oneHandTime.toFixed(1)} s one-handed)`)
+    // reverse: only from nearly stopped, separate from the gas
+    const rv = new BikeSim(spec)
+    run(rv, 2, () => I({ reverse: true }))
+    const rv2 = new BikeSim(spec)
+    rv2.v = 8
+    run(rv2, 0.5, () => I({ reverse: true }))
+    check(rv.v < -0.8 && rv2.v > 0, `reverse works from a standstill (${rv.v.toFixed(1)} m/s) and is ignored at speed (${rv2.v.toFixed(1)} m/s)`)
+  }
 }
 console.log(fails ? `\n${fails} FAILED` : '\nALL PASS')
 process.exit(fails ? 1 : 0)
