@@ -3,6 +3,7 @@ import type { Town } from './buildings'
 import { CELL, HEIGHTS, PIECE, PLOTS, PLOT_PRICE, plotGate, plotSize, pieceWorld, type Estate, type Piece, type Plot } from '../../estates'
 import { showHomes } from './showHomes'
 import { traversalSpots } from './traversalSpots'
+import { greensideRow } from './houseModels'
 import { boxUV } from './kit'
 import { ornateSign } from './ornament'
 import { Frame } from './signs'
@@ -23,7 +24,7 @@ export const ESTATES = {
 export const ESTATE_LAMPS: [number, number][] = [
   [-36, 44.6], [-56, 44.6],
   ...Array.from({ length: 8 }, (_, i): [number, number] => [-76 - i * 22, i % 2 ? 44.5 : 49.5]),
-  ...[0, 1, 2, 3].flatMap((i): [number, number][] => [[-248, -34 + i * 36]]),
+  ...[0, 1, 2, 3].flatMap((i): [number, number][] => [[-246.5, -34 + i * 36]]),
   ...Array.from({ length: 11 }, (_, i): [number, number] => [-262 - i * 26, i % 2 ? -15.4 : -10.6]),
   ...Array.from({ length: 11 }, (_, i): [number, number] => [-262 - i * 26, i % 2 ? 42.6 : 47.4]),
 ]
@@ -44,6 +45,7 @@ export function estatesDistrict(T: Town) {
   for (const z of [HEIGHTS.boulevard.z0 - 1.2, HEIGHTS.boulevard.z1]) pave(HEIGHTS.boulevard.x0, HEIGHTS.boulevard.x1, z, z + 1.2, P.paving, 0.02)
   showHomes(T)
   traversalSpots(T)
+  greensideRow(T)
   const lawn = new THREE.MeshStandardMaterial({ map: P.ground.map, color: '#8aa86a', roughness: 1 })
   T.disposables.push(lawn)
   for (const p of PLOTS) {

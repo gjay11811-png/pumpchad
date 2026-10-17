@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import type { Collider, Town } from './buildings'
 import { isNight } from './daylight'
+import { boxUV } from './kit'
 
 /**
  * HOUSE MODELS — the downloaded GLB houses (see ASSETS.md / CREDITS.md), optimised by `scripts/asset-house-optimise.mjs` and placed into the town as static
@@ -48,6 +49,8 @@ export type HousePlace = {
   materials?: Record<string, THREE.Material>
   /** shift the model in its own space before placing (so a door can sit on a chosen spot) */
   offset?: [number, number]
+  /** re-project the UVs of the named materials from world-space (planar, by dominant normal axis) at this many metres per repeat — for materials swapped in from the town's palette */
+  reproject?: Record<string, number>
 }
 
 /** put a loaded house into the world; returns the placed group (or null if the file could not be loaded) */
@@ -73,6 +76,33 @@ export async function placeHouse(T: Town, file: HouseFile, o: HousePlace): Promi
     const key = base.name
     if (o.materials?.[key]) {
       mesh.material = o.materials[key]
+      const tile = o.reproject?.[key]
+      if (tile) {
+        // planar UVs from the model-space position (metres after scaling), picking the two axes across the face by its dominant normal
+        g.updateMatrixWorld(true)
+        const g2 = mesh.geometry.clone()
+        const pos = g2.attributes.position as THREE.BufferAttribute
+        const nor = g2.attributes.normal as THREE.BufferAttribute
+        const uv = (g2.attributes.uv as THREE.BufferAttribute) ?? new THREE.BufferAttribute(new Float32Array(pos.count * 2), 2)
+        const pv = new THREE.Vector3()
+        const nv = new THREE.Vector3()
+        for (let i = 0; i < pos.count; i++) {
+          pv.fromBufferAttribute(pos, i).applyMatrix4(mesh.matrixWorld) // (the parts are quantised: their real scale lives on the node)
+          nv.fromBufferAttribute(nor, i).transformDirection(mesh.matrixWorld)
+          const ax = Math.abs(nv.x)
+          const ay = Math.abs(nv.y)
+          const az = Math.abs(nv.z)
+          const x = pv.x * o.scale
+          const y = pv.y * o.scale
+          const z = pv.z * o.scale
+          if (ay >= ax && ay >= az) uv.setXY(i, x / tile, z / tile)
+          else if (ax >= az) uv.setXY(i, z / tile, y / tile)
+          else uv.setXY(i, x / tile, y / tile)
+        }
+        g2.setAttribute('uv', uv)
+        mesh.geometry = g2
+        T.disposables.push(g2)
+      }
       return
     }
     const tint = o.tint?.[key]
@@ -129,4 +159,40 @@ export async function placeHouse(T: Town, file: HouseFile, o: HousePlace): Promi
 export const footprint = async (file: HouseFile, scale: number) => {
   const L = await loadHouse(file)
   return { w: L.size.x * scale, d: L.size.z * scale, h: L.size.y * scale }
+}
+
+/**
+ * GREENSIDE ROW — three of the downloaded stone houses along the north side of the Heights Green boulevard, kept like homes people live in: the weathered wall render is swapped
+ * for the village's clean limewash plaster, the grey shingles for terracotta tiles (or slate), the timber frame and louvred shutters are warmed with a stain, and each house gets
+ * a lantern + a warm light at the door, a path to the boulevard, a clipped hedge and pumpkins on the step. (The model has closed shutters and open rafter tails: those stay — see ASSETS.md.)
+ */
+export const GREENSIDE = [
+  { x: -111, z: 38, tint: '#e4c9a0', roof: 'roofRed' as const },
+  { x: -98.5, z: 38, tint: '#d9b88c', roof: 'roofSlate' as const },
+  { x: -86, z: 38, tint: '#eed3a8', roof: 'roofRed' as const },
+]
+export function greensideRow(T: Town) {
+  const P = T.P
+  for (const h of GREENSIDE) {
+    void placeHouse(T, 'stone_house', {
+      x: h.x,
+      z: h.z,
+      yaw: 0,
+      scale: 1,
+      sink: 0.2,
+      collide: { h: 10.4, inset: 0.45 },
+      materials: { main_wall: P.plaster, roof: P[h.roof] },
+      reproject: { main_wall: 2.4, roof: 2.0 },
+      tint: { floor: h.tint, Material: '#f0e6d6' },
+    })
+    const doorZ = h.z + 1.7
+    // a lantern beside the door and a warm light on the step
+    T.batch.put(new THREE.BoxGeometry(0.16, 0.26, 0.16), P.glowGold, h.x + 0.95, 2.1, doorZ + 0.35, 0, 1, 1, 1, { cast: false })
+    T.lights.push({ x: h.x + 0.9, y: 2.0, z: doorZ + 1.0, color: '#ffb868', intensity: 2.6, dist: 7, priority: 3 })
+    // the path to the boulevard (setts), a clipped hedge either side, a pumpkin on the step
+    const pathLen = 43.2 - (doorZ + 0.7)
+    T.batch.put(new THREE.PlaneGeometry(1.6, pathLen).rotateX(-Math.PI / 2), P.cobble, h.x, 0.025, doorZ + 0.7 + pathLen / 2, 0, 1, 1, 1, { cast: false })
+    for (const sx of [-1, 1]) T.batch.put(boxUV(0.6, 0.7, pathLen - 0.6, 1.2), P.foliageDark, h.x + sx * 1.35, 0.35, doorZ + 0.9 + (pathLen - 0.6) / 2)
+    if (T.pumpkins) T.pumpkins.add(h.x - 0.8, 0.22, doorZ + 0.9, { r: 0.2, face: 1, facing: 0 })
+  }
 }

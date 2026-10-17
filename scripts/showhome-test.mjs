@@ -1,6 +1,7 @@
 // The three show homes: walk up to each front door (ordinary controls), enter, look round (photo cameras), walk out; the plots stay purchasable (52).
 //   URL=... SHOTS=dir node scripts/showhome-test.mjs
 import { chromium } from 'playwright'
+import { SHOW_HOMES } from '../src/game/estates.ts'
 const BASE = process.env.URL || 'http://localhost:5180/chadverse/'
 const SHOTS = process.env.SHOTS || ''
 const b = await chromium.launch({ executablePath: process.env.LOCALAPPDATA + '/ms-playwright/chromium-1228/chrome-win64/chrome.exe' })
@@ -23,9 +24,9 @@ await p.waitForFunction(() => window.__chadverse?.phase === 'world' && window.__
 const wait = (ms) => p.waitForTimeout(ms)
 const ph = () => p.evaluate(() => window.__chadverse.phase)
 const HOMES = [
-  ['show_cottage', 'cottage', -77, 34.4, [[0, 3.5, 2.8], [0, 1.2, -1.2]], [[-1.5, 2.2, 3.0], [-3.5, 1.0, -0.5], 70]],
-  ['show_contemporary', 'contemporary', -87.5, 34.0, [[0, 3.2, 3.6], [-1, 1.2, -1]], [[3.8, 2.4, 3.4], [-2.5, 1.1, -0.5], 70]],
-  ['show_premium', 'premium', -103, 35.9, [[0, 3.6, 4.2], [0, 1.4, -1]], [[4.6, 2.6, 3.9], [-2.2, 1.2, -0.5], 72]],
+  ['show_cottage', 'cottage', SHOW_HOMES[0].x, SHOW_HOMES[0].z + 3.4, [[0, 3.5, 2.8], [0, 1.2, -1.2]], [[-1.5, 2.2, 3.0], [-3.5, 1.0, -0.5], 70]],
+  ['show_contemporary', 'contemporary', SHOW_HOMES[1].x + 2.5, SHOW_HOMES[1].z + 3.0, [[0, 3.2, 3.6], [-1, 1.2, -1]], [[3.8, 2.4, 3.4], [-2.5, 1.1, -0.5], 70]],
+  ['show_premium', 'premium', SHOW_HOMES[2].x, SHOW_HOMES[2].z + 4.9, [[0, 3.6, 4.2], [0, 1.4, -1]], [[4.6, 2.6, 3.9], [-2.2, 1.2, -0.5], 72]],
 ]
 for (const [id, short, x, z, pos, up] of HOMES) {
   await p.evaluate(([x, z]) => window.__chadverse.teleport(x, z, Math.PI), [x, z])

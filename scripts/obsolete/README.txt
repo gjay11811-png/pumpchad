@@ -1,0 +1,1 @@
+Superseded by the large-plot layout: estates-test.mjs and heights-buy-test.mjs hard-code the old 12 x 10 m plots and their old coordinates. Use scripts/estate-rules-test.mjs (pure rules + migration), scripts/estates-large-test.mjs (buy / build / persist in the browser), scripts/heights-walk-test.mjs and scripts/home-test.mjs.

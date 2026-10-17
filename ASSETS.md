@@ -144,3 +144,26 @@ Originals stay untouched in `C:\Users\zafe5\Downloads` (`talaria_sting_r_mx4.glb
 4. **optimise** (`asset-mx4-build.mjs`): per-part meshopt simplification to ≈ 30 K (body), 16 K per wheel, 18 K (fork) = **≈ 80 K triangles total (was 1.11 M)**; positions quantised; UVs dropped (there are no textures). Files: `public/chadverse/models/mx4/{body,fork,wheel_f,wheel_r}.glb` (4.2 MB total) + `rig.json` (axles, rake, seat / grip / peg anchors).
 5. **runtime** (`src/game/bike/scanVisual.ts`): assembled into the same moving hierarchy as the procedural bikes (the rear wheel stays on the ground in a wheelie, the body pivots about the rear axle, the fork steers about the measured axis and compresses along it, wheels spin from the riding model). If the files fail to load the procedural e-bike model stays.
 Limits: the scan has no colour, so tyres / rims / forks / frame are given game materials in code; the saddle, tank and shrouds are not separate pieces, so the bike is not paint-tintable. No collision geometry is needed (the riding model uses its own bike capsule).
+
+### Victorian house and stone house — optimisation + use (2026-10-17, `scripts/asset-house-optimise.mjs`)
+| Asset | Before | After | Where it is used |
+|---|---|---|---|
+| `victorian_house.glb` (massive-graphisme, CC BY 4.0) | 226 MB file · 186 K tris in 213 meshes · 22 materials at up to 4096² · ≈ 3.5 GB GPU textures | **2.5 MB file · 64 K tris** (interior meshes dropped, merged by material, meshopt-decimated) · 19 materials · **≈ 59 MB GPU textures** (base maps 1024² for the six wall / roof / trim / bay / arch / door sets, 512² for the rest, normals only on those six at 512², metal-rough + occlusion maps dropped → plain satin PBR values) · WebP | the Haunted Quarter's **Ravenswood**: the procedural manor is replaced by the model (scale 6.5 → 8.5 × 10.3 × 13 m), box collider, iron fence + door lantern + pumpkin kept; its interior door spot and the enterable interior are unchanged (footprint recorded in `HAUNTED_HOUSES`). Walls get a cool grey tint so the paint reads weathered rather than fresh. |
+| `stone_house.glb` (Lofvu, CC BY 4.0; `stone_house (1).glb` is an identical duplicate) | 35 MB · 6.3 K tris · 6 materials at up to 4096² · ≈ 255 MB GPU textures | **1.3 MB · 6.3 K tris** · textures ≤ 1024² (512² for the iron) · **≈ 24 MB** · the stray ground plane dropped | optimised (`public/chadverse/models/houses/stone_house.glb`) and loadable through `placeHouse()`; **not placed in the world yet** (see the plan: it is a timber-framed house with closed louvred shutters and no chimney; the adaptation to a lived-in village house — plaster, glazing instead of shutters, a chimney — is listed as unfinished) |
+Placement code: `src/game/scenes/world/houseModels.ts` (one load per file, clones share geometry / materials / textures; async placement; collider box; optional tint + glass glow at night).
+
+## Poly Haven (CC0) sets added 2026-10-17 — `scripts/fetch-polyhaven.mjs <id>` (1K WebP: diffuse + GL normal + roughness each, `public/chadverse/district/tex/`)
+| Set | Author (from the Poly Haven API) | Used for |
+|---|---|---|
+| `cobblestone_pavement` | Charlotte Baglioni | the town's historic setts (`P.cobble`: the avenue, the square, lanes, forecourts) — replaced the old drawn "rounded cobbles with heavy dark joints" |
+| `pavement_05` | Jan Burghardt | `P.paving`: footpaths beside the Heights Green boulevard, garden terraces (builder piece) |
+| `asphalt_02` | Rob Tuytel | `P.asphalt`: the builder's driveway piece |
+| `beige_wall_001` | Dimitrios Savva (photography), Rico Cilliers (processing) | `P.plaster` / `plasterDark`: every plastered wall in the village |
+| `roof_slates_02` | Rob Tuytel | `P.roofSlate` |
+| `clay_roof_tiles_03` | Amal Kumar | `P.roofRed` / `P.roofOrange` (terracotta) |
+| `dark_wood` | Dario Barresi (baking), Dimitrios Savva (photography), Rico Cilliers (tiling) | `P.timber` / `woodLight` / `woodRotten` (frames, shutters, crates) |
+Raw downloads: `..\pumpchad-assets\polyhaven-2\`. UVs in the town are "metres / tile"; each set's `repeat` rescales one repeat to the set's real size (`surfaces.ts`). Memory: 7 sets × 3 maps of 1K WebP ≈ 90 MB of GPU texture memory with mipmaps (measured texture count 104 → 157 at the avenue spot).
+
+## Not integrated, on purpose
+- **BMW M4 / BMW M showroom**: no BMW file exists anywhere on this machine (searched Downloads, Desktop, Documents, the asset folders). Nothing is labelled BMW; the showroom cars remain the CC-BY "realistic sports car" and "Porsche 911 GT3 RS".
+- **Autoshop 01**: a Poly Haven lighting/environment reference, not a downloadable building: not used.

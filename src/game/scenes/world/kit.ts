@@ -173,7 +173,7 @@ export function makePalette(tex: Record<string, THREE.Texture>, night = false, s
     woodLight: surf ? pbr(surf.timber, { color: '#e0a878', roughness: 1 }) : std({ map: tex.wood, color: '#9a6b44', roughness: 0.75 }),
     woodRotten: surf ? pbr(surf.timber, { color: '#5a524c', roughness: 1 }) : std({ map: tex.wood, color: '#3a3330', roughness: 0.95 }),
     roofRed: surf ? pbr(surf.clay, { color: '#c8786a', roughness: 1 }) : std({ map: tex.roof, color: '#7a2f22', roughness: 0.8 }),
-    roofSlate: surf ? pbr(surf.slate, { color: '#8e9bb6', roughness: 1 }) : std({ map: tex.roof, color: '#4c5668', roughness: 0.7 }),
+    roofSlate: surf ? pbr(surf.slate, { color: '#9aa2ae', roughness: 1 }) : std({ map: tex.roof, color: '#4c5668', roughness: 0.7 }),
     roofOrange: surf ? pbr(surf.clay, { color: '#e8a070', roughness: 1 }) : std({ map: tex.roof, color: '#a8521f', roughness: 0.8 }),
     stone: std({ map: tex.stone, color: '#d6c7ad', roughness: 0.9 }),
     stoneLight: std({ map: tex.stone, color: '#efe4d0', roughness: 0.85 }),

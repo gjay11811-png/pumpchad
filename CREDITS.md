@@ -35,3 +35,6 @@ Leaf and bark texture detail derived from the "Jacaranda Tree" textures by Rico 
 - **"Talaria Sting R MX4"** — by **nicknothom** (https://sketchfab.com/nicknothom), **CC BY 4.0**. Source: https://sketchfab.com/3d-models/talaria-sting-r-mx4-1e05c173835549cc9f327e04e6762dd4. **Used** as the rideable e-dirt bike. Modified for Chadverse: re-scaled, straightened, split into wheels / fork / body, decimated and given in-game materials.
 - **"Victorian house"** — by **massive-graphisme** (https://sketchfab.com/massive-graphisme), **CC BY 4.0**. Source: https://sketchfab.com/3d-models/victorian-house-dbb02bf8f5ed4851b05dd97a1784a1fb. (status in ASSETS.md)
 - **"Stone House"** — by **Lofvu** (https://sketchfab.com/Lofvu), **CC BY 4.0**. Source: https://sketchfab.com/3d-models/stone-house-547af8e4c5924503b0d2c71d7228d412. (status in ASSETS.md)
+
+## Poly Haven (CC0) — added 2026-10-17 (credit appreciated, not required)
+Cobblestone Pavement (Charlotte Baglioni) · Pavement 05 (Jan Burghardt) · Asphalt 02 (Rob Tuytel) · Beige Wall 001 (Dimitrios Savva, Rico Cilliers) · Roof Slates 02 (Rob Tuytel) · Clay Roof Tiles 03 (Amal Kumar) · Dark Wood (Dario Barresi, Dimitrios Savva, Rico Cilliers) — https://polyhaven.com

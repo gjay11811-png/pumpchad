@@ -2,6 +2,7 @@
 // (and what's missing); leaving puts you back on your step; turning the cottage moves its door with it.
 //   URL=http://localhost:4318/chadverse/ [Q=low] [SHOTS=dir] node scripts/home-test.mjs
 import { chromium } from 'playwright'
+import { sanitizeEstate, cottageDoor } from '../src/game/estates.ts'
 const BASE = process.env.URL || 'http://localhost:4318/chadverse/'
 const KEY = 'pumpchad.chadverse.save'
 const b = await chromium.launch({ executablePath: process.env.LOCALAPPDATA + '/ms-playwright/chromium-1228/chrome-win64/chrome.exe' })
@@ -54,6 +55,12 @@ const at = async (x, z, yaw) => {
   await p.waitForFunction(() => window.__chadverse.world()?.prompt != null, null, { timeout: 2500 }).catch(() => {})
 }
 const SHOTS = process.env.SHOTS || null
+// the cottage's door, from the rules (an OLD v1 save: migrated to the large plot, turned to face the new street)
+const doorFor = (r) => {
+  const d = cottageDoor(sanitizeEstate({ plot: 'A', pieces: [{ k: 'cottage', x: 2, z: 1, r }, { k: 'flowers', x: 0, z: 0, r: 0 }] }))
+  const out = d.half + 0.7
+  return { door: d, stand: [d.x + Math.sin(d.face) * (out + 0.3), d.z + Math.cos(d.face) * (out + 0.3)], face: d.face }
+}
 const seed = async (r) => {
   await p.goto(BASE, { waitUntil: 'networkidle' })
   await p.evaluate(([k, q, r]) => {
@@ -65,8 +72,8 @@ const seed = async (r) => {
   await enterWorld()
 }
 await seed(0)
-// cottage centre (-38, 55), door faces south (+z): the step is ~2.45 m out
-await at(-38, 57.5, Math.PI)
+const D0 = doorFor(0)
+await at(D0.stand[0], D0.stand[1], D0.face + Math.PI)
 check((await promptId()) === 'house:home', `your cottage's door prompt (got ${await promptId()})`)
 await p.keyboard.press('e')
 await p.waitForFunction(() => window.__chadverse.phase === 'interior' && window.__chadverse.interior(), null, { timeout: 30000 }).catch(() => {})
@@ -98,14 +105,15 @@ await p.waitForTimeout(500)
 await p.keyboard.press('e')
 await p.waitForFunction(() => window.__chadverse.phase === 'world' && window.__chadverse.world(), null, { timeout: 60000 }).catch(() => {})
 const w = await C('world')
-check(Math.hypot(w.x + 38, w.z - 58.2) < 1.2, `back out on your step (${w.x}, ${w.z})`)
+check(Math.hypot(w.x - (D0.door.x + Math.sin(D0.face) * (D0.door.half + 1.45)), w.z - (D0.door.z + Math.cos(D0.face) * (D0.door.half + 1.45))) < 1.6, `back out on your step (${w.x}, ${w.z})`)
 
-// a cottage turned to face west: the door goes with it
+// a cottage saved facing the other way: the door goes with it (the migration turns the whole layout, so both saves end with the door on the street side)
 await seed(1)
-await at(-38 - 2.45, 55, Math.PI / 2)
-check((await promptId()) === 'house:home', `turned cottage: door prompt on the west side (got ${await promptId()})`)
-await at(-38, 57.5, Math.PI)
-check((await promptId()) !== 'house:home', 'and no longer on the south side')
+const D1 = doorFor(1)
+await at(D1.stand[0], D1.stand[1], D1.face + Math.PI)
+check((await promptId()) === 'house:home', `turned cottage: door prompt on its own side (got ${await promptId()})`)
+await at(D1.door.x + 14, D1.door.z, 0)
+check((await promptId()) !== 'house:home', 'and no longer anywhere else')
 
 const lost = errs.some((e) => e.includes('context lost'))
 if (lost) console.log('  WARN  WebGL context lost during the run (machine memory) — shader errors after it ignored')
