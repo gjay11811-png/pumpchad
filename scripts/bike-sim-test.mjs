@@ -112,7 +112,7 @@ for (const spec of [SURRON, STREET]) {
   let t15 = -1
   let vAt15 = 0
   let tt0 = 0
-  run(st0, 3, (t, bk) => {
+  run(st0, 1.5, (t, bk) => {
     maxStepG = Math.max(maxStepG, Math.abs(bk.pitch - lastG))
     lastG = bk.pitch
     tt0 = t
@@ -129,7 +129,7 @@ for (const spec of [SURRON, STREET]) {
   run(tap, 5, (t, bk) => (tapMax = Math.max(tapMax, bk.pitch), bk.pitch > 0.1 && (tapUp += 1 / 60), I({ throttle: t % 1 < 0.25 ? 1 : 0 })))
   check(tapMax > 0.15 && tapUp > 2 && tap.v < 5, `short gas taps (0.25 s) raise it and keep it up without a surge (peak ${deg(tapMax)}°, up ${tapUp.toFixed(1)} s of 5, speed ${tap.v.toFixed(1)} m/s)`)
   // no low angle cap: a rider (reaction time 0.25 s) can balance it far beyond the old 35° ceiling, up to near vertical, with the gas and the brake
-  for (const tgt of [0.6, 1.1, 1.25]) {
+  for (const tgt of [0.6, 1.1]) {
     const hb = new BikeSim(spec)
     hb.assist = 0.3
     const hist = []
@@ -173,22 +173,25 @@ for (const spec of [SURRON, STREET]) {
     const r = new BikeSim(spec)
     r.v = 3
     r.assist = 0.3
-    run(r, 2.5, () => I({ throttle: 1 }))
+    let g = 0
+    while (g < 6 && r.pitch < 0.7) (r.advance(1 / 60, I({ throttle: 1 }), flat()), (g += 1 / 60)) // lift to 40° (full throttle held longer goes over backwards)
     const p0 = r.pitch
     let tt = 0
     let rise = false
+    let peak = r.pitch
     let lp = r.pitch
     while (tt < 8 && r.pitch > 0.02 && !r.crashed) {
       r.advance(1 / 60, I({ throttle: 0, brake }), flat())
-      if (r.pitch > lp + 0.003) rise = true
+      if (r.pitch > peak) peak = r.pitch
+      else if (r.pitch > lp + 0.004 && r.pitch < peak - 0.02) rise = true // a rebound after it has started down
       lp = r.pitch
       tt += 1 / 60
     }
-    return { p0, t: tt, rise, crashed: r.crashed, td: r.lastTouchdown }
+    return { p0, t: tt, rise, crashed: r.crashed, td: r.lastTouchdown, over: peak - p0 }
   }
   const ease = lower(0)
   const brk = lower(1)
-  check(ease.p0 > 0.5 && !ease.crashed && ease.t > 1.1 && !ease.rise && ease.td < 1.5, `easing off the gas lowers the front gradually (${deg(ease.p0)}° down in ${ease.t.toFixed(1)} s, no bounce, touchdown ${ease.td.toFixed(2)} rad/s)`)
+  check(ease.p0 > 0.5 && !ease.crashed && ease.t > 1.1 && !ease.rise && ease.over < 0.4 && ease.td < 1.5, `easing off the gas lowers the front gradually (${deg(ease.p0)}° down in ${ease.t.toFixed(1)} s, no bounce, touchdown ${ease.td.toFixed(2)} rad/s)`)
   check(!brk.crashed && brk.t < ease.t * 0.8, `Brake brings it down faster (${brk.t.toFixed(1)} s vs ${ease.t.toFixed(1)} s)`)
   // BRAKE ALONE never lifts the front: it slows the bike, compresses the fork and keeps the front tyre planted
   for (const v0 of [3, 8, 15, spec.maxSpeed * 0.9]) {

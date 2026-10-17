@@ -181,20 +181,26 @@ await up('s')
 check(before.pitch > 0.2 && lowered.ok, `easing off and touching Brake brings the front wheel down (from ${deg(before.pitch)}°)`)
 check(td < 2.6, `smooth touchdown (impact ${td.toFixed(2)} rad/s); fork compressed ${lowered.s.forkC.toFixed(3)} m`)
 
-/* 7. holding the gas from a standstill is acceleration with a power lift: it never flips the bike */
+/* 7. FULL throttle held from a standstill climbs through the balance point and goes over backwards (it no longer parks at an angle); easing off before that settles it */
 await set({ x: 0, z: 10, h: 0, v: 0 })
 await down('w')
-let flip = false
+let over = false
 let maxHold = 0
-for (let t = 0; t < 7; t += 0.1) {
+for (let t = 0; t < 7 && !over; t += 0.1) {
   const s0 = await B()
-  if (s0.crashed) flip = true
+  if (s0.crashed) over = true
   maxHold = Math.max(maxHold, s0.pitch)
-  if (s0.z > 66) await set({ x: 0, z: 10, v: 6 })
   await adv(0.1)
 }
 await up('w')
-check(!flip, `holding the gas never loops the bike out (front rose to ${deg(maxHold)}°)`)
+check(over && maxHold > 1.2, `holding full throttle takes the front past the balance point and over backwards (peak ${deg(maxHold)}°)`)
+await until((s) => s.phase === 'riding' && !s.crashed, 8)
+await set({ x: 0, z: 10, h: 0, v: 0 })
+await down('w')
+await until((s) => s.pitch > 0.7 || s.crashed, 6, 0.05)
+await up('w')
+const settled = await until((s) => s.pitch < 0.03, 8, 0.1)
+check(settled.ok && !settled.s.crashed, `easing off at 40° settles the front back down (${settled.s.crashed ?? deg(settled.s.pitch) + '°'})`)
 await until((s) => s.v < 1.5 && s.pitch < 0.02, 12)
 
 /* 8. a wall: a slow bump just stops you, a fast one is a crash */

@@ -389,7 +389,12 @@ export class BikeSim {
     // THE GAS lifts the front: the rear tyre's torque reaction plus the rider's weight pulling back, strongest at low speed, weaker the faster the bike already goes, lost to wheelspin,
     // and fading as the bike nears vertical. It acts from a standstill too. Easing off removes it and gravity (and the rider's weight forward) bring the nose back down.
     const spdF = Math.max(0, Math.min(1, 1.15 - (Math.max(0, this.v) / s.maxSpeed) * 2.4))
-    const lift = s.liftTorque * gas * spdF * Math.max(0, 1 - this.spin * 1.2) * Math.max(0, 1 - th / 1.38)
+    // The angle fade acts like a spring: it gives every gas level a fixed angle to park at. That is right for the gas a rider MODULATES (taps and small corrections settle where they should),
+    // but at sustained FULL throttle it parked the wheelie at 35-55 degrees for as long as the gas was held (it never went over, and never came down). Full throttle is now a hard pull
+    // that the fade no longer restrains, so the front keeps climbing through the balance point and goes over backwards unless the rider eases off.
+    const full = Math.max(0, Math.min(1, (this.thr - 0.88) / 0.12))
+    const angleFade = Math.max(0, 1 - (th / 1.38) * (1 - 0.92 * full))
+    const lift = s.liftTorque * gas * spdF * Math.max(0, 1 - this.spin * 1.2) * angleFade
     alpha += lift
     const push = Math.max(0, -this.lean)
     if (th > 0.015) alpha -= s.pullTorque * 0.55 * push
