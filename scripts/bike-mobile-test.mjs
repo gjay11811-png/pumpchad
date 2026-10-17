@@ -31,7 +31,7 @@ const adv = (s) => p.evaluate((s) => window.__chadverse.advance(s), s)
 const set = (o) => p.evaluate((o) => window.__chadverse.setBike(o), o)
 const touches = new Map()
 const send = async (type) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: [...touches.entries()].map(([id, [x, y]]) => ({ x, y, id })) })
-const touchStart = async (id, x, y) => (touches.set(id, [x, y]), send('touchStart'))
+const touchStart = async (id, x, y) => (touches.set(id, [x, y]), await send('touchStart'), await p.waitForTimeout(90))
 const touchMove = async (id, x, y) => (touches.set(id, [x, y]), send('touchMove'))
 const touchEnd = async (id) => {
   const pt = touches.get(id)
@@ -53,8 +53,8 @@ await set({ x: 0, z: 14, h: 0, v: 12 })
 await adv(0.3)
 check((await B()).riding, 'mounted (touch layout)')
 
-/* layout: steering arrows left, GAS + BRAKE right, GET OFF; no REV, no rear / lean buttons, no joystick */
-const ids = ['ride-left', 'ride-right', 'ride-throttle', 'ride-brake', 'ride-getoff']
+/* layout: the virtual joystick on the left, GAS + BRAKE right, GET OFF; no REV, no rear / lean buttons, no steering arrows */
+const ids = ['ride-throttle', 'ride-brake', 'ride-getoff']
 const boxes = {}
 for (const id of ids) boxes[id] = await p.locator(`[data-testid=${id}]`).boundingBox()
 check(ids.every((id) => boxes[id] && boxes[id].x >= 0 && boxes[id].y >= 0 && boxes[id].x + boxes[id].width <= VW && boxes[id].y + boxes[id].height <= VH), 'every riding button sits inside the visible screen')
@@ -66,32 +66,46 @@ for (let i = 0; i < ids.length; i++)
     if (a.x < c.x + c.width && c.x < a.x + a.width && a.y < c.y + c.height && c.y < a.y + a.height) overlap = true
   }
 check(!overlap, 'no riding button overlaps another')
-check(boxes['ride-left'].x < VW / 2 && boxes['ride-right'].x < VW / 2 && boxes['ride-throttle'].x > VW / 2 && boxes['ride-brake'].x > VW / 2, 'steering arrows are on the left, Gas and Brake on the right')
-check(boxes['ride-throttle'].width >= 60 && boxes['ride-brake'].width >= 60 && boxes['ride-left'].width >= 56, `the main buttons are thumb-sized (gas ${Math.round(boxes['ride-throttle'].width)} px, brake ${Math.round(boxes['ride-brake'].width)} px, arrows ${Math.round(boxes['ride-left'].width)} px)`)
-const gone = await p.evaluate(() => ['ride-heave', 'ride-rear', 'ride-forward', 'ride-trick', 'ride-reverse'].map((t) => !!document.querySelector(`[data-testid="${t}"]`)))
-check(!gone[0] && !gone[1] && !gone[2], 'there is no REV, rear-brake or lean button on the riding screen')
+const jz = await p.locator('[data-testid=joystick-zone]').boundingBox()
+check(!!jz && jz.x < 20 && jz.x + jz.width <= VW / 2 + 4 && jz.height > 100, `the virtual joystick zone is on the left (${jz ? Math.round(jz.x) + ',' + Math.round(jz.y) + ' ' + Math.round(jz.width) + 'x' + Math.round(jz.height) : 'none'})`)
+check(boxes['ride-throttle'].x > VW / 2 && boxes['ride-brake'].x > VW / 2, 'Gas and Brake are on the right')
+check(boxes['ride-throttle'].width >= 60 && boxes['ride-brake'].width >= 60, `the main buttons are thumb-sized (gas ${Math.round(boxes['ride-throttle'].width)} px, brake ${Math.round(boxes['ride-brake'].width)} px)`)
+const gone = await p.evaluate(() => ['ride-heave', 'ride-rear', 'ride-forward', 'ride-trick', 'ride-reverse', 'ride-left'].map((t) => !!document.querySelector(`[data-testid="${t}"]`)))
+check(!gone[0] && !gone[1] && !gone[2] && !gone[5], 'there is no REV, rear-brake, lean button or steering arrows on the riding screen')
 check(!gone[3] && !gone[4], 'ONE HAND and REVERSE are not shown while riding along at speed on the ground')
-const hidden = await p.evaluate(() => ['sprint', 'jump-button', 'emote-button', 'joystick-zone'].every((t) => { const e = document.querySelector(`[data-testid="${t}"]`); return !e || getComputedStyle(e).display === 'none' }))
-check(hidden, 'the walking buttons (sprint / jump / emote) and the joystick are hidden while riding')
+const hidden = await p.evaluate(() => ['sprint', 'jump-button', 'emote-button'].every((t) => { const e = document.querySelector(`[data-testid="${t}"]`); return !e || getComputedStyle(e).display === 'none' }))
+check(hidden, 'the walking buttons (sprint / jump / emote) are hidden while riding (the joystick stays)')
 check(await p.evaluate(() => ['hud-profile', 'objective-wrap'].every((t) => { const e = document.querySelector(`[data-testid="${t}"]`); return !e || getComputedStyle(e).display === 'none' })), 'the profile and objective panels fold away while riding')
 
 /* several touches at once: gas (right thumb) + steer right arrow (left thumb) */
 const [gx, gy] = await center('ride-throttle')
-const [rx0, ry0] = await center('ride-right')
-const [lx0, ly0] = await center('ride-left')
+const jx = jz.x + jz.width * 0.4
+const jy = jz.y + jz.height * 0.55
 await touchStart(1, gx, gy)
-await touchStart(3, rx0, ry0)
-await adv(0.4)
+await touchStart(3, jx, jy)
+await touchMove(3, jx + 55, jy)
+await adv(0.3)
 let s = await B()
-check(s.buttons.throttle && s.buttons.right, `gas and the right arrow are held together (${JSON.stringify({ t: s.buttons.throttle, r: s.buttons.right })})`)
-check(s.inputs.thr > 0.5 && s.delta > 0.02, `the bike answers both at once (throttle ${s.inputs.thr}, bars ${s.delta})`)
-await touchEnd(3)
-await touchStart(3, lx0, ly0)
-await adv(0.6)
+check(s.buttons.throttle && s.inputs.thr > 0.5, `Gas is held (throttle ${s.inputs.thr})`)
+check(s.delta > 0.02, `the joystick steers right while the Gas is held (bars ${s.delta})`)
+await touchMove(3, jx, jy)
+await adv(0.2)
+for (let i = 0; i < 30 && (await B()).phase !== 'riding'; i++) await adv(0.2)
+await set({ x: 0, z: 14, h: 0, v: 10 })
+await touchMove(3, jx - 55, jy)
+await adv(0.5)
 s = await B()
-check(s.buttons.left && !s.buttons.right && s.delta < 0, `switching to the left arrow steers left with the gas still held (bars ${s.delta})`)
+check(s.buttons.throttle && s.delta < -0.02, `pushing the stick the other way steers left, Gas still held (bars ${s.delta})`)
+await touchMove(3, jx, jy)
+await adv(0.3)
+await set({ x: 0, z: 14, h: 0, v: 10 })
+await touchMove(3, jx + 12, jy - 70)
+await adv(0.3)
+s = await B()
+check(s.buttons.throttle && !s.buttons.brake && s.inputs.thr > 0.5, 'the stick pushed UP does not mean gas or brake (the buttons own those)')
 await touchEnd(3)
-for (let i = 0; i < 30 && (await B()).phase !== 'riding'; i++) await adv(0.2) // (the faster street bike can clip a kerb while steering: let it recover)
+await adv(0.1)
+for (let i = 0; i < 30 && (await B()).phase !== 'riding'; i++) await adv(0.2)
 await set({ x: 0, z: 14, h: 0, v: 12 })
 await adv(0.2)
 
@@ -108,30 +122,39 @@ check(s.buttons.throttle && s.inputs.thr > 0.5, 'a camera-drag finger does not s
 await touchEnd(4)
 console.log('   after end4', JSON.stringify((await B()).buttons))
 
-/* two fingers: gas + right arrow held, lifting the arrow releases only the arrow */
-await touchStart(2, rx0, ry0)
-await adv(0.1)
+/* two fingers: gas + stick held, lifting the stick releases only steering */
+await set({ x: 0, z: 14, h: 0, v: 12 })
+await touchStart(2, jx, jy)
+await touchMove(2, jx + 55, jy)
+await adv(0.5)
 await touchEnd(2)
-await adv(0.1)
+await adv(0.9)
 s = await B()
-check(s.buttons.throttle && !s.buttons.right, 'lifting the steering finger releases only steering; the gas stays held')
+check(s.buttons.throttle && Math.abs(s.delta) < 0.06, `lifting the stick finger releases only steering (bars back to ${s.delta}); the Gas stays held`)
 
-/* brake + left arrow together with the gas released */
+/* brake + stick together with the gas released */
 const [bx, by] = await center('ride-brake')
 await touchEnd(1)
+for (let i = 0; i < 30 && (await B()).phase !== 'riding'; i++) await adv(0.2)
 await set({ x: 0, z: 14, h: 0, v: 12 })
 await touchStart(5, bx, by)
-await touchStart(6, lx0, ly0)
+await touchStart(6, jx, jy)
+await touchMove(6, jx - 55, jy)
 await adv(0.5)
 s = await B()
-check(s.buttons.brake && s.buttons.left && s.inputs.brk > 0.5, `brake and a steering arrow can be held together (brake ${s.inputs.brk}, bars ${s.delta})`)
+check(s.buttons.brake && s.inputs.brk > 0.5 && s.delta < -0.05 && s.pitch === 0, `steering with the stick while Brake is held works (brake ${s.inputs.brk}, bars ${s.delta}, front planted)`)
+await touchEnd(6)
+await touchEnd(5)
 
 /* touch cancel clears everything */
+await touchStart(20, gx, gy)
+await touchStart(21, bx, by)
+await adv(0.2)
 touches.clear()
 await cdp.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] })
 await adv(0.3)
 s = await B()
-check(!s.buttons.throttle && !s.buttons.brake && !s.buttons.left && !s.buttons.right && s.inputs.brk < 0.5, 'a cancelled touch releases all held buttons')
+check(!s.buttons.throttle && !s.buttons.brake && s.inputs.brk < 0.5, 'a cancelled touch releases all held buttons')
 
 for (let i = 0; i < 30 && (await B()).phase !== 'riding'; i++) await adv(0.2) // (recovered from any bump)
 /* REVERSE appears only when nearly stopped, and is separate from the gas */
@@ -153,30 +176,30 @@ check(!(await p.locator('[data-testid=ride-reverse]').count()), 'REVERSE is hidd
 
 /* ONE HAND appears only inside a wheelie, changes only the pose, and the hand goes back on release */
 await set({ x: 0, z: 14, h: 0, v: 5 })
-await touchStart(12, gx, gy)
 let up2 = false
-for (let i = 0; i < 40 && !up2; i++) {
-  await adv(0.1)
-  const st = await B()
-  if (st.z > 66) await set({ x: 0, z: 14, h: 0, v: 5 })
-  up2 = st.pitch > 0.22
+for (let i = 0; i < 6 && !up2; i++) {
+  // a fresh press of the gas is a lift request: tap it
+  await touchStart(12, gx, gy)
+  await adv(0.15)
+  await touchEnd(12)
+  await adv(0.35)
+  up2 = (await B()).pitch > 0.22
 }
-await adv(0.15)
+await adv(0.05)
 const thBox = await p.locator('[data-testid=ride-trick]').boundingBox().catch(() => null)
 check(up2 && !!thBox, `the ONE HAND button shows up only once the front wheel is up (${up2 ? 'wheelie up' : 'no lift'})`)
 if (thBox) {
   await touchStart(13, thBox.x + thBox.width / 2, thBox.y + thBox.height / 2)
   await adv(0.5)
   s = await B()
-  check(s.buttons.trick && s.oneHand > 0.6 && !s.crashed, `holding it raises the riders hand (pose ${s.oneHand}), the gas still held, no crash`)
+  check(s.buttons.trick && s.oneHand > 0.6 && !s.crashed, `holding it raises the riders hand (pose ${s.oneHand}), no crash`)
   await touchEnd(13)
   await adv(0.9)
   s = await B()
   check(!s.buttons.trick && s.oneHand < 0.1, `releasing it returns the hand to the grip (pose ${s.oneHand})`)
 }
-await touchEnd(12)
 await set({ x: 0, z: 14, h: 0, v: 3 })
-await adv(1.5)
+await adv(2.5)
 check(!(await p.locator('[data-testid=ride-trick]').count()), 'ONE HAND is gone again once the front wheel is down')
 
 /* orientation change releases everything, and the portrait layout still fits */
@@ -189,7 +212,7 @@ check(!(await B()).buttons.throttle, 'an orientation change releases the held bu
 await touchEnd(14)
 await p.setViewportSize({ width: 390, height: 844 })
 await adv(0.4)
-const pids = ['ride-left', 'ride-right', 'ride-throttle', 'ride-brake', 'ride-getoff']
+const pids = ['ride-throttle', 'ride-brake', 'ride-getoff']
 let pok = true
 let pov = false
 const pbx = []
@@ -199,7 +222,7 @@ for (const id of pids) {
   if (!bb || bb.x < 0 || bb.y < 0 || bb.x + bb.width > 390 || bb.y + bb.height > 844) pok = false
 }
 for (let i = 0; i < pbx.length; i++) for (let j = i + 1; j < pbx.length; j++) { const a2 = pbx[i], c2 = pbx[j]; if (a2 && c2 && a2.x < c2.x + c2.width && c2.x < a2.x + a2.width && a2.y < c2.y + c2.height && c2.y < a2.y + a2.height) pov = true }
-check(pok && !pov, 'portrait: every riding button is on screen and none overlap')
+check(pok && !pov, 'portrait: Gas, Brake and Get off are on screen and none overlap')
 await p.screenshot({ path: (process.env.SHOT || 'mobile-after.jpg').replace('.jpg', '-portrait.jpg'), type: 'jpeg', quality: 70 })
 await p.setViewportSize({ width: VW, height: VH })
 await adv(0.3)
@@ -225,7 +248,7 @@ await touchEnd(8)
 /* Get off with a held button */
 await set({ x: 0, z: 14, h: 0, v: 0 })
 for (let i = 0; i < 40; i++) { const q = await B(); if (q.phase === 'riding' && q.pitch < 0.02 && Math.abs(q.v) < 0.5) break; await set({ x: 0, z: 14, h: 0, v: 0 }); await adv(0.3) } // front down, standing still
-await touchStart(9, rx0, ry0) // (a steering arrow stays held: the gas would lift the front, and you cannot get off in a wheelie)
+await touchStart(9, jx, jy) // (the stick stays held)
 await adv(0.2)
 const [ox, oy] = await center('ride-getoff')
 await touchStart(10, ox, oy)

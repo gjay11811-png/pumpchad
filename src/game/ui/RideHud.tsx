@@ -13,7 +13,7 @@ const set = (d: { assist?: number; school?: boolean; view?: 'chase' | 'side' }) 
  * The riding HUD, kept small so the road and the rider stay visible:
  *   · while mounted the big profile / objective panels fold away (CSS below) and a one-line speed pill takes their place;
  *   · the optional lessons, the wheelie-assist setting and the key hints live behind ONE small corner button; a second small button swaps the camera (behind / side-on);
- *   · on a phone: LEFT thumb = two steering arrows, RIGHT thumb = a big GAS and a BRAKE. Nothing else is always on screen. REVERSE appears only when the bike is nearly stopped,
+ *   · on a phone: LEFT thumb = the floating joystick (steering), RIGHT thumb = a big GAS and a BRAKE. Nothing else is always on screen. REVERSE appears only when the bike is nearly stopped,
  *     ONE HAND only while the front wheel is already up (it changes the rider's pose; it never starts or holds the wheelie). There is no REV / lift button: the gas lifts the front.
  *     Every button is its own element with its own pointer capture, so any combination can be held at once and no finger cancels another; each releases on pointer-up, cancel and
  *     lost capture (and everything is released on pause, focus loss, orientation change, dismount and reset).
@@ -83,7 +83,7 @@ export function RideHud({ touch }: { touch: boolean }) {
   return (
     <>
       {/* fold the big on-foot panels away while mounted; on a phone the walking buttons go too */}
-      <style>{`[data-testid="hud-profile"],[data-testid="challenge-tab"],[data-testid="objective-wrap"],[data-testid="walk-hint"]{display:none!important}${touch ? `[data-testid="sprint"],[data-testid="jump-button"],[data-testid="emote-button"],[data-testid="joystick-zone"],button[aria-label^="Interact"]{display:none!important}` : ''}`}</style>
+      <style>{`[data-testid="hud-profile"],[data-testid="challenge-tab"],[data-testid="objective-wrap"],[data-testid="walk-hint"]{display:none!important}${touch ? `[data-testid="sprint"],[data-testid="jump-button"],[data-testid="emote-button"],button[aria-label^="Interact"]{display:none!important}` : ''}`}</style>
 
       <div className="pointer-events-none absolute left-[max(12px,env(safe-area-inset-left))] top-[max(10px,env(safe-area-inset-top))] flex flex-col items-start gap-1" data-testid="ride-hud">
         <div className="flex items-center gap-1.5">
@@ -177,10 +177,6 @@ export function RideHud({ touch }: { touch: boolean }) {
           >
             Get off
           </button>
-          <div className="pointer-events-none absolute bottom-[max(14px,env(safe-area-inset-bottom))] left-[max(14px,env(safe-area-inset-left))] flex items-end gap-3" data-testid="ride-steer">
-            <Key k="left" label="◀" testid="ride-left" className="h-[4.6rem] w-[4.6rem] text-[26px]" />
-            <Key k="right" label="▶" testid="ride-right" className="h-[4.6rem] w-[4.6rem] text-[26px]" />
-          </div>
           <div className="pointer-events-none absolute bottom-[max(14px,env(safe-area-inset-bottom))] right-[max(14px,env(safe-area-inset-right))] flex flex-col items-end gap-2" data-testid="ride-buttons">
             {d.up && <Key k="trick" label="One hand" testid="ride-trick" className="h-11 w-[5.6rem] text-[12px]" />}
             {d.slow && !d.up && <Key k="reverse" label="Reverse" testid="ride-reverse" className="h-9 w-[5.2rem] text-[10px] opacity-80" />}

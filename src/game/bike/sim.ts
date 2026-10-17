@@ -109,6 +109,9 @@ export class BikeSim {
   /** the front wheel touched down this step (rad/s impact), and the largest since the scene last cleared `events` */
   touchdown = 0
   events = { touchdown: 0, scrape: 0, spin: 0 }
+  /** how much WHEELIE POWER the rider has just asked for: every fresh press of the gas adds a burst that fades in about half a second. Holding the gas only pulls away normally. */
+  blip = 0
+  private prevCmd = 0
   /** the rider's own weight shift (−1 forward .. 1 back), made automatically from the throttle, brakes and landings */
   autoLean = 0
   /** rear wheel slip 0..1: the tyre is being asked for more than the surface gives */
@@ -172,7 +175,7 @@ export class BikeSim {
     this.pitchRate = 0
     this.forkC = this.forkV = this.shockC = this.shockV = 0
     this.thr = this.brk = this.rbk = this.lean = 0
-    this.autoLean = this.spin = this.oneHand = this.oneHandTime = 0
+    this.autoLean = this.spin = this.oneHand = this.oneHandTime = this.blip = this.prevCmd = 0
     this.scrape = { part: null, side: 0, k: 0 }
     this.wheelieTime = this.wheelieDist = this.wheelieBest = 0
     this.crashed = null
@@ -290,11 +293,15 @@ export class BikeSim {
     const demand = s.accel * this.thr * (1 - Math.pow(spd, s.powerPow))
     const avail = mu0 * G * 1.05
     this.spin = Math.max(0, Math.min(1, demand / avail - 0.92)) * (this.v < s.maxSpeed * 0.7 ? 1 : 0.4)
-    // gas as the rider applies it: nothing below ~10 %, then progressive
-    const gas = Math.max(0, Math.min(1, (this.thr - 0.1) / 0.55))
+    // WHEELIE POWER: a fresh press of the gas (the button going down, a key press) is the rider asking for a lift, and it fades in about half a second. Holding the gas afterwards is just
+    // power to the road, so ordinary riding (pull away, build speed, cruise) is never carried into a wheelie; repeated taps add up, one tap is a small hop of the front.
+    if (inp.throttle > 0.6 && this.prevCmd <= 0.3) this.blip = Math.min(2.2, this.blip + 1)
+    this.prevCmd = inp.throttle
+    this.blip *= Math.exp(-dt / 0.5)
+    const gas = Math.min(2.2, this.blip)
     // the rider's weight goes back a little on the gas, and FORWARD as the nose climbs (hanging off the bars is what keeps a high wheelie from going over); braking and a falling nose move it forward too
     const hang = Math.max(0, Math.min(1, (this.pitch - 0.3) / 0.9))
-    let autoT = 0.35 * gas * Math.max(0, 1 - this.spin * 1.4) - hang
+    let autoT = 0.35 * Math.min(1, gas) * Math.max(0, 1 - this.spin * 1.4) - hang
     autoT -= this.brk * 0.55 + this.rbk * 0.25
     if (this.pitch > 0.05 && this.pitchRate < -0.25) autoT -= Math.min(0.5, -this.pitchRate * 0.3) // coming down: weight goes forward to take the landing
     this.autoLean = ease(this.autoLean, Math.max(-1, Math.min(1, autoT)), 16, 12) // quick, so the throttle answers at once and the balance stays controllable
@@ -340,6 +347,8 @@ export class BikeSim {
       a -= this.v * s.drag * (1 + Math.abs(this.v) * 0.04)
       if (this.thr < 0.04) a -= sgn * (0.2 + Math.abs(this.v) * 0.03) // motor / engine braking off the throttle
       a -= gSlope
+      // with the front up the bike creeps forward steadily (idle drive through the slipping clutch), so a held wheelie moves on at a walking pace even between taps; any brake takes it away
+      if (this.pitch > 0.12 && this.brk < 0.1 && this.rbk < 0.1 && this.v < 1.6) a += (1.6 - this.v) * 2.5
     }
     const v0 = this.v
     this.v += a * dt
@@ -389,11 +398,7 @@ export class BikeSim {
     // THE GAS lifts the front: the rear tyre's torque reaction plus the rider's weight pulling back, strongest at low speed, weaker the faster the bike already goes, lost to wheelspin,
     // and fading as the bike nears vertical. It acts from a standstill too. Easing off removes it and gravity (and the rider's weight forward) bring the nose back down.
     const spdF = Math.max(0, Math.min(1, 1.15 - (Math.max(0, this.v) / s.maxSpeed) * 2.4))
-    // The angle fade acts like a spring: it gives every gas level a fixed angle to park at. That is right for the gas a rider MODULATES (taps and small corrections settle where they should),
-    // but at sustained FULL throttle it parked the wheelie at 35-55 degrees for as long as the gas was held (it never went over, and never came down). Full throttle is now a hard pull
-    // that the fade no longer restrains, so the front keeps climbing through the balance point and goes over backwards unless the rider eases off.
-    const full = Math.max(0, Math.min(1, (this.thr - 0.88) / 0.12))
-    const angleFade = Math.max(0, 1 - (th / 1.38) * (1 - 0.92 * full))
+    const angleFade = Math.max(0, 1 - th / 1.38)
     const lift = s.liftTorque * gas * spdF * Math.max(0, 1 - this.spin * 1.2) * angleFade
     alpha += lift
     const push = Math.max(0, -this.lean)
