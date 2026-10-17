@@ -5,6 +5,7 @@ import type { Input } from '../input'
 import { RideControls, releaseAllRideButtons, rideBtn, takeGetOff } from './controls'
 import { BikeSim, NO_INPUT, type Ground } from './sim'
 import { STREET, SURRON, type BikeSpec } from './spec'
+import { buildPracticeRoute } from './practice'
 import { ModelBikeVisual, type BikeKind, type BikeRig } from './visual'
 
 /**
@@ -87,7 +88,9 @@ export class RideSystem {
   /** set by the scene each frame while this is active: the camera should follow (heading, speed) */
   readonly cam = { heading: 0, speed: 0, wheelie: 0 }
 
+  private practice: { dispose: () => void } | null = null
   constructor(private host: RideHost) {
+    this.practice = buildPracticeRoute(host.scene, host.ground)
     this.controls = new RideControls(host.input)
     window.addEventListener('chad-ride-set', this.onSet)
   }
@@ -514,6 +517,7 @@ export class RideSystem {
     window.removeEventListener('chad-ride-set', this.onSet)
     this.controls.stop()
     audio.rideStop()
+    this.practice?.dispose()
     for (const p of this.parked) p.rig.dispose()
     this.parked.length = 0
     this.active = null

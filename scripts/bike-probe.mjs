@@ -45,33 +45,5 @@ const deg = (r) => ((r * 180) / Math.PI).toFixed(0)
 const parked = (await B()).parked.find((x) => x.kind === KIND)
 
 
-await p.evaluate(([x, z]) => window.__chadverse.teleport(x, z - 1.6, Math.PI), [parked.x, parked.z])
-await adv(0.3)
-await p.keyboard.press('e')
-await adv(1)
-
-const keys = {}
-const press = async (k, on) => { if (!!keys[k] === on) return; keys[k] = on; await (on ? down(k) : up(k)) }
-for (const v0 of [6, 8]) {
-  await set({ x: 0, z: 10, h: 0, v: v0 })
-  await adv(0.3)
-  let held = 0, maxP = 0, line = ''
-  for (let t = 0; t < 15; t += 0.05) {
-    const s = await B()
-    if (s.crashed || !s.riding) { line += ' CRASH@' + t.toFixed(1); break }
-    maxP = Math.max(maxP, s.pitch)
-    if (s.pitch > 0.3) held = Math.max(held, s.wheelieTime)
-    if (s.z > 70) await set({ x: 0, z: 10 })
-    const bal = s.balance
-    const predicted = s.pitch + s.pitchRate * 0.25
-    await press('Shift', s.pitch < bal * 0.45 && s.pitchRate < 0.9)
-    await press('w', predicted < bal * 0.82 && s.v < 22)
-    await press(' ', predicted > bal * 0.95)
-    if (held > 6) break
-    await adv(0.05)
-  }
-  console.log('v0', v0, 'held', held.toFixed(1), 'maxP', maxP.toFixed(2), line)
-  await press('w', false); await press('Shift', false); await press(' ', false)
-  await adv(3)
-}
+console.log(JSON.stringify(await p.evaluate(() => window.__chadverse.collidersIn(-4.5, 4.5, 10, 76))))
 await b.close()

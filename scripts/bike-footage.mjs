@@ -56,6 +56,7 @@ const grab = async (s) => {
   } else if (CAM === 'side') await p.evaluate(() => window.__chadverse.shotCam(null))
   const n0 = await p.evaluate(() => window.__chadverse.renders())
   await p.waitForFunction((n) => window.__chadverse.renders() >= n + 2, n0, { timeout: 60000, polling: 40 })
+  if (await p.getByText('The graphics took a nap').count()) throw new Error('WEBGL CONTEXT LOST at frame ' + frames)
   let buf
   for (let k = 0; k < 6 && !buf; k++) {
     try {

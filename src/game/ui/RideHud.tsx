@@ -73,10 +73,8 @@ export function RideHud({ touch }: { touch: boolean }) {
   const showLessons = lessons && d.school && !d.school.done
   return (
     <>
-      {touch && (
-        // the normal touch buttons (Go, Jump, Sprint, Emote) do nothing on a bike: they get out of the way
-        <style>{`[data-testid="sprint"],[data-testid="jump-button"],[data-testid="emote-button"],button[aria-label^="Interact"]{display:none!important}`}</style>
-      )}
+      {/* the walking hint line and (on a phone) the normal touch buttons (Go, Jump, Sprint, Emote) do nothing on a bike: they get out of the way */}
+      <style>{`[data-testid="walk-hint"]{display:none!important}${touch ? `[data-testid="sprint"],[data-testid="jump-button"],[data-testid="emote-button"],button[aria-label^="Interact"]{display:none!important}` : ''}`}</style>
       <div className="pointer-events-none absolute inset-x-0 top-24 flex flex-col items-center gap-1.5" data-testid="ride-hud">
         <p className="rounded-full bg-ink/70 px-4 py-1 font-mono text-[12px] uppercase tracking-[0.2em] text-moon">
           {d.name} · <span data-testid="ride-speed">{d.kmh}</span> km/h

@@ -224,7 +224,7 @@ export function Hud({
         </button>
       )}
       {!touch && (
-        <p className="absolute bottom-3 left-1/2 -translate-x-1/2 font-mono text-[10px] uppercase tracking-[0.25em] text-bone/35">
+        <p data-testid="walk-hint" className="absolute bottom-3 left-1/2 -translate-x-1/2 font-mono text-[10px] uppercase tracking-[0.25em] text-bone/35">
           {locked ? 'Mouse captured · move to look · Esc releases' : 'WASD move · Shift run · Space jump · Q emotes · Click the view to capture the mouse · E interact · Esc menu'}
         </p>
       )}
