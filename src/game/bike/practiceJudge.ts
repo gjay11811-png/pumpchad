@@ -9,7 +9,7 @@ import { PRACTICE } from './practice'
  *   balance   hold 15°–35° (the BALANCE BAND) for 2.5 s of one wheelie; every second in the band counts, time out of it (or past 45°) does not
  *   cones     weave the five cones: each one passed on the correct side and clear of it; a smooth line earns the rest
  *   onehand   hold the one-hand pose for 1.5 s inside a wheelie (the pose only exists while the front wheel is up)
- *   scrape    drag a footpeg on a hard lean inside the SCRAPE SECTION for at least 0.5 s while keeping the bike up
+ *   scrape    drag a footpeg on a hard lean inside the SCRAPE SECTION for at least 0.4 s while keeping the bike up
  *   landing   bring a wheelie of at least 15° back down: the softer the touchdown the better
  */
 export type ChallengeId = 'lift' | 'balance' | 'cones' | 'onehand' | 'scrape' | 'landing'
@@ -18,7 +18,7 @@ export const CHALLENGES: { id: ChallengeId; name: string; hint: string }[] = [
   { id: 'balance', name: 'Balance', hint: 'Hold the front between 15° and 35° for 2.5 s — ease the gas to hold, Brake to lower' },
   { id: 'cones', name: 'Cone weave', hint: 'Weave all five cones without touching them' },
   { id: 'onehand', name: 'One hand', hint: 'Once the front is up, hold ONE HAND for 1.5 s' },
-  { id: 'scrape', name: 'Scrape section', hint: 'Lean hard through the yellow section until a peg scrapes (0.5 s)' },
+  { id: 'scrape', name: 'Scrape section', hint: 'Lean hard through the yellow section until a peg scrapes (0.4 s)' },
   { id: 'landing', name: 'Landing', hint: 'Bring a 15° wheelie down softly' },
 ]
 
@@ -45,6 +45,8 @@ export const ZONES = {
   halfWidth: 4.2,
 }
 const inStrip = (x: number) => Math.abs(x - PRACTICE.x) <= ZONES.halfWidth + 0.5
+/** the scrape section is judged over a wider band: a hard lean carries the bike sideways */
+const inScrapeBand = (x: number) => Math.abs(x - PRACTICE.x) <= 8
 const inZ = (z: number, a: number, b: number) => z >= a && z <= b
 
 const clamp01 = (n: number) => Math.max(0, Math.min(1, n))
@@ -124,7 +126,7 @@ export class PracticeJudge {
   /** one frame; returns the results that finished this frame (for a brief note) */
   update(dt: number, s: Sample): Result[] {
     const out: Result[] = []
-    if (!inStrip(s.x) || s.z < PRACTICE.start - 3 || s.z > PRACTICE.end + 3) {
+    if (!inScrapeBand(s.x) || s.z < PRACTICE.start - 3 || s.z > PRACTICE.end + 3) {
       if (this.active || this.liftOn || this.balUp > 0 || this.coneI > 0) this.reset()
       this.active = null
       return out
@@ -133,7 +135,8 @@ export class PracticeJudge {
     this.active = null
 
     // ── lift zone ──
-    if (inZ(s.z, ZONES.lift.z0, ZONES.lift.z1) && !this.liftDone && !s.crashed) {
+    const onStrip = inStrip(s.x)
+    if (onStrip && inZ(s.z, ZONES.lift.z0, ZONES.lift.z1) && !this.liftDone && !s.crashed) {
       this.active = 'lift'
       if (up) {
         this.liftMaxRate = Math.max(this.liftMaxRate, s.pitchRate)
@@ -145,7 +148,7 @@ export class PracticeJudge {
     }
 
     // ── balance band ──
-    if (inZ(s.z, ZONES.balance.z0, ZONES.balance.z1) && !s.crashed) {
+    if (onStrip && inZ(s.z, ZONES.balance.z0, ZONES.balance.z1) && !s.crashed) {
       if (up) {
         this.balUp += dt
         this.balPeak = Math.max(this.balPeak, s.pitch)
@@ -176,7 +179,7 @@ export class PracticeJudge {
     } else if (!up) this.oh = 0
 
     // ── cones ──
-    if (inZ(s.z, ZONES.cones.z0, ZONES.cones.z1)) {
+    if (onStrip && inZ(s.z, ZONES.cones.z0, ZONES.cones.z1)) {
       if (this.coneI < PRACTICE.slalom.length) {
         this.active = this.active ?? 'cones'
         this.coneRollMax = Math.max(this.coneRollMax, Math.abs(s.roll))
@@ -204,7 +207,7 @@ export class PracticeJudge {
     if (inZ(s.z, ZONES.scrape.z0, ZONES.scrape.z1) && !this.scrDone) {
       this.active = this.active ?? 'scrape'
       if (s.scrapePart === 'peg' && !s.crashed) this.scr += dt
-      if (this.scr >= 0.5) {
+      if (this.scr >= 0.4) {
         this.scrDone = true
         out.push(this.finish('scrape', 55 + 45 * clamp01(1 - Math.abs(s.roll) / 0.95) + 0, `${this.scr.toFixed(1)} s on the peg`))
       }

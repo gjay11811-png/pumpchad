@@ -91,6 +91,9 @@ await adv(0.6)
 s = await B()
 check(s.buttons.left && !s.buttons.right && s.delta < 0, `switching to the left arrow steers left with the gas still held (bars ${s.delta})`)
 await touchEnd(3)
+for (let i = 0; i < 30 && (await B()).phase !== 'riding'; i++) await adv(0.2) // (the faster street bike can clip a kerb while steering: let it recover)
+await set({ x: 0, z: 14, h: 0, v: 8 })
+await adv(0.2)
 
 /* a camera drag in empty screen space with a fourth finger must not release the held buttons */
 console.log('   before4', JSON.stringify((await B()).buttons))
@@ -130,6 +133,7 @@ await adv(0.3)
 s = await B()
 check(!s.buttons.throttle && !s.buttons.brake && !s.buttons.left && !s.buttons.right && s.inputs.brk < 0.5, 'a cancelled touch releases all held buttons')
 
+for (let i = 0; i < 30 && (await B()).phase !== 'riding'; i++) await adv(0.2) // (recovered from any bump)
 /* REVERSE appears only when nearly stopped, and is separate from the gas */
 await set({ x: 0, z: 14, h: 0, v: 0 })
 await adv(0.6)
