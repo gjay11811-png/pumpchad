@@ -5,6 +5,7 @@ import { archMats, displayMaterial, planterBox } from './architecture'
 import { boxUV } from './kit'
 import { GYM } from './props'
 import { Frame, channelLetters } from './signs'
+import { glassSkin, wallBays } from './facadeKit'
 
 /**
  * PUMP GYM — the exterior (the interior, its door interaction and everything in it are untouched).
@@ -62,6 +63,7 @@ export function gymExterior(T: Town, stoneTex: THREE.Texture) {
   const warm = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffcf8a').multiplyScalar(1.3), toneMapped: false })
   Dp.push(led, warm)
   const inside = displayMaterial(T, '#ff7a1a', 'racks')
+  const rubberFloor = std({ color: '#1c1d22', roughness: 0.9 })
 
   const W = 10.4 // along the facade (world z)
   const Dd = 9.4 // depth (world x)
@@ -70,7 +72,18 @@ export function gymExterior(T: Town, stoneTex: THREE.Texture) {
   const fz = Dd / 2
 
   // volume: cladding over a brick base, a flat roof with a deep coping and an orange reveal under it
-  F.put(boxUV(W, H, Dd, 3), clad, 0, H / 2, 0)
+  // the glazing is a real recess: the main volume stops REC behind the facade, and the front is a slab of cladding with openings cut for the two glass bays and the
+  // entrance (a solid end, sills under each bay, a header band above them), so the lit gym is seen set back behind steel mullions, not painted on the wall
+  const REC = 0.9
+  F.put(boxUV(W, H, Dd - REC, 3), clad, 0, H / 2, -REC / 2)
+  {
+    const slab = (x0: number, x1: number, y0: number, y1: number) => F.put(boxUV(x1 - x0, y1 - y0, REC, 3), clad, (x0 + x1) / 2, (y0 + y1) / 2, fz - REC / 2)
+    slab(-W / 2, -3.35, 0, H) // the solid end beside the tower
+    slab(-3.35, -1.75, 0, 1.2) // sills under the two glass bays
+    slab(1.8, W / 2, 0, 1.2)
+    slab(-3.35, 3.4 + 1.8, 4.7, H) // the header band above the bays and the entrance
+    slab(-1.8, 1.8, 3.9, 4.7)
+  }
   // (the brick base stops either side of the entrance so the doors reach the ground)
   for (const [x0, x1] of [[-W / 2 - 0.07, -1.8], [1.8, W / 2 + 0.07]] as const) {
     F.put(boxUV(x1 - x0, 1.25, Dd + 0.14, 1.4), brick.wall, (x0 + x1) / 2, 0.625, 0)
@@ -92,7 +105,17 @@ export function gymExterior(T: Town, stoneTex: THREE.Texture) {
 
   // glazing: a tall black-framed bay either side of the entrance, the lit gym visible behind the glass
   const bay = (cx: number, w: number) => {
-    F.put(new THREE.PlaneGeometry(w - 0.1, 3.5), inside, cx, 2.95, fz + 0.012, 0, 0, 0, false) // the lit gym seen through the glass (a hair proud of the cladding)
+    F.put(new THREE.PlaneGeometry(w - 0.1, 3.5), inside, cx, 2.95, fz - REC + 0.012, 0, 0, 0, false) // the lit gym, at the back of the recess
+    F.put(new THREE.PlaneGeometry(w - 0.1, 3.5), glassSkin(T), cx, 2.95, fz - 0.05, 0, 0, 0, false)
+    F.put(new THREE.PlaneGeometry(w, REC).rotateX(-Math.PI / 2), rubberFloor, cx, 1.22, fz - REC / 2, 0, 0, 0, false) // the sill's top
+    F.box(w - 0.1, 0.05, REC - 0.1, warm, cx, 4.62, fz - REC / 2, false) // a lit ceiling strip inside the head
+    F.box(0.07, 3.5, REC, steel, cx - w / 2 + 0.02, 2.95, fz - REC / 2) // the side reveals
+    F.box(0.07, 3.5, REC, steel, cx + w / 2 - 0.02, 2.95, fz - REC / 2)
+    // gym kit seen through the glass: a rack and a stack of plyo boxes on the sill
+    F.box(0.08, 1.5, 0.08, steel, cx - w * 0.25, 1.97, fz - REC + 0.25)
+    F.box(0.08, 1.5, 0.08, steel, cx - w * 0.25 + 0.7, 1.97, fz - REC + 0.25)
+    F.box(0.78, 0.06, 0.08, orange, cx - w * 0.25 + 0.35, 2.5, fz - REC + 0.25, false)
+    F.box(0.6, 0.45, 0.5, steel, cx + w * 0.22, 1.45, fz - REC + 0.4)
     const mulls = Math.max(1, Math.round(w / 1.1))
     for (let i = 0; i <= mulls; i++) F.box(0.07, 3.7, 0.14, steel, cx - w / 2 + (w * i) / mulls, 2.95, fz + 0.03)
     for (const y of [1.15, 2.75, 4.75]) F.box(w + 0.1, 0.1, 0.16, steel, cx, y, fz + 0.04)
@@ -101,9 +124,9 @@ export function gymExterior(T: Town, stoneTex: THREE.Texture) {
   bay(3.5, 3.4)
   bay(-2.55, 1.6)
   // the entrance: a wide opening with a recessed steel portal, double glass doors, a lit reveal, and a threshold slab
-  F.put(new THREE.PlaneGeometry(3.3, 3.3), inside, 0, 1.75, fz + 0.012, 0, 0, 0, false)
+  F.put(new THREE.PlaneGeometry(3.3, 3.3), inside, 0, 1.75, fz - REC + 0.012, 0, 0, 0, false)
   for (const dx of [-0.68, 0.68]) {
-    F.put(new THREE.PlaneGeometry(1.3, 2.7), inside, dx, 1.5, fz + 0.03, 0, 0, 0, false)
+    F.put(new THREE.PlaneGeometry(1.3, 2.7), glassSkin(T), dx, 1.5, fz + 0.03, 0, 0, 0, false)
     F.box(0.06, 2.8, 0.1, steel, dx - 0.65, 1.5, fz + 0.07)
     F.box(0.06, 2.8, 0.1, steel, dx + 0.65, 1.5, fz + 0.07)
     F.box(1.34, 0.08, 0.1, steel, dx, 2.85, fz + 0.07)
@@ -137,11 +160,13 @@ export function gymExterior(T: Town, stoneTex: THREE.Texture) {
   // (no glow slab behind the letters: it washed the lettering out; the dark fascia lets the lit letters read on their own)
   channelLetters(F.sub(0.4, 5.2, fz + 0.16), 'PUMP GYM', 0.76, 0.26, orange)
 
-  // side (south, yard) facade: framed windows over the brick base
-  const S = Frame.at(T.batch, GYM.x, 0, GYM.z + W / 2, 0)
-  for (const lx of [-2.8, 0, 2.8]) {
-    S.put(new THREE.PlaneGeometry(1.9, 2.6), glass, lx, 2.9, 0.01, 0, 0, 0, false)
-    for (const [bw, bh, bx, by] of [[2.1, 0.12, 0, 4.25], [2.1, 0.12, 0, 1.6], [0.1, 2.8, -1.0, 2.9], [0.1, 2.8, 1.0, 2.9], [0.06, 2.6, 0, 2.9]] as const) S.box(bw, bh, 0.12, steel, lx + bx, by, 0)
+  // the south (yard), north and rear walls: a brick base band, steel ribs between bays, tall black-framed industrial windows above the base, a coping line — no bare cladding
+  {
+    const WM = { frame: steel, trim: brick.trim, plinth: brick.wall, metal: steel }
+    const o = { height: H, rows: [[3.5, 2.6] as [number, number]], maxWindow: 1.7, industrial: true, plinth: 1.25, strings: [1.3], pilaster: 0.22, downpipe: true }
+    wallBays(T, Frame.at(T.batch, GYM.x, 0, GYM.z + W / 2, 0), WM, { ...o, length: Dd, seed: 2 }) // south
+    wallBays(T, Frame.at(T.batch, GYM.x, 0, GYM.z - W / 2, Math.PI), WM, { ...o, length: Dd, seed: 4 }) // north
+    wallBays(T, Frame.at(T.batch, GYM.x + Dd / 2, 0, GYM.z, Math.PI / 2), WM, { ...o, length: W, seed: 6 }) // rear (east)
   }
   T.colliders.push({ kind: 'box', minX: GYM.x - Dd / 2, maxX: GYM.x + Dd / 2, minZ: GYM.z - W / 2, maxZ: GYM.z + W / 2, h: H })
   T.colliders.push({ kind: 'box', minX: GYM.x - fz - 0.7, maxX: GYM.x - fz, minZ: GYM.z - W / 2 + 0.1, maxZ: GYM.z - W / 2 + 2.1, h: H + 1.1 }) // the brick tower

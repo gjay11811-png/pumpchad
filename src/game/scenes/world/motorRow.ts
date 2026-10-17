@@ -7,6 +7,7 @@ import { climbers, flowerTub, ornamentMats, ornateSign } from './ornament'
 import { CARS, heroCar, heroCarAt } from './vehicles'
 import { isNight } from './daylight'
 import { workshop } from './workshop'
+import { wallBays } from './facadeKit'
 
 /**
  * MOTOR ROW — the canal promenade carries on east past Arcade Street's back lane into a short shopping street:
@@ -75,6 +76,21 @@ export function motorRow(T: Town, stoneTex: THREE.Texture) {
       F.put(boxUV(1.1, H + 2.2, 1.1, 1.6), stone, sx * (W / 2 + 0.1), (H + 2.2) / 2, Dd / 2 + 0.1)
       F.put(new THREE.ConeGeometry(0.75, 2.2, 4).rotateY(Math.PI / 4), trim, sx * (W / 2 + 0.1), H + 3.3, Dd / 2 + 0.1)
       F.put(new THREE.SphereGeometry(0.16, 10, 8), O.goldTrim, sx * (W / 2 + 0.1), H + 4.5, Dd / 2 + 0.1)
+    }
+    // the two side walls and the back wall are articulated like the front: a plinth, stone pilasters between three bays of tall arched windows (alternate rooms lit),
+    // a string course, a cornice and a downpipe — and a service door with a step and a hood on the back
+    {
+      const WM = { frame: O.iron, trim, plinth: trim, metal: O.iron }
+      const bayOpts = { height: H, rows: [[3.0, 3.9] as [number, number]], maxWindow: 1.5, arch: true, plinth: 0.55, strings: [1.2], cornice: 0.4, downpipe: true, pilaster: 0.5 }
+      wallBays(T, F.sub(W / 2, 0, 0, 0, Math.PI / 2, 0), WM, { ...bayOpts, length: Dd, seed: 3 })
+      wallBays(T, F.sub(-W / 2, 0, 0, 0, -Math.PI / 2, 0), WM, { ...bayOpts, length: Dd, seed: 5 })
+      wallBays(T, F.sub(0, 0, -Dd / 2, 0, Math.PI, 0), WM, { ...bayOpts, length: W, seed: 9, skip: [2] })
+      const B = F.sub(0, 0, -Dd / 2, 0, Math.PI, 0)
+      // back service door (in the skipped bay), with a step and a hood
+      const dx = -W / 2 + (2 + 0.5) * (W / Math.max(1, Math.round(W / 3.2)))
+      B.box(1.3, 2.6, 0.12, O.iron, dx, 1.3, 0.08)
+      B.box(1.6, 0.14, 0.7, trim, dx, 2.75, 0.3)
+      B.box(1.8, 0.16, 0.8, trim, dx, 0.08, 0.4)
     }
     // the interior you see through the glass: polished floor, a warm-lit back wall with gold bands, ceiling light lines
     F.put(new THREE.PlaneGeometry(W - 1, Dd - 1).rotateX(-Math.PI / 2), floor, 0, 0.03, 0, 0, 0, 0, false)

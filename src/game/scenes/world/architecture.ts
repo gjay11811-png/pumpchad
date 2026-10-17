@@ -3,6 +3,7 @@ import { climbers, ornateSign, windowBox } from './ornament'
 import { isNight } from './daylight'
 import type { Town } from './buildings'
 import { boxUV, gableGeo } from './kit'
+import { recessedWindow } from './facadeKit'
 import { Frame, PANEL, channelLetters, framedBoard, hangingSign, panelTexture, type PanelStyle, type SignMats } from './signs'
 
 /**
@@ -150,14 +151,8 @@ export function shop(T: Town, M: ArchMats, s: ShopSpec, letterMat?: THREE.Materi
     const y = GROUND_H + (fl - 1) * FLOOR_H + 1.55
     for (let b = 0; b < bays; b++) {
       const wx = -s.w / 2 + (s.w / bays) * (b + 0.5)
-      // about half the upper rooms have the lamps lit (warm glass), the rest are dark glass
-      F.put(new THREE.PlaneGeometry(0.9, 1.5), (b + fl + Math.round(s.x)) % 2 === 0 ? T.P.windowLit : M.glass, wx, y, fz + 0.005, 0, 0, 0, false)
-      F.box(1.08, 0.1, 0.12, M.frame, wx, y + 0.8, fz + 0.04)
-      F.box(1.08, 0.1, 0.12, M.frame, wx, y - 0.8, fz + 0.04)
-      for (const dx of [-0.5, 0.5]) F.box(0.08, 1.6, 0.12, M.frame, wx + dx, y, fz + 0.04)
-      F.box(0.06, 1.5, 0.08, M.frame, wx, y, fz + 0.03)
-      F.box(1.3, 0.1, 0.26, M.trim, wx, y - 0.9, fz + 0.1) // sill
-      F.box(1.3, 0.22, 0.14, M.trim, wx, y + 0.97, fz + 0.06) // lintel
+      // about half the upper rooms have the lamps lit (warm glass), the rest are dark; every window is a real framed sash with a stone surround and a projecting sill
+      recessedWindow(T, F, { frame: M.frame, trim: M.trim, metal: M.sign.metal }, wx, y, 0.96, 1.5, { lit: (b + fl + Math.round(s.x)) % 2 === 0 })
     }
     if (s.balcony && fl === 1) {
       const bw = Math.min(3.4, s.w - 1.2)
@@ -230,14 +225,7 @@ export function detailWalls(T: Town, F: Frame, s: ShopSpec, M: ArchMats, H: numb
       for (let b = 0; b < n; b++) {
         const wx = -span / 2 + (span * (b + 0.5)) / n
         if (isBack && fl === 0 && b === Math.floor(n / 2)) continue // the back door goes here
-        const lit = (seed + b + fl) % 3 === 0
-        S.put(new THREE.PlaneGeometry(0.92, hgt), lit ? T.P.windowLit : M.glass, wx, y, 0.012, 0, 0, 0, false)
-        S.box(1.1, 0.1, 0.12, M.frame, wx, y + hgt / 2 + 0.04, 0.05)
-        S.box(1.1, 0.1, 0.12, M.frame, wx, y - hgt / 2 - 0.04, 0.05)
-        for (const dx of [-0.5, 0.5]) S.box(0.09, hgt + 0.16, 0.12, M.frame, wx + dx, y, 0.05)
-        S.box(0.06, hgt, 0.08, M.frame, wx, y, 0.04)
-        S.box(1.32, 0.1, 0.26, M.trim, wx, y - hgt / 2 - 0.12, 0.1) // sill
-        S.box(1.3, 0.2, 0.14, M.trim, wx, y + hgt / 2 + 0.16, 0.07) // lintel
+        recessedWindow(T, S, { frame: M.frame, trim: M.trim, metal: M.sign.metal }, wx, y, 0.98, hgt, { lit: (seed + b + fl) % 3 === 0 })
       }
     }
     // corner pilasters, a downpipe, and (at the back) a door with a step and a little hood

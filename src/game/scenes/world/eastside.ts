@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { isNight } from './daylight'
 import type { Town } from './buildings'
 import { ARCADE, ARCADE_STREET } from './city'
+import { wallBays } from './facadeKit'
 import { tube } from '../gym/gymArt'
 import { boxUV } from './kit'
 import { GYM } from './props'
@@ -181,6 +182,15 @@ export function eastside(T: Town, stoneTex: THREE.Texture) {
     Dp.push(bulb, neonLetters)
     F.put(boxUV(W, H, Dd, 2), stone.wall, 0, H / 2, 0)
     F.put(boxUV(W + 0.2, 0.6, Dd + 0.2, 1.2), stone.plinth, 0, 0.3, 0)
+    // the two side walls (north and south, facing the lanes) and the back wall: plinth, stone pilasters between bays, two rows of framed windows (the upper row arched),
+    // a string course between the floors, a cornice, downpipes and wall lanterns — the building reads as a whole from every side, not a facade on a box
+    {
+      const WM = { frame: purpleTrim, trim: stone.trim, plinth: stone.plinth, metal: darkMetal }
+      const o = { height: H, rows: [[2.4, 2.1], [6.6, 2.2]] as [number, number][], maxWindow: 1.5, arch: true, plinth: 0.6, strings: [4.35], cornice: 0.5, downpipe: true, lanterns: bulb, pilaster: 0.5 }
+      wallBays(T, F.sub(W / 2, 0, 0, 0, Math.PI / 2, 0), WM, { ...o, length: Dd, seed: 1 })
+      wallBays(T, F.sub(-W / 2, 0, 0, 0, -Math.PI / 2, 0), WM, { ...o, length: Dd, seed: 2 })
+      wallBays(T, F.sub(0, 0, -fz, 0, Math.PI, 0), WM, { ...o, length: W, seed: 3 })
+    }
     // facade: dark purple panels framed in stone pilasters, orange accent lines
     for (const px of [-7.4, -4.6, 4.6, 7.4]) F.put(boxUV(0.7, H, 0.4, 1.2), stone.trim, px, H / 2, fz + 0.15)
     for (const sx of [-1, 1]) {

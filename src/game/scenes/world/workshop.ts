@@ -53,7 +53,11 @@ export function workshop(T: Town, stoneTex: THREE.Texture) {
   const fz = W.d / 2
 
   // ── the shed ──
-  F.put(boxUV(W.w, H, W.d, 3), block, 0, H / 2, 0)
+  // the two service bays are REAL openings: the main volume stops BAYR behind the road face and the front is a slab of blockwork with the openings cut out
+  // (a solid end pier, a pier between the bays, the reception block and a header over the doors), so the lit workshop is seen 1.2 m deep, not painted on the wall
+  const BAYR = 1.2
+  F.put(boxUV(W.w, H, W.d - BAYR, 3), block, 0, H / 2, -BAYR / 2)
+  for (const [x0, x1, y0, y1] of [[-W.w / 2, -5.2, 0, H], [-2.2, -1.6, 0, H], [1.4, W.w / 2, 0, H], [-5.2, 1.4, 3.9, H]] as const) F.put(boxUV(x1 - x0, y1 - y0, BAYR, 3), block, (x0 + x1) / 2, (y0 + y1) / 2, fz - BAYR / 2)
   F.put(boxUV(W.w + 0.14, 1.1, W.d + 0.14, 1.4), brick.wall, 0, 0.55, 0)
   F.put(boxUV(W.w + 0.4, 0.34, W.d + 0.4, 1.2), brick.trim, 0, H + 0.1, 0)
   F.put(boxUV(W.w + 0.3, 0.7, 0.3, 1), steel, 0, H + 0.6, fz - 0.1)
@@ -67,7 +71,19 @@ export function workshop(T: Town, stoneTex: THREE.Texture) {
   for (const [i, bx] of [-3.7, -0.1].entries()) {
     for (const jx of [-1, 1]) F.box(0.4, 3.9, 0.3, brick.trim, bx + jx * 1.65, 1.95, fz + 0.1)
     F.box(3.7, 0.5, 0.34, brick.trim, bx, 4.0, fz + 0.12)
-    F.put(new THREE.PlaneGeometry(3.0, 3.3), bayLit, bx, 1.65, fz + 0.03, 0, 0, 0, false)
+    // inside the bay: the back wall in dark painted steel with a pegboard of tools, a concrete floor, a lit ceiling strip, and a bench or a tyre stack
+    F.box(3.0, 3.9, 0.05, steel, bx, 1.95, fz - BAYR + 0.03)
+    F.put(boxUV(3.0, 0.05, BAYR, 2).translate(0, 0, 0), concrete, bx, 0.03, fz - BAYR / 2, 0, 0, 0, false)
+    F.box(2.6, 0.06, 0.08, warm, bx, 3.82, fz - BAYR / 2, false)
+    F.box(1.9, 1.0, 0.03, std({ color: '#3a3d48', roughness: 0.7 }), bx, 2.2, fz - BAYR + 0.07)
+    for (const [tx, ty, tw] of [[-0.6, 2.4, 0.5], [0.0, 2.1, 0.3], [0.5, 2.35, 0.4]] as const) F.box(tw, 0.07, 0.04, orange, bx + tx, ty, fz - BAYR + 0.1, false)
+    if (i === 0) {
+      F.box(1.5, 0.08, 0.55, P.woodLight, bx - 0.3, 0.92, fz - BAYR + 0.4) // a workbench
+      for (const sx of [-1, 1]) F.box(0.08, 0.9, 0.5, steel, bx - 0.3 + sx * 0.66, 0.46, fz - BAYR + 0.4)
+    } else {
+      for (let k = 0; k < 4; k++) tyre(F, bx - 0.7, 0.15 + k * 0.28, fz - BAYR + 0.5, 'flat')
+      F.box(0.5, 0.9, 0.4, red, bx + 0.9, 0.46, fz - BAYR + 0.4) // a tool chest
+    }
     // the rolled-up shutter above: ribbed slats
     for (let k = 0; k < 7; k++) F.box(3.05, 0.1, 0.1, k % 2 ? steel : block, bx, 3.3 + k * 0.08, fz + 0.1)
     F.box(3.2, 0.12, 0.16, yellow, bx, 0.14, fz + 0.18) // threshold stripe
