@@ -12,7 +12,7 @@ export type BikeSpec = {
   /** centre of mass: forward of the rear contact patch (d) and above the ground (h), rider included, at the neutral rider position */
   comD: number
   comH: number
-  /** radius of gyration² about the rear contact patch (how reluctantly it pitches) */
+  /** pitch inertia per unit mass about the rear contact patch: gyr2 = kGyr² + comD² + comH² (m²) */
   gyr2: number
   /** performance */
   maxSpeed: number // m/s on the flat
@@ -34,16 +34,10 @@ export type BikeSpec = {
   gripLat: number
   /** the bike leans into a turn by atan(lateral accel / g) × this (visual and rider) */
   leanGain: number
-  /** wheelie */
-  pullTorque: number // rad/s² of nose-up torque from the rider heaving back (a clutch-up / pull), at full lean-back
-  shift: number // how far the rider can move the balance point by leaning back / forward (m of COM travel)
-  rearBrakeTorque: number // rad/s² of nose-down torque from the rear brake at full application
   pitchDamp: number // 1/s damping on pitch rate
   /** how much a rider's wheelie assist can do for this bike (the player's setting scales it): extra damping of the pitch rate around the balance point, and a softer runaway past it. It never pulls toward a target, so a wheelie is never held for you. */
   assistGain: number
   maxPitch: number // the bike goes over backwards beyond this (rad; about 85° = near vertical)
-  /** nose-up torque at full gas and low speed (rad/s²) */
-  liftTorque: number
   /** the lean (rad) at which a footpeg touches the road */
   pegLean: number
   /** suspension (visual travel, m): fork and rear shock */
@@ -51,18 +45,62 @@ export type BikeSpec = {
   shockTravel: number
   /** rider's attachment points in the bike frame (x forward, y up, z left), for the visual's own use: kept here so handling and fit stay together */
   mass: number
+  /** ── the physical set-up (SI: m, kg, s, rad). `est` = ESTIMATED: a downloaded model gives geometry only, never mass or motor output ── */
+  massBike: number
+  massRider: number
+  /** radius of gyration of bike + rider about the combined centre of mass (m) */
+  kGyr: number
+  /** peak thrust at the rear contact patch at low speed (N) */
+  thrustMax: number
+  /** how far the rider's weight can move the combined centre of mass (m): back on a REV, forward under braking and while hanging off the bars in a wheelie */
+  revShift: number
+  hangShift: number
+  brakeShift: number
+  /** the rider crouches forward a little on a plain launch (m), so ordinary full-throttle riding stays planted */
+  launchShift: number
+  /** the rider's weight comes forward by this much (m) once the gas has been held longer than a tap: plain pulling away, not a wheelie */
+  holdShift: number
+  /** extra thrust fraction at full REV (a throttle snap) */
+  revBoost: number
+  /** values that are estimates, not measurements */
+  est: string[]
+}
+
+
+/**
+ * SET-UP TABLE. One row per bike; every handling number below is derived from it.
+ *  wheelbase, wheel radius : MEASURED from the in-game visual at its in-game scale (the MX4 scan: 1.27 m axle to axle; the street bike's procedural model).
+ *  masses, centre of mass, k, thrust, grip, brakes : ESTIMATES. A model's looks do not tell its weight or motor output. MX4: a published weight of about 60-65 kg and a peak road
+ *  thrust giving about 5.6 m/s² from rest; street bike: a middleweight roadster, about 190 kg, about 8.6 m/s² from rest. Rider 80 kg seated. COM: roughly 44-50 % of the wheelbase
+ *  ahead of the rear contact, 0.66-0.80 m up (rider and bike combined, seated).
+ */
+type SetUp = {
+  id: 'surron' | 'street'
+  name: string
+  wheelbase: number
+  wheelR: number
+  massBike: number
+  massRider: number
+  comX: number
+  comH: number
+  kGyr: number
+  thrustMax: number
+}
+const MX4: SetUp = { id: 'surron', name: 'Talaria MX4', wheelbase: 1.268, wheelR: 0.305, massBike: 62, massRider: 80, comX: 0.56, comH: 0.8, kGyr: 0.4, thrustMax: 800 }
+const ROAD: SetUp = { id: 'street', name: 'Street bike', wheelbase: 1.42, wheelR: 0.33, massBike: 190, massRider: 80, comX: 0.7, comH: 0.66, kGyr: 0.48, thrustMax: 2322 }
+
+const derive = (u: SetUp) => {
+  const mass = u.massBike + u.massRider
+  return { comD: u.comX, comH: u.comH, gyr2: u.kGyr * u.kGyr + u.comX * u.comX + u.comH * u.comH, accel: u.thrustMax / mass, mass }
 }
 
 export const SURRON: BikeSpec = {
   id: 'surron',
-  name: 'Talaria MX4',
-  wheelbase: 1.268, // the MX4 scan: 1.27 m between axles
-  wheelR: 0.305,
-  comD: 0.6,
-  comH: 0.64,
-  gyr2: 1.7,
+  name: MX4.name,
+  wheelbase: MX4.wheelbase,
+  wheelR: MX4.wheelR,
+  ...derive(MX4),
   maxSpeed: 22,
-  accel: 6.4,
   brakeFront: 8.5,
   brakeRear: 5.5,
   reverse: 2.2,
@@ -75,30 +113,33 @@ export const SURRON: BikeSpec = {
   steerRate: 4.2,
   gripLat: 9.5,
   leanGain: 1.0,
-  pullTorque: 3.9,
-  shift: 1.4,
-  rearBrakeTorque: 8.5,
   pitchDamp: 2.6,
   assistGain: 1,
   maxPitch: 1.5,
-  liftTorque: 5.0,
   pegLean: 0.7,
   forkTravel: 0.2,
   shockTravel: 0.16,
-  mass: 55,
+  massBike: MX4.massBike,
+  massRider: MX4.massRider,
+  kGyr: MX4.kGyr,
+  thrustMax: MX4.thrustMax,
+  revShift: 0.52,
+  hangShift: 0.5,
+  brakeShift: 0.35,
+  launchShift: 0.12,
+  holdShift: 0.8,
+  revBoost: 0.2,
+  est: ['massBike', 'massRider', 'comD', 'comH', 'kGyr', 'thrustMax', 'brakeFront', 'brakeRear', 'gripLat', 'forkTravel', 'shockTravel', 'pitchDamp'],
 }
 
-/** the street bike: heavier, longer, faster, a lower centre of mass and a lazier front end — a wheelie needs real power and a proper heave */
+/** the street bike: heavier, longer, faster, a lower centre of mass and a lazier front end — a wheelie needs real power and a proper REV */
 export const STREET: BikeSpec = {
   id: 'street',
-  name: 'Street bike',
-  wheelbase: 1.42,
-  wheelR: 0.33,
-  comD: 0.7,
-  comH: 0.6,
-  gyr2: 1.9,
+  name: ROAD.name,
+  wheelbase: ROAD.wheelbase,
+  wheelR: ROAD.wheelR,
+  ...derive(ROAD),
   maxSpeed: 40,
-  accel: 8.6,
   brakeFront: 11,
   brakeRear: 6.5,
   reverse: 1.6,
@@ -111,15 +152,21 @@ export const STREET: BikeSpec = {
   steerRate: 3.4,
   gripLat: 11,
   leanGain: 1.0,
-  pullTorque: 3.6,
-  shift: 1.5,
-  rearBrakeTorque: 9.5,
   pitchDamp: 2.6,
   assistGain: 0.9,
   maxPitch: 1.5,
-  liftTorque: 5.4,
   pegLean: 0.66,
   forkTravel: 0.12,
   shockTravel: 0.09,
-  mass: 190,
+  massBike: ROAD.massBike,
+  massRider: ROAD.massRider,
+  kGyr: ROAD.kGyr,
+  thrustMax: ROAD.thrustMax,
+  revShift: 0.7,
+  hangShift: 0.55,
+  brakeShift: 0.4,
+  launchShift: 0.14,
+  holdShift: 0.85,
+  revBoost: 0.2,
+  est: ['massBike', 'massRider', 'comD', 'comH', 'kGyr', 'thrustMax', 'brakeFront', 'brakeRear', 'gripLat', 'forkTravel', 'shockTravel', 'pitchDamp'],
 }
