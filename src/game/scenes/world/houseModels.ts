@@ -3,6 +3,8 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import type { Collider, Town } from './buildings'
 import { isNight } from './daylight'
 import { boxUV } from './kit'
+import { Frame } from './signs'
+import { recessedWindow } from './facadeKit'
 
 /**
  * HOUSE MODELS — the downloaded GLB houses (see ASSETS.md / CREDITS.md), optimised by `scripts/asset-house-optimise.mjs` and placed into the town as static
@@ -171,6 +173,7 @@ export const GREENSIDE = [
   { x: -98.5, z: 38, tint: '#d9b88c', roof: 'roofSlate' as const },
   { x: -86, z: 38, tint: '#eed3a8', roof: 'roofRed' as const },
 ]
+const FRONT_Z = 2.7
 export function greensideRow(T: Town) {
   const P = T.P
   for (const h of GREENSIDE) {
@@ -185,6 +188,13 @@ export function greensideRow(T: Town) {
       reproject: { main_wall: 2.4, roof: 2.0 },
       tint: { floor: h.tint, Material: '#f0e6d6' },
     })
+    // the model's closed louvre shutter on the gable is covered by a real framed, glazed sash window (lit at night); and a stone chimney stack with a cap and pot rises from the roof
+    const WM = { frame: P.timber, trim: P.stone, metal: P.iron }
+    const FW = Frame.at(T.batch, h.x, 0, h.z + FRONT_Z, 0)
+    recessedWindow(T, FW, WM, 0, 4.2, 1.5, 1.7, { lit: isNight() })
+    T.batch.put(boxUV(0.85, 3.0, 0.85, 1.2), P.stone, h.x + 2.6, 7.0, h.z - 1.2)
+    T.batch.put(boxUV(1.05, 0.18, 1.05, 1), P.stoneLight, h.x + 2.6, 8.58, h.z - 1.2)
+    T.batch.put(new THREE.CylinderGeometry(0.17, 0.2, 0.4, 8), P.roofRed, h.x + 2.6, 8.87, h.z - 1.2)
     const doorZ = h.z + 1.7
     // a lantern beside the door and a warm light on the step
     T.batch.put(new THREE.BoxGeometry(0.16, 0.26, 0.16), P.glowGold, h.x + 0.95, 2.1, doorZ + 0.35, 0, 1, 1, 1, { cast: false })
