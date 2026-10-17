@@ -81,7 +81,9 @@ export const HEIGHTS_TREES: [number, number][] = (() => {
     out.push([gx, -15.5], [gx - 23, -10.5], [gx, 42.5], [gx - 23, 47.5])
   }
   // the boulevard: a tree every 24 m, alternating sides
-  for (let x = -76, k = 0; x > -244; x -= 24, k++) out.push([x, k % 2 ? 44.2 : 49.8])
+  // (kept clear of every front-door line on the Green: the show homes and Greenside Row)
+  const doors = [-214, -195.5, -182, -111, -98.5, -86]
+  for (let x = -76, k = 0; x > -244; x -= 24, k++) if (doors.every((d) => Math.abs(x - d) > 7)) out.push([x, k % 2 ? 44.2 : 49.8])
   return out.filter(([x]) => x > -548)
 })()
 export type ShowHome = { id: 'cottage' | 'contemporary' | 'premium'; name: string; blurb: string; x: number; z: number; face: 's' }
