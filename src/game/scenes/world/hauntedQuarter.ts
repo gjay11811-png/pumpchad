@@ -4,6 +4,7 @@ import { boxUV, gableGeo } from './kit'
 import { DISTRICTS, HQ } from './city'
 import { Frame, PANEL, channelLetters, hangingSign, panelTexture, postedBoard, type SignMats } from './signs'
 import { isNight } from './daylight'
+import { placeHouse } from './houseModels'
 
 /**
  * THE HAUNTED QUARTER — the old west end, through the iron gate where the market road runs out.
@@ -37,7 +38,7 @@ export type HauntedHouse = {
 export const HAUNTED_HOUSES: HauntedHouse[] = [
   { id: 'crooked', x: -64.6, z: -5.2, yaw: 0, w: 5, d: 5, floors: 3, roof: 'steep', lean: 0.07, wall: '#4a4250', glow: '#9affc8', boarded: 0.3 },
   { id: 'apothecary', x: -72.6, z: -5.6, yaw: 0, w: 6.4, d: 6, floors: 2, roof: 'mansard', wall: '#3a4a44', glow: '#c8ff8a', boarded: 0.2, porch: true },
-  { id: 'ravenswood', x: -92, z: -9.4, yaw: 0, w: 12, d: 9, floors: 3, roof: 'turret', wall: '#3a3440', glow: '#ffb86a', boarded: 0.35, fence: true },
+  { id: 'ravenswood', x: -92, z: -10.2, yaw: 0, w: 9, d: 10.3, floors: 3, roof: 'turret', wall: '#3a3440', glow: '#ffb86a', boarded: 0.35, fence: true },
   { id: 'dollmaker', x: -65.2, z: 9.4, yaw: Math.PI, w: 6, d: 5, floors: 2, roof: 'gable', lean: -0.03, wall: '#5a4448', glow: '#ff9ac8', boarded: 0.15 },
   { id: 'widow', x: -73.8, z: 10.2, yaw: Math.PI, w: 5.6, d: 6, floors: 2, roof: 'steep', wall: '#2e3440', glow: '#a8c8ff', tower: true },
   { id: 'lanternless', x: -86.8, z: 14.6, yaw: Math.PI / 2, w: 6, d: 7, floors: 2, roof: 'gable', lean: 0.04, wall: '#2a2a2e', boarded: 0.6 },
@@ -157,6 +158,29 @@ export function hauntedQuarter(T: Town, stone: THREE.Material, trim: THREE.Mater
   for (const h of HAUNTED_HOUSES) {
     const F = Frame.at(T.batch, h.x, 0, h.z, h.yaw)
     const fh = 2.8
+    if (h.id === 'ravenswood') {
+      // RAVENSWOOD is the downloaded green Victorian (massive-graphisme, CC BY 4.0): turret, wraparound porch, bay, chimney, finished on every side.
+      // Its footprint (9 × 10.3 m) is recorded in HAUNTED_HOUSES so the door spot, the interior's exit and the collider all agree with it.
+      void placeHouse(T, 'victorian_house', { x: h.x, z: h.z, yaw: h.yaw, scale: 6.5, collide: { h: 13, inset: 0.25 }, glassGlow: '#ffb86a', tint: { outerwalls: '#93a396' } })
+      const dz = h.d / 2
+      // the iron fence round the front garden, the guttering pumpkin on the step and the green door lantern's glow
+      const fz0 = dz + 0.6
+      const fz1 = dz + 3.6
+      for (const sx of [-1, 1]) {
+        for (let k = 0; k <= 14; k++) F.put(new THREE.CylinderGeometry(0.02, 0.02, 1.3, 5), ironM, sx * (0.9 + (k / 14) * (h.w / 2 - 0.9)), 0.65, fz1)
+        F.box(h.w / 2 - 0.9, 0.04, 0.04, ironM, sx * (0.9 + (h.w / 2 - 0.9) / 2), 1.2, fz1)
+        for (let k = 0; k <= 5; k++) F.put(new THREE.CylinderGeometry(0.02, 0.02, 1.3, 5), ironM, sx * (h.w / 2), 0.65, fz0 + (k / 5) * (fz1 - fz0))
+        const a = F.world(sx * (0.9 + (h.w / 2 - 0.9) / 2), 0, fz1)
+        T.colliders.push({ kind: 'box', minX: a.x - (h.w / 2 - 0.9) / 2, maxX: a.x + (h.w / 2 - 0.9) / 2, minZ: a.z - 0.1, maxZ: a.z + 0.1, h: 1.3 })
+      }
+      const lp = F.world(0.95, 2.2, dz + 0.9)
+      T.lights.push({ x: lp.x, y: lp.y, z: lp.z, color: '#7affb0', intensity: 3.2, dist: 6, priority: 5 })
+      if (T.pumpkins) {
+        const pp = F.world(-0.75, 0, dz + 0.7)
+        T.pumpkins.add(pp.x, 0.3, pp.z, { r: 0.2, face: h.id.length % 4, facing: h.yaw })
+      }
+      continue
+    }
     const top = 0.5 + fh * h.floors
     const lean = h.lean ?? 0
     const wallM = plaster(h.wall)

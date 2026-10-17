@@ -48,7 +48,7 @@ export class Engine {
   private composer: EffectComposer | null = null
   private bloomPass: UnrealBloomPass | null = null
   /** rolling frame-time stats, read by the debug overlay / tests */
-  stats = { fps: 0, frameMs: 0, worstMs: 0, geometries: 0, textures: 0, programs: 0 }
+  stats = { fps: 0, frameMs: 0, worstMs: 0, geometries: 0, textures: 0, programs: 0, triangles: 0, calls: 0 }
   private frames = 0
   private acc = 0
   private worst = 0
@@ -295,7 +295,7 @@ export class Engine {
     this.worst = Math.max(this.worst, raw)
     if (this.acc >= 1) {
       const mem = this.renderer.info.memory
-      this.stats = { fps: Math.round(this.frames / this.acc), frameMs: +((this.acc / this.frames) * 1000).toFixed(1), worstMs: +(this.worst * 1000).toFixed(1), geometries: mem.geometries, textures: mem.textures, programs: this.renderer.info.programs?.length ?? 0 }
+      this.stats = { fps: Math.round(this.frames / this.acc), frameMs: +((this.acc / this.frames) * 1000).toFixed(1), worstMs: +(this.worst * 1000).toFixed(1), geometries: mem.geometries, textures: mem.textures, programs: this.renderer.info.programs?.length ?? 0, triangles: this.renderer.info.render.triangles, calls: this.renderer.info.render.calls }
       this.frames = 0
       this.acc = 0
       this.worst = 0

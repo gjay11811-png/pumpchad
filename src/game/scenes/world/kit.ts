@@ -92,7 +92,7 @@ export function gableGeo(w: number, d: number, h: number, tile = 2) {
 }
 
 /** Shared material palette for the town. Created once per World and disposed with it. */
-export function makePalette(tex: Record<string, THREE.Texture>, night = false) {
+export function makePalette(tex: Record<string, THREE.Texture>, night = false, surf?: import('./surfaces').Surfaces) {
   const std = (p: THREE.MeshStandardMaterialParameters) => new THREE.MeshStandardMaterial({ roughness: 0.85, metalness: 0.02, ...p })
   return {
     plaster: std({ map: tex.plaster, color: '#d9cbb7', roughness: 0.92 }),
@@ -105,7 +105,13 @@ export function makePalette(tex: Record<string, THREE.Texture>, night = false) {
     roofOrange: std({ map: tex.roof, color: '#a8521f', roughness: 0.8 }),
     stone: std({ map: tex.stone, color: '#d6c7ad', roughness: 0.9 }),
     stoneLight: std({ map: tex.stone, color: '#efe4d0', roughness: 0.85 }),
-    cobble: std({ map: tex.cobble, bumpMap: tex.cobbleBump, bumpScale: 2.2, color: '#c9bdb5', roughness: 0.82 }),
+    // the historic setts: real stone paving (Poly Haven cobblestone_pavement) when the surface set is supplied, the old drawn cobbles otherwise
+    cobble: surf
+      ? std({ map: surf.setts.map, normalMap: surf.setts.normal, roughnessMap: surf.setts.rough, normalScale: new THREE.Vector2(1.1, 1.1), color: '#e4ddd4', roughness: 1 })
+      : std({ map: tex.cobble, bumpMap: tex.cobbleBump, bumpScale: 2.2, color: '#c9bdb5', roughness: 0.82 }),
+    // flat small-sett paving for footpaths, lanes and garden paths; asphalt for carriageways and the workshop yard
+    paving: surf ? std({ map: surf.paving.map, normalMap: surf.paving.normal, roughnessMap: surf.paving.rough, color: '#ddd5c9', roughness: 1 }) : std({ map: tex.cobble, color: '#c9bdb5', roughness: 0.85 }),
+    asphalt: surf ? std({ map: surf.asphalt.map, normalMap: surf.asphalt.normal, roughnessMap: surf.asphalt.rough, color: '#cfcfcf', roughness: 1 }) : std({ color: '#3a3a3e', roughness: 0.9 }),
     plaza: std({ map: tex.plaza, bumpMap: tex.plazaBump, bumpScale: 3, color: '#e2d6cd', roughness: 0.82, metalness: 0.02 }),
     ground: std({ map: tex.ground, color: '#b8b2a8', roughness: 0.98 }),
     iron: std({ color: '#2b2a30', metalness: 0.8, roughness: 0.42 }),

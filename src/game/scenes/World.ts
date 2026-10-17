@@ -70,6 +70,7 @@ import { eastside } from './world/eastside'
 import { westside, type BenchSpot } from './world/westside'
 import { chadRides } from './world/rides'
 import { RideSystem } from '../bike/ride'
+import { loadSurfaces } from './world/surfaces'
 import { ScanBikeVisual, loadScanBike } from '../bike/scanVisual'
 import { lawns, PATCH } from './world/lawns'
 import { streetDetails } from './world/details'
@@ -357,7 +358,8 @@ export class World implements GameScene {
       stone: stoneBlocks(),
       flowers: flowerTexture([]),
     }
-    const P = makePalette(tex, this.night)
+    const surf = loadSurfaces(this.disposables, 8)
+    const P = makePalette(tex, this.night, /[?&]nosurf/.test(window.location.search) ? undefined : surf)
     Object.values(tex).forEach((t) => this.disposables.push(t))
     Object.values(P).forEach((m) => this.disposables.push(m))
     const T: Town = { batch: new StaticBatch(), P, scene: this.scene, colliders: this.colliders, smoke: [], embers: [], fires: [], cloths: [], lights: [], dynamic: [], disposables: this.disposables, pumpkins: new PumpkinBuilder() }
@@ -458,7 +460,7 @@ export class World implements GameScene {
       this.disposables.push(pOrange, pPurple)
       this.ride.addParked('surron', 'surron', RIDES.x + 0.9, RIDES.z - 2.3, Math.PI, pOrange, 'Talaria MX4', this.disposables)
       // the e-dirt bike's real model: the MX4 scan, cut into wheels / fork / body (the procedural Sur-Ron stands in while it loads, or if it can't)
-      loadScanBike().then((parts) => {
+      if (!/[?&]nomx4/.test(window.location.search)) loadScanBike().then((parts) => {
         if (!this.disposed) this.ride.replaceRig('surron', () => new ScanBikeVisual(parts))
       }).catch((e) => console.warn('[bike] MX4 scan unavailable, keeping the procedural e-bike', e))
       this.ride.addParked('street', 'street', RIDES.x + 2.9, RIDES.z - 2.3, Math.PI, pPurple, 'Street bike', this.disposables)
