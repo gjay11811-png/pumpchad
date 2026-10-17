@@ -105,25 +105,25 @@ export function Hud({
       <RideHud touch={touch} />
       {/* top bar */}
       <div className="flex items-start justify-between gap-3 safe-t safe-x">
-        <button type="button" {...tap(() => onProfile?.())} aria-label="Open profile" data-testid="hud-profile" className="panel pointer-events-auto flex items-center gap-3 rounded-2xl py-2 pl-2 pr-4 text-left transition-transform active:scale-[0.97]">
+        <button type="button" {...tap(() => onProfile?.())} aria-label="Open profile" data-testid="hud-profile" className="panel pointer-events-auto flex items-center gap-3 rounded-2xl py-2 pl-2 pr-4 text-left transition-transform active:scale-[0.97] max-[430px]:gap-2 max-[430px]:pr-3">
           <div className="flex h-11 w-11 flex-col items-center justify-center rounded-xl bg-[linear-gradient(160deg,#ff9a3c,#c2540c)] text-ink">
             <span className="font-mono text-[9px] font-semibold leading-none">LVL</span>
             <span className="font-display text-xl leading-none">{lvl}</span>
           </div>
           <div className="min-w-0">
-            <p className="max-w-[9.5rem] truncate font-display text-lg uppercase leading-tight tracking-wide sm:max-w-none">{save.character?.name}</p>
+            <p className="max-w-[9.5rem] truncate font-display text-lg uppercase leading-tight tracking-wide max-[430px]:max-w-[5.5rem] sm:max-w-none">{save.character?.name}</p>
             <div className="mt-1 flex items-center gap-2">
-              <div className="h-1.5 w-24 overflow-hidden rounded-full bg-bone/10 sm:w-32" role="progressbar" aria-label="Experience" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+              <div className="h-1.5 w-24 overflow-hidden rounded-full bg-bone/10 max-[430px]:hidden sm:w-32" role="progressbar" aria-label="Experience" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
                 <div className="h-full rounded-full bg-[linear-gradient(90deg,#f6c870,#ff7a1a)] transition-[width] duration-700" style={{ width: `${pct}%` }} />
               </div>
-              <span className="font-mono text-[10px] text-moon">{xp} XP</span>
+              <span className="font-mono text-[10px] text-moon max-[430px]:hidden">{xp} XP</span>
               <span className="font-mono text-[10px] font-semibold text-[#ffd25a]" data-testid="hud-coins" aria-label={`${save.progress.coins} Chad Coins`}>◉ {save.progress.coins}</span>
             </div>
           </div>
         </button>
-        <div className="pointer-events-auto ml-auto flex gap-2">
+        <div className="pointer-events-auto ml-auto flex gap-2 max-[430px]:gap-1.5">
           {onMap && (
-            <IconBtn label="Map and journal" onClick={onMap}>
+            <IconBtn label="Map and journal" onClick={onMap} className="max-[430px]:!h-10 max-[430px]:!w-10">
               <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z" />
                 <path d="M9 4v14M15 6v14" />
@@ -131,17 +131,17 @@ export function Hud({
             </IconBtn>
           )}
           {onPhoto && (
-            <IconBtn label="Photo mode" onClick={onPhoto}>
+            <IconBtn label="Photo mode" onClick={onPhoto} className="max-[430px]:!h-10 max-[430px]:!w-10">
               <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M4 8h3l2-3h6l2 3h3v11H4z" />
                 <circle cx="12" cy="13" r="3.5" />
               </svg>
             </IconBtn>
           )}
-          <IconBtn label={save.settings.muted ? 'Turn sound on' : 'Mute sound'} onClick={onToggleSound}>
+          <IconBtn label={save.settings.muted ? 'Turn sound on' : 'Mute sound'} onClick={onToggleSound} className="max-[430px]:!h-10 max-[430px]:!w-10">
             {save.settings.muted ? <Icon.mute /> : <Icon.sound />}
           </IconBtn>
-          <IconBtn label="Pause menu" onClick={onPause}>
+          <IconBtn label="Pause menu" onClick={onPause} className="max-[430px]:!h-10 max-[430px]:!w-10">
             <Icon.pause />
           </IconBtn>
         </div>
@@ -179,7 +179,7 @@ export function Hud({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8 }}
             transition={{ duration: 0.2 }}
-            className={`absolute left-1/2 -translate-x-1/2 ${touch ? 'bottom-[calc(10.5rem+env(safe-area-inset-bottom))]' : 'bottom-10'}`}
+            className={`absolute left-1/2 -translate-x-1/2 ${touch ? 'bottom-[calc(13rem+env(safe-area-inset-bottom))]' : 'bottom-10'}`}
           >
             <div className="panel flex items-center gap-3 rounded-full py-2 pl-2 pr-5" data-testid="prompt">
               <span className="flex h-8 min-w-8 items-center justify-center rounded-full bg-pump px-2 font-mono text-[12px] font-semibold text-ink">{touch ? 'TAP' : 'E'}</span>
