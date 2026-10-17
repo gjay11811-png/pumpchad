@@ -365,6 +365,7 @@ export class World implements GameScene {
     const P = makePalette(tex, this.night, /[?&]nosurf/.test(window.location.search) ? undefined : surf)
     Object.values(tex).forEach((t) => this.disposables.push(t))
     Object.values(P).forEach((m) => this.disposables.push(m))
+    for (const m of [P.windowLit, P.windowDark]) if ((m as THREE.MeshStandardMaterial).map) this.disposables.push((m as THREE.MeshStandardMaterial).map!)
     const T: Town = { batch: new StaticBatch(), P, scene: this.scene, colliders: this.colliders, smoke: [], embers: [], fires: [], cloths: [], lights: [], dynamic: [], disposables: this.disposables, pumpkins: new PumpkinBuilder() }
 
     this.buildSky()

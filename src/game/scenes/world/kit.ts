@@ -91,18 +91,90 @@ export function gableGeo(w: number, d: number, h: number, tile = 2) {
   return g
 }
 
+/**
+ * A sash window drawn as a texture: a painted frame, glazing bars (muntins) dividing the panes, and glass that is either lamplit from inside (a warm gradient, a curtain
+ * on each side, a hint of a room beyond) or dark and sky-reflecting (a cool gradient with a diagonal highlight). Planes with this map plus real frame / sill geometry read
+ * as a window with depth, not an opaque glowing rectangle.
+ */
+export function windowTexture(lit: boolean, seed = 1) {
+  const w = 128
+  const h = 160
+  const c = document.createElement('canvas')
+  c.width = w
+  c.height = h
+  const g = c.getContext('2d')!
+  const r = rng(seed * 31 + (lit ? 7 : 3))
+  // glass
+  const grd = g.createLinearGradient(0, 0, 0, h)
+  if (lit) {
+    grd.addColorStop(0, '#ffcf86')
+    grd.addColorStop(0.55, '#ffb457')
+    grd.addColorStop(1, '#d9803a')
+  } else {
+    grd.addColorStop(0, '#5f7894')
+    grd.addColorStop(0.5, '#2c3c52')
+    grd.addColorStop(1, '#161e2c')
+  }
+  g.fillStyle = grd
+  g.fillRect(0, 0, w, h)
+  if (lit) {
+    // a curtain at each side and a pale shape of a lamp / a shelf in the room
+    for (const sx of [0, 1]) {
+      g.fillStyle = `rgba(${150 + r() * 40},${60 + r() * 30},${40 + r() * 20},0.75)`
+      g.beginPath()
+      g.moveTo(sx ? w : 0, 0)
+      g.lineTo(sx ? w - 34 : 34, 0)
+      g.quadraticCurveTo(sx ? w - 24 : 24, h * 0.55, sx ? w - 40 : 40, h)
+      g.lineTo(sx ? w : 0, h)
+      g.fill()
+    }
+    g.fillStyle = 'rgba(255,240,200,0.55)'
+    g.beginPath()
+    g.arc(w * (0.35 + r() * 0.3), h * 0.58, 9, 0, Math.PI * 2)
+    g.fill()
+  } else {
+    // a diagonal sky highlight
+    g.fillStyle = 'rgba(210,225,245,0.16)'
+    g.beginPath()
+    g.moveTo(0, h * 0.7)
+    g.lineTo(w * 0.7, 0)
+    g.lineTo(w, 0)
+    g.lineTo(0, h)
+    g.fill()
+  }
+  // glazing bars + frame
+  g.fillStyle = '#efe6d4'
+  const bar = 7
+  g.fillRect(w / 2 - bar / 2, 0, bar, h)
+  g.fillRect(0, h * 0.4 - bar / 2, w, bar)
+  g.lineWidth = 12
+  g.strokeStyle = '#efe6d4'
+  g.strokeRect(0, 0, w, h)
+  g.lineWidth = 2
+  g.strokeStyle = 'rgba(40,30,20,0.45)'
+  g.strokeRect(10, 10, w - 20, h - 20)
+  const t = new THREE.CanvasTexture(c)
+  t.colorSpace = THREE.SRGBColorSpace
+  t.anisotropy = 4
+  return t
+}
+
 /** Shared material palette for the town. Created once per World and disposed with it. */
 export function makePalette(tex: Record<string, THREE.Texture>, night = false, surf?: import('./surfaces').Surfaces) {
   const std = (p: THREE.MeshStandardMaterialParameters) => new THREE.MeshStandardMaterial({ roughness: 0.85, metalness: 0.02, ...p })
+  const wLit = windowTexture(true)
+  const wDark = windowTexture(false)
+  const pbr = (s: import('./surfaces').Surface, p: THREE.MeshStandardMaterialParameters) => std({ map: s.map, normalMap: s.normal, roughnessMap: s.rough, normalScale: new THREE.Vector2(1, 1), ...p })
   return {
-    plaster: std({ map: tex.plaster, color: '#d9cbb7', roughness: 0.92 }),
-    plasterDark: std({ map: tex.plaster, color: '#8f8577', roughness: 0.95 }),
-    timber: std({ map: tex.wood, color: '#5a3a26', roughness: 0.8 }),
-    woodLight: std({ map: tex.wood, color: '#9a6b44', roughness: 0.75 }),
-    woodRotten: std({ map: tex.wood, color: '#3a3330', roughness: 0.95 }),
-    roofRed: std({ map: tex.roof, color: '#7a2f22', roughness: 0.8 }),
-    roofSlate: std({ map: tex.roof, color: '#4c5668', roughness: 0.7 }),
-    roofOrange: std({ map: tex.roof, color: '#a8521f', roughness: 0.8 }),
+    // real PBR plaster / timber / roofing (Poly Haven, CC0) when the surface set is supplied; the old drawn textures otherwise
+    plaster: surf ? pbr(surf.plaster, { color: '#f2e6d0', roughness: 1 }) : std({ map: tex.plaster, color: '#d9cbb7', roughness: 0.92 }),
+    plasterDark: surf ? pbr(surf.plaster, { color: '#9a8f80', roughness: 1 }) : std({ map: tex.plaster, color: '#8f8577', roughness: 0.95 }),
+    timber: surf ? pbr(surf.timber, { color: '#7a5a46', roughness: 1 }) : std({ map: tex.wood, color: '#5a3a26', roughness: 0.8 }),
+    woodLight: surf ? pbr(surf.timber, { color: '#e0a878', roughness: 1 }) : std({ map: tex.wood, color: '#9a6b44', roughness: 0.75 }),
+    woodRotten: surf ? pbr(surf.timber, { color: '#5a524c', roughness: 1 }) : std({ map: tex.wood, color: '#3a3330', roughness: 0.95 }),
+    roofRed: surf ? pbr(surf.clay, { color: '#c8786a', roughness: 1 }) : std({ map: tex.roof, color: '#7a2f22', roughness: 0.8 }),
+    roofSlate: surf ? pbr(surf.slate, { color: '#8e9bb6', roughness: 1 }) : std({ map: tex.roof, color: '#4c5668', roughness: 0.7 }),
+    roofOrange: surf ? pbr(surf.clay, { color: '#e8a070', roughness: 1 }) : std({ map: tex.roof, color: '#a8521f', roughness: 0.8 }),
     stone: std({ map: tex.stone, color: '#d6c7ad', roughness: 0.9 }),
     stoneLight: std({ map: tex.stone, color: '#efe4d0', roughness: 0.85 }),
     // the historic setts: real stone paving (Poly Haven cobblestone_pavement) when the surface set is supplied, the old drawn cobbles otherwise
@@ -126,8 +198,10 @@ export function makePalette(tex: Record<string, THREE.Texture>, night = false, s
     soil: std({ color: '#5a3f2c', roughness: 1 }),
     cloth: std({ color: '#2a1c24', roughness: 0.95, side: THREE.DoubleSide }),
     // night: warm lamplit glass (bright enough for the bloom to halo it); day: dark glossy glass reflecting the sky
-    windowLit: night ? std({ color: '#3a2a1a', roughness: 0.35, emissive: '#ffa64a', emissiveIntensity: 2.1 }) : std({ color: '#2a3a50', roughness: 0.1, metalness: 0.6, emissive: '#0c1422' }),
-    windowDark: std({ color: '#1a2230', roughness: 0.15, metalness: 0.6 }),
+    // (textured: sash windows with glazing bars; lit ones glow warmly at night through their own map)
+    windowLit: night ? std({ map: wLit, color: '#000000', roughness: 0.35, emissive: '#ffffff', emissiveMap: wLit, emissiveIntensity: 1.7 }) : std({ map: wDark, roughness: 0.1, metalness: 0.15, emissive: '#0c1422' }),
+    windowDark: std({ map: wDark, roughness: 0.15, metalness: 0.15 }),
+    shutter: std({ color: '#3d5a4a', roughness: 0.8 }),
     glowOrange: new THREE.MeshBasicMaterial({ color: new THREE.Color('#ff8a30').multiplyScalar(1.5), toneMapped: false }),
     glowGold: new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffc861').multiplyScalar(1.35), toneMapped: false }),
     glowPurple: new THREE.MeshBasicMaterial({ color: new THREE.Color('#9b5cff').multiplyScalar(1.5), toneMapped: false }),

@@ -112,17 +112,53 @@ export function house(
       }
   }
 
-  // windows: lit or dark panes in timber frames, front/back/sides
-  const win = new THREE.PlaneGeometry(0.75, 0.95)
-  const frame = new THREE.BoxGeometry(0.9, 0.1, 0.1)
+  // windows: textured sash glazing in a real frame (head, jambs, a projecting sill), set in a dark reveal; some with open shutters, some with a flower box
+  const win = new THREE.PlaneGeometry(0.78, 0.98)
+  const reveal = new THREE.BoxGeometry(0.9, 1.12, 0.1)
+  const hBar = new THREE.BoxGeometry(1, 0.1, 0.12)
+  const vBar = new THREE.BoxGeometry(0.1, 1, 0.12)
+  const sillG = new THREE.BoxGeometry(1.08, 0.08, 0.22)
+  const shutterG = new THREE.BoxGeometry(0.4, 1.08, 0.04)
   const addWindow = (lx: number, y: number, lz: number, ry: number) => {
     const lit = rand() < (o.lit ?? 0.55)
-    const nx = Math.sin(ry) * 0.02
-    const nz = Math.cos(ry) * 0.02
-    L.put(win, lit ? P.windowLit : P.windowDark, lx + nx, y, lz + nz, ry, 1, 1, 1, false)
-    L.put(frame, P.timber, lx + nx * 2, y - 0.52, lz + nz * 2, ry) // sill
-    L.put(frame, P.timber, lx + nx * 2, y + 0.52, lz + nz * 2, ry)
-    L.put(frame, P.timber, lx + nx * 2, y, lz + nz * 2, ry + Math.PI / 2 * 0, 0.1, 9.5, 1) // mullion
+    const sn = Math.sin(ry)
+    const cs = Math.cos(ry)
+    // offsets along the wall's normal (nx, nz) and its tangent (tx, tz) in the building's local frame
+    const at = (n: number, t: number) => [lx + sn * n + cs * t, lz + cs * n - sn * t] as const
+    const [rx, rz] = at(0.01, 0)
+    L.put(reveal, P.windowDark, rx, y, rz, ry, 1, 1, 1, false) // the dark recess behind the glass
+    const [px, pz] = at(0.065, 0)
+    L.put(win, lit ? P.windowLit : P.windowDark, px, y, pz, ry, 1, 1, 1, false)
+    for (const dy of [-0.56, 0.56]) {
+      const [fx, fz] = at(0.1, 0)
+      L.put(hBar, P.timber, fx, y + dy, fz, ry, 0.98, 1, 1)
+    }
+    for (const dx of [-0.46, 0.46]) {
+      const [fx, fz] = at(0.1, dx)
+      L.put(vBar, P.timber, fx, y, fz, ry, 1, 1.1, 1)
+    }
+    const [sx2, sz2] = at(0.16, 0)
+    L.put(sillG, P.stoneLight, sx2, y - 0.62, sz2, ry) // a projecting stone sill
+    // some windows have shutters folded back against the wall, some a flower box
+    const q = rand()
+    if (q < 0.4) {
+      for (const dx of [-0.68, 0.68]) {
+        const [hx, hz] = at(0.07, dx)
+        L.put(shutterG, P.shutter, hx, y, hz, ry)
+      }
+    } else if (q < 0.62 && P.flowers) {
+      const [bx, bz] = at(0.24, 0)
+      L.put(new THREE.BoxGeometry(0.96, 0.16, 0.18), P.timber, bx, y - 0.7, bz, ry)
+      const [fx, fz] = at(0.28, 0)
+      for (let k = -1; k <= 1; k++) {
+        const qd = new THREE.PlaneGeometry(0.34, 0.3)
+        qd.translate(0, 0.15, 0)
+        const [kx, kz] = at(0.28, k * 0.3)
+        L.put(qd, P.flowers, kx, y - 0.62, kz, ry + (k + 1) * 0.5, 1, 1, 1, false)
+      }
+      void fx
+      void fz
+    }
   }
   for (let f = 0; f < floors; f++) {
     const y = plinth + f * (fh + 0.25) + 1.45
@@ -154,10 +190,22 @@ export function house(
       }
     }
 
-  // door + frame + step + door lantern
-  L.put(new THREE.PlaneGeometry(1.15, 2.05), P.timber, 0, plinth + 1.02, D / 2 + 0.03, 0, 1, 1, 1, false)
-  L.put(new THREE.BoxGeometry(1.45, 0.16, 0.16), P.timber, 0, plinth + 2.12, D / 2 + 0.06)
-  L.put(boxUV(1.6, 0.25, 0.7, 1), P.stone, 0, 0.12, D / 2 + 0.45)
+  // door: a panelled leaf in a stone surround (jambs + a lintel with a keystone), an iron ring, a step and a lantern — some houses get a little porch hood
+  L.put(new THREE.BoxGeometry(1.05, 2.0, 0.07), P.timber, 0, plinth + 1.0, D / 2 + 0.03, 0, 1, 1, 1, false)
+  for (const px of [-0.26, 0.26])
+    for (const [py, ph] of [[0.62, 0.62], [1.38, 0.8]] as const) L.put(new THREE.BoxGeometry(0.36, ph, 0.04), P.woodLight, px, plinth + py, D / 2 + 0.07, 0, 1, 1, 1, false)
+  L.put(new THREE.TorusGeometry(0.05, 0.012, 6, 12), P.iron, 0.34, plinth + 1.0, D / 2 + 0.1, 0, 1, 1, 1, false)
+  for (const sx of [-1, 1]) L.put(boxUV(0.18, 2.14, 0.2, 1), P.stoneLight, sx * 0.66, plinth + 1.07, D / 2 + 0.06)
+  L.put(boxUV(1.62, 0.2, 0.22, 1), P.stoneLight, 0, plinth + 2.2, D / 2 + 0.06)
+  L.put(boxUV(0.26, 0.3, 0.24, 1), P.stone, 0, plinth + 2.32, D / 2 + 0.07) // keystone
+  L.put(boxUV(1.7, 0.2, 0.8, 1), P.stone, 0, 0.1, D / 2 + 0.45)
+  L.put(boxUV(1.4, 0.2, 0.55, 1), P.stone, 0, 0.3, D / 2 + 0.38)
+  if (o.seed !== undefined && (o.seed * 7) % 5 < 2) {
+    // a porch hood: two brackets and a small pitched canopy
+    for (const sx of [-1, 1]) L.put(new THREE.BoxGeometry(0.08, 0.5, 0.08), P.timber, sx * 0.62, plinth + 2.45, D / 2 + 0.55, 0, 1, 1, 1)
+    L.put(gableGeo(1.6, 1.1, 0.4, 1).rotateY(Math.PI / 2), o.roof ?? P.roofRed, 0, plinth + 2.68, D / 2 + 0.55)
+  }
+  L.put(new THREE.BoxGeometry(0.16, 0.24, 0.16), P.glowGold, 0.95, plinth + 2.1, D / 2 + 0.22, 0, 1, 1, 1, false)
   if (T.pumpkins) {
     const side = rand() < 0.5 ? -1 : 1
     const [px, pz] = L.world(side * 0.58, D / 2 + 0.5)
@@ -165,7 +213,6 @@ export function house(
     const [qx, qz] = L.world(side * 0.32, D / 2 + 0.62)
     T.pumpkins.add(qx, 0.245, qz, { r: 0.09 + rand() * 0.03, tint: rand() < 0.5 ? 'pale' : 'orange' })
   }
-  L.put(new THREE.BoxGeometry(0.16, 0.24, 0.16), P.glowGold, 0.95, plinth + 2.1, D / 2 + 0.22, 0, 1, 1, 1, false)
 
   // roof (ridge along the longer side)
   const roofMat = o.roof ?? P.roofRed
@@ -175,11 +222,34 @@ export function house(
   const rise = rw * 0.55
   L.put(gableGeo(rw, rd, rise), roofMat, 0, top, 0, alongX ? Math.PI / 2 : 0)
   L.put(new THREE.BoxGeometry(0.18, 0.18, rd + 0.2), P.timber, 0, top + rise, 0, alongX ? Math.PI / 2 : 0)
+  // eaves: a fascia board along each eave and bargeboards up each gable end
+  const roofPut = (geo: THREE.BufferGeometry, mat: THREE.Material, u: number, y: number, v: number, extraRy = 0) => L.put(geo, mat, alongX ? v : u, y, alongX ? u : v, (alongX ? Math.PI / 2 : 0) + extraRy)
+  for (const su of [-1, 1]) roofPut(new THREE.BoxGeometry(0.1, 0.2, rd + 0.06), P.timber, su * (rw / 2 - 0.02), top + 0.06, 0)
+  const slope = Math.atan2(rise, rw / 2)
+  const bl = Math.hypot(rw / 2, rise)
+  for (const sv of [-1, 1])
+    for (const su of [-1, 1]) {
+      const bg = new THREE.BoxGeometry(bl + 0.1, 0.16, 0.08)
+      bg.rotateZ(su * slope * (alongX ? 1 : -1))
+      roofPut(bg, P.timber, su * (rw / 4), top + rise / 2 + 0.02, sv * (rd / 2 + 0.02))
+    }
+  // a dormer on the front slope of the bigger houses (ridge along the width): a boxy bay, a little gable, a lit window
+  if (alongX && floors === 2 && W >= 6.2) {
+    const u = D > 0 ? rw / 4 : 0 // half-way up the front slope
+    const ys = top + rise * (1 - Math.abs(u) / (rw / 2))
+    const dx = (rand() - 0.5) * W * 0.3
+    L.put(boxUV(1.3, 1.25, 1.1, 1), wall, dx, ys + 0.45, u + 0.25)
+    L.put(gableGeo(1.7, 1.5, 0.75, 1), roofMat, dx, ys + 1.07, u + 0.25)
+    L.put(new THREE.PlaneGeometry(0.72, 0.8), rand() < (o.lit ?? 0.55) ? P.windowLit : P.windowDark, dx, ys + 0.45, u + 0.82, 0, 1, 1, 1, false)
+    L.put(new THREE.BoxGeometry(0.9, 0.08, 0.14), P.stoneLight, dx, ys - 0.0, u + 0.84)
+  }
 
   if (o.chimney !== false) {
     const cx = (alongX ? W * 0.28 : rw * 0.18) * (rand() > 0.5 ? 1 : -1)
     const cz = alongX ? -D * 0.15 : D * 0.25
     L.put(boxUV(0.7, rise + 1.4, 0.7, 1), P.stone, cx, top + (rise + 1.4) / 2 - 0.2, cz)
+    L.put(boxUV(0.9, 0.14, 0.9, 1), P.stoneLight, cx, top + rise + 1.3, cz) // the chimney cap
+    for (const px of [-0.16, 0.16]) L.put(new THREE.CylinderGeometry(0.1, 0.12, 0.34, 8), P.roofRed, cx + px, top + rise + 1.55, cz) // chimney pots
     const [wx, wz] = L.world(cx, cz)
     T.smoke.push({ x: wx, y: top + rise + 1.2, z: wz })
   }
