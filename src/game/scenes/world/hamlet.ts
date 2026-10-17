@@ -253,7 +253,7 @@ export function woodland(T: Town, q: Quality) {
   // trees: layered crowns (tiers) in three silhouettes + gold/red autumn tints, clustered round the trail with gaps for views
   const trunk = trunkGeo()
   const crowns = [crownGeo('broad', 11), crownGeo('oval', 12), crownGeo('spread', 13)]
-  const leafMat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.92, flatShading: true, vertexColors: true })
+  const leafMat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.92, flatShading: true })
   D.push(leafMat)
   const groups: THREE.Matrix4[][] = [[], [], []]
   const cols: THREE.Color[][] = [[], [], []]
