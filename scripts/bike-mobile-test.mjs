@@ -49,7 +49,7 @@ await adv(0.3)
 await p.evaluate((k) => window.__chadverse.mountBike(k), KIND)
 await adv(1)
 await p.evaluate(() => window.__chadverse.freeze(true)) // game time moves only when this script says so
-await set({ x: 0, z: 14, h: 0, v: 8 })
+await set({ x: 0, z: 14, h: 0, v: 12 })
 await adv(0.3)
 check((await B()).riding, 'mounted (touch layout)')
 
@@ -92,7 +92,7 @@ s = await B()
 check(s.buttons.left && !s.buttons.right && s.delta < 0, `switching to the left arrow steers left with the gas still held (bars ${s.delta})`)
 await touchEnd(3)
 for (let i = 0; i < 30 && (await B()).phase !== 'riding'; i++) await adv(0.2) // (the faster street bike can clip a kerb while steering: let it recover)
-await set({ x: 0, z: 14, h: 0, v: 8 })
+await set({ x: 0, z: 14, h: 0, v: 12 })
 await adv(0.2)
 
 /* a camera drag in empty screen space with a fourth finger must not release the held buttons */
@@ -119,7 +119,7 @@ check(s.buttons.throttle && !s.buttons.right, 'lifting the steering finger relea
 /* brake + left arrow together with the gas released */
 const [bx, by] = await center('ride-brake')
 await touchEnd(1)
-await set({ x: 0, z: 14, h: 0, v: 8 })
+await set({ x: 0, z: 14, h: 0, v: 12 })
 await touchStart(5, bx, by)
 await touchStart(6, lx0, ly0)
 await adv(0.5)
@@ -224,8 +224,8 @@ await touchEnd(8)
 
 /* Get off with a held button */
 await set({ x: 0, z: 14, h: 0, v: 0 })
-await adv(0.3)
-await touchStart(9, gx, gy)
+for (let i = 0; i < 40; i++) { const q = await B(); if (q.phase === 'riding' && q.pitch < 0.02 && Math.abs(q.v) < 0.5) break; await set({ x: 0, z: 14, h: 0, v: 0 }); await adv(0.3) } // front down, standing still
+await touchStart(9, rx0, ry0) // (a steering arrow stays held: the gas would lift the front, and you cannot get off in a wheelie)
 await adv(0.2)
 const [ox, oy] = await center('ride-getoff')
 await touchStart(10, ox, oy)

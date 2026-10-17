@@ -55,7 +55,16 @@ check((await until((s) => s.riding && s.phase === 'riding', 4)).ok, 'E mounts: t
 await set({ x: 0, z: 14, h: 0, v: 0 })
 await adv(0.5)
 
-/* 2. accelerate smoothly, camera comes round behind */
+/* 2a. the gas lifts the front even from a standstill, and the bike only creeps while it is up */
+await down('w')
+const lift0 = await until((s) => s.pitch > 0.3, 5, 0.05)
+const creepV = (await B()).v
+check(lift0.ok && creepV < 3.5 && !(await B()).crashed, `gas from a standstill lifts the front (${deg(lift0.s.pitch)}°) and the bike only creeps (${creepV.toFixed(1)} m/s)`)
+await up('w')
+await until((s) => s.pitch < 0.02, 8, 0.1)
+await until((s) => s.v < 0.3, 12, 0.2)
+/* 2b. with the rider's weight held forward (C) the front stays planted and the bike accelerates away: camera comes round behind */
+await down('c')
 await down('w')
 const a4 = await until((s) => s.v > 4, 10)
 const a9 = await until((s) => s.v > 9, 15)
@@ -69,7 +78,8 @@ await up('w')
 await adv(2)
 check((await B()).v < bs.v && (await B()).v > 0, `releasing the throttle rolls off smoothly (${bs.v.toFixed(1)} → ${(await B()).v.toFixed(1)} m/s)`)
 
-/* 3. steering and grip */
+/* 3. steering and grip (front planted with C held, as above) */
+await down('c')
 await set({ x: 0, z: 14, h: 0, v: 12 })
 const h0 = (await B()).heading
 await down('w')
@@ -85,6 +95,7 @@ check(tl.ok && tl.s.roll < turn.roll, 'A turns back left (the lean follows)')
 await up('a')
 await up('w')
 
+await up('c')
 /* 4. brake, then reverse; the rear brake is gentler */
 await set({ x: 0, z: 14, h: 0, v: 14 })
 await down(' ')
@@ -207,6 +218,8 @@ await adv(0.6)
 await down('w')
 await adv(0.3)
 await up('w')
+await set({ x: 0, z: 14, h: 0, v: 0 })
+await until((s) => s.pitch < 0.02, 8, 0.1) // (a tap on the gas lifts the front for a moment: you cannot get off until it is down)
 await set({ x: 0, z: 14, h: 0, v: 0 })
 await adv(0.3)
 await p.keyboard.press('e')

@@ -265,7 +265,12 @@ export class BikeSim {
       this.crashT += dt
       this.v *= Math.exp(-dt * 2.6)
       this.vlat *= Math.exp(-dt * 3)
-      this.pitchRate *= Math.exp(-dt * 3)
+      if (this.crashed === 'loop' && this.pitch > 0) {
+        // falling over backwards: gravity keeps turning it, the momentum it had is kept and it comes to rest on its tail, not snapped anywhere
+        this.pitchRate = Math.min(2.2, Math.max(this.pitchRate, 0.4) + 3.2 * dt)
+        this.pitch = Math.min(1.95, this.pitch + this.pitchRate * dt)
+        if (this.pitch >= 1.95) this.pitchRate = 0
+      } else this.pitchRate *= Math.exp(-dt * 3)
       this.travel(dt, 0)
       this.thr = this.brk = this.rbk = 0
       this.rearSpin += (this.v / s.wheelR) * dt * 0.3
@@ -285,9 +290,11 @@ export class BikeSim {
     const demand = s.accel * this.thr * (1 - Math.pow(spd, s.powerPow))
     const avail = mu0 * G * 1.05
     this.spin = Math.max(0, Math.min(1, demand / avail - 0.92)) * (this.v < s.maxSpeed * 0.7 ? 1 : 0.4)
-    const commit = Math.max(0, Math.min(1, (this.thr - 0.6) / 0.38))
-    const ready = Math.max(0, Math.min(1, 1.15 - spd * 1.0)) * Math.max(0, Math.min(1, (Math.max(0, this.v) - 1.5) / 4)) // no lift from a dead stop: the front rises as the bike gets moving
-    let autoT = commit * ready * Math.max(0, 1 - this.spin * 1.4) * Math.max(0, Math.min(1, (0.5 - this.pitch) / 0.22)) // a rider stops hauling back as the front nears the balance point
+    // gas as the rider applies it: nothing below ~10 %, then progressive
+    const gas = Math.max(0, Math.min(1, (this.thr - 0.1) / 0.55))
+    // the rider's weight goes back a little on the gas, and FORWARD as the nose climbs (hanging off the bars is what keeps a high wheelie from going over); braking and a falling nose move it forward too
+    const hang = Math.max(0, Math.min(1, (this.pitch - 0.3) / 0.9))
+    let autoT = 0.35 * gas * Math.max(0, 1 - this.spin * 1.4) - hang
     autoT -= this.brk * 0.55 + this.rbk * 0.25
     if (this.pitch > 0.05 && this.pitchRate < -0.25) autoT -= Math.min(0.5, -this.pitchRate * 0.3) // coming down: weight goes forward to take the landing
     this.autoLean = ease(this.autoLean, Math.max(-1, Math.min(1, autoT)), 16, 12) // quick, so the throttle answers at once and the balance stays controllable
@@ -321,7 +328,9 @@ export class BikeSim {
         this.gear = 1
         this.rpm = Math.min(1, Math.max(0, this.v) / vmax)
       }
-      a = Math.min(s.accel * this.thr * power, mu * G * 1.05) // the rear tyre can only give so much
+      // with the front wheel up the torque goes into holding it there, so the bike only creeps forward (taps never make it surge)
+      const creep = 1 - 0.82 * Math.max(0, Math.min(1, (this.pitch - 0.02) / 0.16))
+      a = Math.min(s.accel * this.thr * power * creep, mu * G * 1.05) // the rear tyre can only give so much
       const bite = frontDown ? 1 : 0.2
       const decel = (s.brakeFront * this.brk * bite + s.brakeRear * Math.max(this.rbk, this.brk * 0.35)) * mu
       const sgn = Math.sign(this.v)
@@ -377,18 +386,18 @@ export class BikeSim {
     const sin = Math.sin(th)
     const cos = Math.cos(th)
     let alpha = (G * (s.comH * sin - dEff * cos)) / s.gyr2 // gravity: nose down while the COM is ahead of the pivot, flips past the balance point
-    // drive torque: acceleration puts the weight back (depends on speed, power and grip). The rear tyre can only push the nose so far round: as the bike nears the
-    // balance point the drive stops adding pitch (the rider also stops pulling), so plain acceleration never carries the front over backwards by itself; only a
-    // deliberate extra pull (the lean input), a slope or a bump can do that.
-    const reach = Math.max(0, Math.min(1, (0.6 - th) / 0.3))
-    alpha += (this.accelNow * (s.comH * cos + dEff * sin) * reach) / s.gyr2
-    const heave = Math.max(0, this.lean)
-    if (heave > 0) alpha += s.pullTorque * heave * Math.max(0, 1 - th / 0.95) * (this.lean > this.autoLean + 0.05 ? 1 : reach) * Math.min(1, 0.4 + av / 3)
+    // THE GAS lifts the front: the rear tyre's torque reaction plus the rider's weight pulling back, strongest at low speed, weaker the faster the bike already goes, lost to wheelspin,
+    // and fading as the bike nears vertical. It acts from a standstill too. Easing off removes it and gravity (and the rider's weight forward) bring the nose back down.
+    const spdF = Math.max(0, Math.min(1, 1.15 - (Math.max(0, this.v) / s.maxSpeed) * 2.4))
+    const lift = s.liftTorque * gas * spdF * Math.max(0, 1 - this.spin * 1.2) * Math.max(0, 1 - th / 1.38)
+    alpha += lift
     const push = Math.max(0, -this.lean)
     if (th > 0.015) alpha -= s.pullTorque * 0.55 * push
     if (th > 0.015) alpha -= s.rearBrakeTorque * this.rbk * (0.45 + 0.55 * Math.min(1, av / 5))
-    if (th > 0.015) alpha -= s.rearBrakeTorque * 0.45 * this.brk * (frontDown ? 0 : 1)
+    if (th > 0.015) alpha -= s.rearBrakeTorque * 0.8 * this.brk * (frontDown ? 0 : 1)
     alpha -= s.pitchDamp * this.pitchRate
+    // easing off the gas lowers the front gradually: the rider feathers it down (more damping on the way DOWN while no brake is held); Brake takes that away
+    if (this.pitchRate < 0 && th > 0.02) alpha -= 3.4 * this.pitchRate * Math.max(0, 1 - this.brk * 1.4 - this.rbk) * (1 - gas)
     // OPTIONAL assist (a setting): near the balance point it only DAMPS the pitch rate and softens the runaway past it. It never pulls toward the balance
     // point, so a wheelie can drift out of it and be lost: nothing holds it for you.
     const A = this.assist * s.assistGain
@@ -403,7 +412,7 @@ export class BikeSim {
       this.pitchRate = 0
     } else {
       this.pitchRate += alpha * dt
-      this.pitchRate = Math.max(-2.2, Math.min(0.95, this.pitchRate)) // never an abrupt rotation, up or down
+      this.pitchRate = Math.max(-2.2, Math.min(0.9, this.pitchRate)) // never an abrupt rotation, up or down
       if (this.pitchRate < 0 && th < 0.24) this.pitchRate = Math.max(this.pitchRate, -(th + 0.012) * 6.5) // a soft touchdown
       this.pitch += this.pitchRate * dt
     }
@@ -427,10 +436,7 @@ export class BikeSim {
       this.wheelieDist = 0
       this.wheelieBest = 0
     }
-    if (this.pitch > s.maxPitch) {
-      this.crash('loop')
-      this.pitchRate = 1.2
-    }
+    if (this.pitch > s.maxPitch) this.crash('loop') // past the point of no return: it carries on over backwards (see the crashed branch), never snapped upright
 
     // ── suspension: independent front and rear springs, loaded by braking, power, the wheelie, landings and the ground's bumps ──
     const brakeLoad = Math.max(0, -this.accelNow)

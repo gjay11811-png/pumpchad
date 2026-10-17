@@ -41,7 +41,9 @@ export type BikeSpec = {
   pitchDamp: number // 1/s damping on pitch rate
   /** how much a rider's wheelie assist can do for this bike (the player's setting scales it): extra damping of the pitch rate around the balance point, and a softer runaway past it. It never pulls toward a target, so a wheelie is never held for you. */
   assistGain: number
-  maxPitch: number // the bike flips over backwards beyond this (rad)
+  maxPitch: number // the bike goes over backwards beyond this (rad; about 85° = near vertical)
+  /** nose-up torque at full gas and low speed (rad/s²) */
+  liftTorque: number
   /** the lean (rad) at which a footpeg touches the road */
   pegLean: number
   /** suspension (visual travel, m): fork and rear shock */
@@ -74,11 +76,12 @@ export const SURRON: BikeSpec = {
   gripLat: 9.5,
   leanGain: 1.0,
   pullTorque: 3.9,
-  shift: 0.14,
+  shift: 1.4,
   rearBrakeTorque: 8.5,
   pitchDamp: 2.6,
   assistGain: 1,
-  maxPitch: 1.28,
+  maxPitch: 1.5,
+  liftTorque: 7.5,
   pegLean: 0.7,
   forkTravel: 0.2,
   shockTravel: 0.16,
@@ -109,11 +112,12 @@ export const STREET: BikeSpec = {
   gripLat: 11,
   leanGain: 1.0,
   pullTorque: 3.6,
-  shift: 0.1,
+  shift: 1.5,
   rearBrakeTorque: 9.5,
   pitchDamp: 2.6,
   assistGain: 0.9,
-  maxPitch: 1.25,
+  maxPitch: 1.5,
+  liftTorque: 8.3,
   pegLean: 0.66,
   forkTravel: 0.12,
   shockTravel: 0.09,

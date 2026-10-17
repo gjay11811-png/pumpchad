@@ -147,7 +147,7 @@ await adv(2)
 await recover()
 
 /* 6. SCRAPE: a peg drags in the yellow section on a hard lean; a gentle line does not */
-await set({ x: 0, z: 14, h: 0, v: KIND === 'surron' ? 15 : 20 })
+await set({ x: -1.8, z: 14, h: 0, v: KIND === 'surron' ? 15 : 20 }) // (starts left of centre: the first lean goes toward +x, where the avenue has a lamp / bench near z 28)
 await adv(0.3)
 await key('w', true)
 // a hard S through the section: full lock one way, then the other, so the bike stays near the strip while a peg touches on each lean
