@@ -77,7 +77,7 @@ const LESSONS = [
   { text: 'Accelerate: hold W (or Gas) up to about 45 km/h', done: (a: Active) => Math.abs(a.sim.v) > 12 },
   { text: 'Brake: slow right down with S (the Brake button)', done: (a: Active) => a.school.t > 0.4 && Math.abs(a.sim.v) < 1.2 },
   { text: 'Turn: steer with A / D (the stick) through a quarter turn', done: (a: Active) => Math.abs(angleDiff(a.sim.h, a.school.t)) > 1.2 },
-  { text: 'Front-wheel lift: at about 20 km/h roll the Gas on hard; the front rises by itself. Ease off to lower it', done: (a: Active) => a.sim.pitch > 0.17 },
+  { text: 'Front-wheel lift: tap the Gas (a short fresh press, two or three in a row); the front rises a little each time', done: (a: Active) => a.sim.pitch > 0.17 },
   { text: 'Recover: ease off the Gas and touch the Brake to bring the front down', done: (a: Active) => a.school.t > 0.5 && a.sim.pitch < 0.02 },
 ]
 const angleDiff = (a: number, b: number) => Math.atan2(Math.sin(a - b), Math.cos(a - b))
