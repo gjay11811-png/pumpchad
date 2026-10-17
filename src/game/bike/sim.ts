@@ -43,6 +43,9 @@ export type Ground = { yRear: number; yFront: number }
 export type Scrape = { part: 'peg' | 'tail' | 'bash' | null; side: number; k: number }
 export type CrashKind = 'loop' | 'collision'
 export const FIXED_DT = 1 / 120
+/** the Gas smoothing the wheelie controller uses (per second): a short rise and a slightly longer release */
+export const GAS_RISE = 12
+export const GAS_FALL = 5
 const G = 9.81
 
 export type BikeView = {
@@ -114,6 +117,13 @@ export class BikeSim {
   /** WHEELIE MODE: pressed once it lifts the front smoothly to a balance region and holds it there with gameplay assistance (a pitch controller on top of the calculated physics, see the
    *  assist block in `step`); Gas raises the angle, Brake lowers it, pressing again (or braking all the way down) ends it. `wm` (0..1) is how strongly the assistance is applied. */
   wheelieOn = false
+  /** seconds since the wheelie mode was switched on (drives the smooth initial lift and the slow settling without Gas) */
+  wheelieT = 0
+  private lifted = false
+  /** the Brake as the wheelie controller sees it: it builds over about half a second, so a short press is a small correction and a held Brake lowers the front all the way */
+  private brkAim = 0
+  /** the Gas as the wheelie controller sees it: a short rise and a slightly longer release, so brief taps still count but a digital button is not a step */
+  gasS = 0
   wm = 0
   private prevWheelie = false
   /** 0..1 rider posture shift (the wheelie mode's weight shift back), read by the pose and the sound */
@@ -189,6 +199,8 @@ export class BikeSim {
     this.thr = this.brk = this.rbk = this.lean = 0
     this.autoLean = this.spin = this.oneHand = this.oneHandTime = this.rev = this.wm = 0
     this.wheelieOn = false
+    this.wheelieT = 0
+    this.gasS = 0
     this.prevWheelie = false
     this.xEff = this.spec.comD
     this.scrape = { part: null, side: 0, k: 0 }
@@ -308,9 +320,20 @@ export class BikeSim {
     const avail = mu0 * G * 1.05
     this.spin = Math.max(0, Math.min(1, demand / avail - 0.92)) * (this.v < s.maxSpeed * 0.7 ? 1 : 0.4)
     // WHEELIE MODE (the Wheelie button): a fresh press toggles it. Braking all the way down also ends it. Gas is ONLY drive: there are no gas-tap wheelies.
-    if (inp.wheelie && !this.prevWheelie && !this.crashed) this.wheelieOn = !this.wheelieOn
+    if (inp.wheelie && !this.prevWheelie && !this.crashed) {
+      this.wheelieOn = !this.wheelieOn
+      this.wheelieT = 0
+      this.lifted = false
+    }
     this.prevWheelie = !!inp.wheelie
+    if (this.wheelieOn) this.wheelieT += dt
+    // Gas as the wheelie controller sees it (tunable: GAS_RISE / GAS_FALL per second)
+    this.brkAim += (Math.max(inp.brake, inp.rear * 0.8) - this.brkAim) * Math.min(1, dt * (inp.brake > this.brkAim ? 2.4 : 5))
+    this.gasS += (inp.throttle - this.gasS) * Math.min(1, dt * (inp.throttle > this.gasS ? GAS_RISE : GAS_FALL))
+    // the mode ends by itself once the front is back on the ground (after the initial lift, or by braking all the way down): a landing never starts another lift
     if (this.wheelieOn && this.brk > 0.6 && this.pitch < 0.04) this.wheelieOn = false
+    if (this.pitch > 0.12) this.lifted = true
+    if (this.wheelieOn && ((this.lifted && this.wheelieT > 1.0 && this.pitch < 0.03 && this.pitchRate <= 0.05) || this.wheelieT > 4 && !this.lifted)) this.wheelieOn = false
     this.wm += ((this.wheelieOn ? 1 : 0) - this.wm) * Math.min(1, dt / (this.wheelieOn ? 0.35 : 0.9))
     if (this.wm < 0.002) this.wm = 0
     this.rev = this.wm
@@ -420,13 +443,17 @@ export class BikeSim {
     const xC = Math.max(0.02, xEff)
     let alpha = (G * (s.comH * sin - xC * cos) + this.accelNow * (s.comH * cos + xC * sin)) / s.gyr2
     alpha -= s.pitchDamp * this.pitchRate // dissipation: rider, tyre and frame flex (an estimate)
-    // ── GAMEPLAY ASSISTANCE (deliberate, not physics): the wheelie mode is a pitch controller added ON TOP of the calculated torques above. It aims at a balance-region angle that
-    //    the rider moves with the controls: Gas raises it (up to the rear-fender scrape), Brake lowers it (all the way to the ground), and it is a stiff-enough spring-damper (kp above the
-    //    gravity slope g h / gyr2) that small corrections hold the wheelie, the angle cannot run away backwards, and the front never has to be 'caught'. Its strength fades in over 0.35 s
-    //    so the lift is smooth, and fades out over 0.9 s when the mode ends so the front settles instead of dropping. It is limited (+-9 rad/s²): braking hard still wins.
+    // ── GAMEPLAY ASSISTANCE (deliberate, not physics): the wheelie mode is a pitch controller added ON TOP of the calculated torques above. The Wheelie button lifts the front smoothly
+    //    to a modest angle; from then on the GAS decides: it raises the aim (up to the rear-fender scrape), easing off lets the aim fall back slowly (the front settles over several
+    //    seconds, it is never held at a fixed angle), small throttle corrections hold it, and the Brake lowers it progressively (never required for small corrections). The controller is a
+    //    spring-damper (kp above the gravity slope g h / gyr2) so the angle cannot run away backwards; it is limited (+-9 rad/s²), so strong braking always wins, and its strength fades
+    //    in over 0.35 s (smooth lift) and out over 0.9 s when the mode ends (the front settles).
     if (this.wm > 0.001) {
-      const gasUp = Math.max(0, Math.min(1, (this.thr - 0.15) / 0.7))
-      const target = this.wheelieOn ? Math.max(0, 0.6 + 0.45 * gasUp - 1.1 * Math.max(this.brk, this.rbk * 0.8)) : 0
+      const init = Math.min(1, this.wheelieT / 0.8) // the smooth initial lift
+      const settle = Math.exp(-Math.max(0, this.wheelieT - 0.8) / 3.2) // without Gas the aim falls back over a few seconds
+      const gasAim = 0.62 * Math.max(0, Math.min(1, (this.gasS - 0.05) / 0.85))
+      const brakeDown = 1.0 * this.brkAim
+      const target = this.wheelieOn ? Math.max(0, 0.62 * init * settle + gasAim * init - brakeDown) : 0
       const kp = this.wheelieOn ? s.assistKp : s.assistKp * 0.3 // ending the mode lowers the front gently
       alpha += this.wm * Math.max(-9, Math.min(9, kp * (target - th) - s.assistKd * this.pitchRate))
     }

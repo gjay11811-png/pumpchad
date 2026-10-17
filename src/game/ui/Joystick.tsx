@@ -91,11 +91,7 @@ export function Joystick({ input, sensitivity }: { input: Input; sensitivity: nu
             />
           </div>
         </div>
-      ) : (
-        <div className="pointer-events-none absolute bottom-[max(28px,env(safe-area-inset-bottom))] left-[max(28px,env(safe-area-inset-left))] flex h-28 w-28 items-center justify-center rounded-full border border-moon/15 bg-ink/25">
-          <div className="h-12 w-12 rounded-full border border-pump/50 bg-pump/15" />
-        </div>
-      )}
+      ) : null}
     </div>
   )
 }

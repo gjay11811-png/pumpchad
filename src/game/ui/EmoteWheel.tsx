@@ -1,8 +1,8 @@
 import { AnimatePresence, m } from 'framer-motion'
-import { tap } from './kit'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { EMOTES, type EmoteId } from '../emotes'
 import { audio } from '../audio'
+import { Ctl } from './Ctl'
 
 /**
  * Emote wheel. Desktop: Q opens it, 1-8 fire an emote directly, arrows move focus, Esc closes.
@@ -31,6 +31,12 @@ export function EmoteWheel({ touch, disabled, onEmote, onJump }: { touch: boolea
 
   useEffect(() => {
     if (disabled) setOpen(false)
+  }, [disabled])
+  // touch: Emote lives in the corner menu, which asks for the wheel with this event
+  useEffect(() => {
+    const f = () => !disabled && setOpen(true)
+    window.addEventListener('chad-emote-open', f)
+    return () => window.removeEventListener('chad-emote-open', f)
   }, [disabled])
 
   // keyboard: capture phase so Esc closes the wheel instead of opening the pause menu
@@ -78,7 +84,7 @@ export function EmoteWheel({ touch, disabled, onEmote, onJump }: { touch: boolea
     <>
       {/* open button + (touch) jump button */}
       {touch ? (
-        <>
+        <Ctl id="jump" className="absolute bottom-[calc(max(10px,env(safe-area-inset-bottom))+4.2rem)] right-[calc(max(10px,env(safe-area-inset-right))+0.2rem)]">
           <button
             type="button"
             aria-label="Jump"
@@ -86,24 +92,13 @@ export function EmoteWheel({ touch, disabled, onEmote, onJump }: { touch: boolea
               e.preventDefault()
               onJump()
             }}
-            className="pointer-events-auto absolute bottom-[calc(max(28px,env(safe-area-inset-bottom))+6.5rem)] right-[max(40px,env(safe-area-inset-right))] flex h-16 w-16 items-center justify-center rounded-full border border-bone/20 bg-ink/55 font-display text-sm uppercase tracking-wide text-bone backdrop-blur-sm active:scale-90"
+            className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-full border border-bone/25 bg-ink/60 font-display text-[11px] uppercase tracking-wide text-bone backdrop-blur-sm active:scale-90"
+            style={{ touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none' }}
             data-testid="jump-button"
           >
             Jump
           </button>
-          <button
-            type="button"
-            aria-label="Emotes"
-            aria-haspopup="menu"
-            aria-expanded={open}
-            {...tap(() => setOpen((o) => !o))}
-            disabled={disabled}
-            className="pointer-events-auto absolute bottom-[calc(max(28px,env(safe-area-inset-bottom))+1rem)] right-[calc(max(24px,env(safe-area-inset-right))+7rem)] flex h-16 w-16 items-center justify-center rounded-full border border-moon/30 bg-ink/55 font-display text-sm uppercase tracking-wide text-moon backdrop-blur-sm active:scale-90"
-            data-testid="emote-button"
-          >
-            Emote
-          </button>
-        </>
+        </Ctl>
       ) : (
         <button
           type="button"

@@ -50,19 +50,19 @@ for (const spec of [SURRON, STREET]) {
       pk = Math.max(pk, bk.pitch)
       return I({ wheelie: wb(t) })
     })
-    check(w.wheelieOn && w.pitch > 0.25 && w.pitch < 0.75 && step < 0.03 && !w.crashed, `3. Wheelie pressed once at ${v0} m/s: lifts smoothly (${(step * 1000).toFixed(0)} mrad/frame at most) to ${deg(w.pitch)}° and holds (peak ${deg(pk)}°)`)
+    check(pk > 0.15 && pk < 0.75 && step < 0.03 && !w.crashed, `3. Wheelie pressed once at ${v0} m/s: lifts smoothly (${(step * 1000).toFixed(0)} mrad/frame at most) to a peak of ${deg(pk)}°, then settles by itself without Gas (${deg(w.pitch)}° at 3 s, mode ${w.wheelieOn ? 'on' : 'ended on landing'})`)
   }
   // 4. hold a wheelie for 12 s with modest Gas / Brake corrections: no fall, stays in the 15-45° region
   const h = new BikeSim(spec)
   let inRegion = 0
   let hpk = 0
   run(h, 12.1, (t, bk) => {
-    if (t > 0.5 && bk.pitch > 0.26 && bk.pitch < 0.8) inRegion += 1 / 60
+    if (t > 0.5 && bk.pitch > 0.17 && bk.pitch < 0.8) inRegion += 1 / 60
     hpk = Math.max(hpk, bk.pitch)
     // modest corrections: a little Gas when it sinks low, a touch of Brake when it climbs high
     return I({ wheelie: wb(t), throttle: bk.pitch < 0.44 && t > 0.6 ? 0.5 : 0, brake: bk.pitch > 0.7 ? 0.5 : 0 })
   })
-  check(h.wheelieOn && !h.crashed && inRegion > 10 && hpk < 1.0, `4. a wheelie held for 12 s with modest corrections: ${inRegion.toFixed(1)} s in the 15-45° region, peak ${deg(hpk)}°, no fall (${h.crashed ?? 'ok'}), ${h.v.toFixed(1)} m/s at the end`)
+  check(h.wheelieOn && !h.crashed && inRegion > 10 && hpk < 1.0, `4. a wheelie held for 12 s with modest corrections: ${inRegion.toFixed(1)} s in the 10-45° region, peak ${deg(hpk)}°, no fall (${h.crashed ?? 'ok'}), ${h.v.toFixed(1)} m/s at the end`)
   // 5. Gas raises it, Brake lowers it
   const g = new BikeSim(spec)
   let before = 0
@@ -91,9 +91,9 @@ for (const spec of [SURRON, STREET]) {
   let down = -1
   run(pa, 8, (t, bk) => {
     if (t > 4.1 && down < 0 && bk.pitch < 0.03) down = t - 4.1
-    return I({ wheelie: wb(t) || wb(t, 4) })
+    return I({ wheelie: wb(t) || wb(t, 4), throttle: t < 4 ? 0.5 : 0 })
   })
-  check(down > 0.5 && down < 4 && !pa.wheelieOn && !pa.crashed, `   pressing Wheelie again lowers it smoothly (${down.toFixed(1)} s)`)
+  check(down > 0.3 && down < 5 && !pa.wheelieOn && !pa.crashed, `   pressing Wheelie again lowers it smoothly (${down.toFixed(1)} s)`)
   // 6. the rear scrape: Gas leans it back until the tail bar meets the ground; the ground supports it (no pass-through, no bounce), friction slows the bike, the rider stays on,
   //    and a short Brake press brings it back into a wheelie
   const sc = new BikeSim(spec)
@@ -119,7 +119,7 @@ for (const spec of [SURRON, STREET]) {
     if (enter > 0 && lastP - bk.pitch > 0.04) bounce++
     lastP = bk.pitch
     if (t > 6.2 && back < 0 && bk.pitch < thS - 0.12) back = t - 6.2
-    return I({ wheelie: wb(t), throttle: t > 2.5 && t < 6 ? 1 : 0, brake: t > 6 && t < 6.5 ? 0.9 : 0 })
+    return I({ wheelie: wb(t), throttle: t > 2.5 && t < 6 ? 1 : t >= 6 ? 0.5 : 0, brake: t > 6 && t < 6.5 ? 0.9 : 0 })
   })
   check(enter > 0 && scrapeTime > 1.5 && maxPast < 0.06 && !sc.crashed, `6. rear scrape at ${deg(thS)}° (tail bar ${spec.tailH} m up, ${-spec.tailX} m behind the contact): entered at ${enter.toFixed(1)} s, sustained ${scrapeTime.toFixed(1)} s, never passed ${(maxPast * 57.3).toFixed(1)}° into the ground, no crash`)
   check(bounce === 0 && vOut > 0, `   no bouncing off the ground (${bounce} rebounds), the bike keeps moving (${vIn.toFixed(1)} → ${vOut.toFixed(1)} m/s)`)

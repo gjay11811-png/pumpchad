@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Ctl } from './Ctl'
 import { latchWheelie, rideBtn, releaseAllRideButtons, requestGetOff, type RideBtn } from '../bike/controls'
 
 type Practice = { name: string; line: string; score: number | null; best: number | null } | null
@@ -50,9 +51,9 @@ function Key({ k, label, sub, className, testid }: { k: RideBtn; label: string; 
       onLostPointerCapture={off}
       onContextMenu={(e) => e.preventDefault()}
       className={`pointer-events-auto flex select-none flex-col items-center justify-center rounded-2xl border font-display uppercase leading-none tracking-wide backdrop-blur-sm transition-transform ${down ? 'scale-95 border-pump bg-pump text-ink' : 'border-bone/30 bg-ink/60 text-bone'} ${className ?? ''}`}
-      style={{ touchAction: 'none', WebkitTouchCallout: 'none' }}
+      style={{ touchAction: 'none', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
     >
-      <span className="text-[13px]">{label}</span>
+      <span className="text-[12px]">{label}</span>
       {sub && <span className="mt-0.5 font-mono text-[8px] tracking-wider opacity-70">{sub}</span>}
     </button>
   )
@@ -91,8 +92,8 @@ function WheelieKey({ on }: { on: boolean }) {
       onPointerCancel={off}
       onLostPointerCapture={off}
       onContextMenu={(e) => e.preventDefault()}
-      className={`pointer-events-auto flex h-12 w-[6.2rem] select-none items-center justify-center rounded-2xl border font-display text-[13px] uppercase tracking-wide backdrop-blur-sm transition-transform ${down ? 'scale-95' : ''} ${on ? 'border-pump bg-pump text-ink' : 'border-bone/30 bg-ink/60 text-bone'}`}
-      style={{ touchAction: 'none', WebkitTouchCallout: 'none' }}
+      className={`pointer-events-auto flex h-11 w-[5rem] select-none items-center justify-center rounded-2xl border font-display text-[12px] uppercase tracking-wide backdrop-blur-sm transition-transform ${down ? 'scale-95' : ''} ${on ? 'border-pump bg-pump text-ink' : 'border-bone/30 bg-ink/60 text-bone'}`}
+      style={{ touchAction: 'none', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
     >
       Wheelie
     </button>
@@ -124,22 +125,13 @@ export function RideHud({ touch }: { touch: boolean }) {
   return (
     <>
       {/* fold the big on-foot panels away while mounted; on a phone the walking buttons go too */}
-      <style>{`[data-testid="hud-profile"],[data-testid="challenge-tab"],[data-testid="objective-wrap"],[data-testid="walk-hint"]{display:none!important}${touch ? `[data-testid="sprint"],[data-testid="jump-button"],[data-testid="emote-button"],button[aria-label^="Interact"]{display:none!important}` : ''}`}</style>
+      <style>{`[data-testid="hud-profile"],[data-testid="challenge-tab"],[data-testid="objective-wrap"],[data-testid="walk-hint"]{display:none!important}${touch ? `[data-testid="sprint"],[data-testid="jump-button"],[data-testid="emote-button"],[data-testid="joystick-zone"],button[aria-label^="Interact"]{display:none!important}` : ''}`}</style>
 
-      <div className="pointer-events-none absolute left-[max(12px,env(safe-area-inset-left))] top-[max(10px,env(safe-area-inset-top))] flex flex-col items-start gap-1" data-testid="ride-hud">
+      <div className={`pointer-events-none absolute ${touch ? 'left-[calc(max(10px,env(safe-area-inset-left))+2.6rem)]' : 'left-[max(12px,env(safe-area-inset-left))]'} top-[max(8px,env(safe-area-inset-top))] flex flex-col items-start gap-1`} data-testid="ride-hud">
         <div className="flex items-center gap-1.5">
           <p className="rounded-full bg-ink/70 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.16em] text-moon">
             {d.name} · <span data-testid="ride-speed">{d.kmh}</span> km/h
           </p>
-          <button
-            type="button"
-            onClick={() => set({ view: d.view === 'side' ? 'chase' : 'side' })}
-            aria-label={d.view === 'side' ? 'Camera: side view (tap for behind)' : 'Camera: behind (tap for side view)'}
-            data-testid="ride-view-btn"
-            className="pointer-events-auto flex h-8 items-center rounded-full bg-ink/70 px-2.5 font-mono text-[10px] uppercase tracking-wider text-moon"
-          >
-            {d.view === 'side' ? 'Side' : 'Behind'}
-          </button>
           <button
             type="button"
             onClick={() => setMenu((m) => !m)}
@@ -210,23 +202,48 @@ export function RideHud({ touch }: { touch: boolean }) {
 
       {touch && (
         <>
-          <button
-            type="button"
-            data-testid="ride-getoff"
-            className="pointer-events-auto absolute right-[max(12px,env(safe-area-inset-right))] top-[calc(max(10px,env(safe-area-inset-top))+3.6rem)] rounded-full border border-bone/30 bg-ink/65 px-3 py-1.5 font-display text-[11px] uppercase tracking-wide text-bone active:scale-90"
-            onPointerDown={(e) => (e.preventDefault(), requestGetOff())}
-          >
-            Get off
-          </button>
-          <div className="pointer-events-none absolute bottom-[max(14px,env(safe-area-inset-bottom))] right-[max(14px,env(safe-area-inset-right))] flex flex-col items-end gap-2" data-testid="ride-buttons">
-            {d.up && <Key k="trick" label="One hand" testid="ride-trick" className="h-11 w-[5.6rem] text-[12px]" />}
+          {/* the riding layout (walking controls are hidden). Every control is a <Ctl>: movable only in the menu's Edit controls mode. */}
+          <Ctl id="getoff" className="absolute right-[max(10px,env(safe-area-inset-right))] top-[max(8px,env(safe-area-inset-top))]">
+            <button
+              type="button"
+              data-testid="ride-getoff"
+              className="pointer-events-auto rounded-full border border-bone/30 bg-ink/65 px-2.5 py-1 font-display text-[10px] uppercase tracking-wide text-bone active:scale-90"
+              style={{ touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none' }}
+              onPointerDown={(e) => (e.preventDefault(), requestGetOff())}
+            >
+              Get off
+            </button>
+          </Ctl>
+          {/* left thumb: LEFT / RIGHT arrows (hold = steer progressively, release = recentre) and a second Brake (the same single braking action as the right Brake) */}
+          <Ctl id="steerL" className="absolute bottom-[max(10px,env(safe-area-inset-bottom))] left-[max(10px,env(safe-area-inset-left))]">
+            <Key k="left" label="◀" testid="ride-left" className="h-[3.4rem] w-[3.4rem] text-[20px]" />
+          </Ctl>
+          <Ctl id="steerR" className="absolute bottom-[max(10px,env(safe-area-inset-bottom))] left-[calc(max(10px,env(safe-area-inset-left))+3.9rem)]">
+            <Key k="right" label="▶" testid="ride-right" className="h-[3.4rem] w-[3.4rem] text-[20px]" />
+          </Ctl>
+          <Ctl id="brakeL" className="absolute bottom-[calc(max(10px,env(safe-area-inset-bottom))+3.9rem)] left-[max(10px,env(safe-area-inset-left))]">
+            <Key k="brake2" label="Brake" testid="ride-brake-left" className="h-[3rem] w-[7.3rem] text-[11px]" />
+          </Ctl>
+          {/* right thumb: Gas, Brake, Wheelie grouped close; One hand only while the front is up; Reverse only when nearly stopped */}
+          <Ctl id="gas" className="absolute bottom-[max(10px,env(safe-area-inset-bottom))] right-[max(10px,env(safe-area-inset-right))]">
+            <Key k="throttle" label="Gas" testid="ride-throttle" className="h-[4.4rem] w-[4.4rem] text-[15px]" />
+          </Ctl>
+          <Ctl id="brake" className="absolute bottom-[max(10px,env(safe-area-inset-bottom))] right-[calc(max(10px,env(safe-area-inset-right))+4.9rem)]">
+            <Key k="brake" label="Brake" testid="ride-brake" className="h-[3.4rem] w-[3.4rem] text-[11px]" />
+          </Ctl>
+          <Ctl id="wheelie" className="absolute bottom-[calc(max(10px,env(safe-area-inset-bottom))+4.9rem)] right-[max(10px,env(safe-area-inset-right))]">
             <WheelieKey on={d.wheelieOn} />
-            {d.slow && !d.up && <Key k="reverse" label="Reverse" testid="ride-reverse" className="h-9 w-[5.2rem] text-[10px] opacity-80" />}
-            <div className="flex items-end gap-3">
-              <Key k="brake" label="Brake" testid="ride-brake" className="h-[4.6rem] w-[4.6rem] text-[14px]" />
-              <Key k="throttle" label="Gas" testid="ride-throttle" className="h-[5.8rem] w-[5.8rem] text-[18px]" />
-            </div>
-          </div>
+          </Ctl>
+          {d.up && (
+            <Ctl id="trick" className="absolute bottom-[calc(max(10px,env(safe-area-inset-bottom))+4.9rem)] right-[calc(max(10px,env(safe-area-inset-right))+5.5rem)]">
+              <Key k="trick" label="One hand" testid="ride-trick" className="h-11 w-[4.6rem] text-[10px]" />
+            </Ctl>
+          )}
+          {d.slow && !d.up && (
+            <Ctl id="reverse" className="absolute bottom-[calc(max(10px,env(safe-area-inset-bottom))+4.9rem)] right-[calc(max(10px,env(safe-area-inset-right))+5.5rem)]">
+              <Key k="reverse" label="Reverse" testid="ride-reverse" className="h-9 w-[4.6rem] text-[10px] opacity-80" />
+            </Ctl>
+          )}
         </>
       )}
     </>

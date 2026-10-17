@@ -54,15 +54,15 @@ const qAlign = new THREE.Quaternion().setFromAxisAngle(Y_UP, Math.PI / 2) // the
 
 /** player settings for riding, kept in this browser only */
 const KEY = 'pumpchad.ride.v1'
-export type RideSettings = { assist: number; school: boolean; view: 'chase' | 'side'; best: Record<string, number> }
+export type RideSettings = { assist: number; school: boolean; view: 'chase' | 'side' | 'first'; dist: number; best: Record<string, number> }
 export function loadRideSettings(): RideSettings {
   try {
     const j = JSON.parse(localStorage.getItem(KEY) ?? '{}')
     const best: Record<string, number> = {}
     if (j.best && typeof j.best === 'object') for (const c of CHALLENGES) if (typeof j.best[c.id] === 'number') best[c.id] = Math.max(0, Math.min(100, j.best[c.id]))
-    return { assist: typeof j.assist === 'number' ? Math.max(0, Math.min(1, j.assist)) : 0.3, school: j.school !== false, view: j.view === 'side' ? 'side' : 'chase', best }
+    return { assist: typeof j.assist === 'number' ? Math.max(0, Math.min(1, j.assist)) : 0.3, school: j.school !== false, view: j.view === 'side' ? 'side' : j.view === 'first' ? 'first' : 'chase', dist: typeof j.dist === 'number' ? Math.max(0.7, Math.min(1.6, j.dist)) : 0.85, best }
   } catch {
-    return { assist: 0.3, school: true, view: 'chase', best: {} }
+    return { assist: 0.3, school: true, view: 'chase', dist: 0.85, best: {} }
   }
 }
 export function saveRideSettings(s: RideSettings) {
@@ -92,7 +92,7 @@ export class RideSystem {
   private noteT = 0
   settings: RideSettings = loadRideSettings()
   /** set by the scene each frame while this is active: the camera should follow (heading, speed) */
-  readonly cam = { heading: 0, speed: 0, wheelie: 0, side: false, pitch: 0 }
+  readonly cam = { heading: 0, speed: 0, wheelie: 0, side: false, first: false, dist: 0.85, pitch: 0 }
   /** the practice strip's judge (scores only; never changes the riding) and the last result shown for a few seconds */
   private judge = new PracticeJudge(loadRideSettings().best)
   private last: { name: string; line: string; score: number; t: number } | null = null
@@ -104,8 +104,10 @@ export class RideSystem {
     this.sparks = makeSparks(host.scene)
     this.controls = new RideControls(host.input)
     window.addEventListener('chad-ride-set', this.onSet)
+    window.addEventListener('chad-ride-camera-ask', this.announceCamera)
   }
   private onSet = (e: Event) => this.setSettings((e as CustomEvent<Partial<RideSettings>>).detail)
+  private announceCamera = () => window.dispatchEvent(new CustomEvent('chad-ride-camera', { detail: { view: this.settings.view, dist: this.settings.dist } }))
 
   /** put a bike on the ground, parked on its kickstand */
   addParked(id: string, kind: BikeKind, x: number, z: number, yaw: number, paint: THREE.Material, label: string, D: (THREE.Material | THREE.Texture | THREE.BufferGeometry)[]) {
@@ -165,6 +167,7 @@ export class RideSystem {
     this.settings = { ...this.settings, ...s }
     saveRideSettings(this.settings)
     if (this.active) this.active.sim.assist = this.settings.assist
+    this.announceCamera()
   }
 
   /* ───────── getting on and off ───────── */
@@ -311,6 +314,8 @@ export class RideSystem {
     this.cam.speed = Math.abs(sim.v)
     this.cam.wheelie = sim.pitch
     this.cam.side = this.settings.view === 'side'
+    this.cam.first = this.settings.view === 'first'
+    this.cam.dist = this.settings.dist
     this.cam.pitch = sim.pitch
     audio.rideTick({ kind: a.parked.kind, v: Math.abs(sim.v), vmax: a.spec.maxSpeed, thr: sim.thr, brake: Math.max(sim.brk, sim.rbk), rpm: sim.rpm, gear: sim.gear, wheelie: sim.pitch, touchdown: sim.events.touchdown, crashed: !!sim.crashed, scrape: sim.scrape.k, part: sim.scrape.part, spin: sim.spin })
     sim.events.touchdown = 0
@@ -635,6 +640,7 @@ export class RideSystem {
 
   dispose() {
     window.removeEventListener('chad-ride-set', this.onSet)
+    window.removeEventListener('chad-ride-camera-ask', this.announceCamera)
     this.controls.stop()
     audio.rideStop()
     this.practice?.dispose()
