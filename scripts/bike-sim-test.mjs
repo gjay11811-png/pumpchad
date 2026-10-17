@@ -144,10 +144,9 @@ for (const spec of [SURRON, STREET]) {
     let dryBest = 0
     let wetBest = 0
     let spinMax = 0
-    const tap2 = (t) => I({ throttle: t % 0.6 < 0.15 && t < 1.2 ? 1 : 0 })
-    run(dry, 3, (t, bk) => (dryBest = Math.max(dryBest, bk.pitch), tap2(t)))
-    run(wet, 3, (t, bk) => (wetBest = Math.max(wetBest, bk.pitch), (spinMax = Math.max(spinMax, bk.spin)), tap2(t)))
-    check(spinMax > 0.1 && wetBest < dryBest * 0.8, `low grip: the rear wheel spins instead of lifting (spin ${spinMax.toFixed(2)}, lift ${deg(wetBest)}° vs ${deg(dryBest)}° on dry tarmac)`)
+    run(dry, 1, () => I({ throttle: 1 }))
+    run(wet, 1, (t, bk) => ((spinMax = Math.max(spinMax, bk.spin)), I({ throttle: 1 })))
+    check(spinMax > 0.1 && dry.spin < 0.05, `low grip: the rear wheel spins under Gas (spin ${spinMax.toFixed(2)} on the wet surface, ${dry.spin.toFixed(2)} on dry tarmac)`)
     const ws = new BikeSim(spec)
     ws.surface = 0.45
     run(ws, 0.8, () => I({ throttle: 1 }))
@@ -159,8 +158,8 @@ for (const spec of [SURRON, STREET]) {
     const gs = new BikeSim(spec)
     gs.v = 6
     let backMax = 0
-    run(gs, 0.6, (t, bk) => ((backMax = Math.max(backMax, bk.lean)), I({ throttle: t < 0.15 ? 1 : 0 })))
-    check(br.lean < -0.2 && backMax > 0.25, `the rider's weight moves by itself, from the centre of mass: forward under braking (${br.lean.toFixed(2)}), back on a REV tap (${backMax.toFixed(2)})`)
+    run(gs, 1.5, (t, bk) => ((backMax = Math.max(backMax, bk.lean)), I({ wheelie: t < 0.1 })))
+    check(br.lean < -0.2 && backMax > 0.25, `the rider's weight moves by itself, from the centre of mass: forward under braking (${br.lean.toFixed(2)}), back in wheelie mode (${backMax.toFixed(2)})`)
     // scrape: only when a part really reaches the ground
     const easy = new BikeSim(spec)
     easy.v = 8

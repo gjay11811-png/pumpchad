@@ -8,16 +8,17 @@ const check = (ok, msg) => {
   if (!ok) fails++
 }
 const flat = () => ({ yRear: 0, yFront: 0 })
-/** the input as a function of TIME (changes happen on multiples of 1/30 s so every frame rate sees them at the same instant): pull away, steer, tap REV twice, brake */
+/** the input as a function of TIME (changes happen on multiples of 1/30 s so every frame rate sees them at the same instant): pull away, press Wheelie at 1.0 s (0.1 s press), steer, Gas up for a
+ *  scrape, release, brake */
 const inputAt = (t) => ({
   throttle: t < 5.5 ? 1 : 0,
   brake: t >= 6.5 && t < 8 ? 1 : 0,
   rear: 0,
   steer: t >= 2 && t < 3 ? 0.6 : t >= 3.5 && t < 4.5 ? -0.4 : 0,
   lean: 0,
-  // the REV taps are throttle going off and on again: release at 1.0 s, press at 1.2 s, release at 1.4 s, press at 1.7 s
+  wheelie: t >= 1.0 && t < 1.1,
 })
-const throttleAt = (t) => (t >= 1.0 && t < 1.2 ? 0 : t >= 1.4 && t < 1.7 ? 0 : inputAt(t).throttle)
+const throttleAt = (t) => inputAt(t).throttle
 const snapAt = [2, 4, 6, 8, 10]
 /** run with a frame-time generator; return the state at each snapshot time (taken at the first frame boundary at / after it, then compared at the sim's own time) */
 const replay = (spec, nextDt, stepDt = 1 / 120) => {

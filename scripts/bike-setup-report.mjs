@@ -32,28 +32,11 @@ for (const sp of [SURRON, STREET]) {
   console.log(`  front-lift threshold a = g x / h = ${aLift.toFixed(2)} m/s² (neutral posture) vs ${sp.accel.toFixed(2)} m/s² available → ordinary riding cannot lift it (margin ${((aLift / sp.accel - 1) * 100).toFixed(0)}%)`)
   console.log(`  with the weight shifted back by a REV (x → ${xRev.toFixed(2)} m): threshold ${((G * Math.max(xRev, 0)) / h).toFixed(2)} m/s²; balance angle atan(x/h) = ${deg(Math.atan2(x, h)).toFixed(0)}° neutral, ${deg(Math.atan2(Math.max(xRev, 0), h)).toFixed(0)}° with REV`)
   check(sp.accel < aLift, 'ordinary full thrust is below the unload threshold with the neutral posture')
-  // the running model against the threshold: record (a, x_eff) every step through some REV taps and compare the first-lift instants with g x_eff / h
-  const b = new BikeSim(sp)
-  b.assist = 0.3
-  let lifts = 0
-  let worst = 0
-  let lastPitch = 0
-  let tt = 0
-  for (let i = 0; i < 120 * 12; i++) {
-    const t = i * FIXED_DT
-    const k = Math.floor(t / 0.8)
-    const press = k < 4 && t % 0.8 < 0.15 ? 1 : 0
-    b.step(FIXED_DT, I({ throttle: press }), flat())
-    if (b.pitch > 0.005 && lastPitch <= 0.005) {
-      // at the instant the front leaves the ground the net acceleration must have exceeded the unload threshold for the posture at that time (a tolerance for the one-step lag)
-      const need = (G * b.xEff) / h
-      worst = Math.max(worst, need - b.accelNow)
-      lifts++
-    }
-    lastPitch = b.pitch
-    tt = t
-  }
-  check(lifts >= 1 && worst < 1.2, `the model lifts the front only when a ≥ g x_eff / h (${lifts} lift-offs; the worst shortfall at lift-off ${worst.toFixed(2)} m/s²)`)
+  // the baseline: the running model (assistance OFF) never lifts the front under ordinary thrust, the unload threshold being a = g x / h
+  const base = new BikeSim({ ...sp, assistKp: 0, assistKd: 0 })
+  let bp = 0
+  run(base, 8, (t, bk) => ((bp = Math.max(bp, bk.pitch)), I({ throttle: 1 })))
+  check(bp === 0, `the physical baseline (assistance off) keeps the front down at full thrust (${deg(bp).toFixed(0)}°); the wheelie button adds the documented gameplay assistance on top`)
   // signs: braking must give a nose-DOWN pseudo-torque, acceleration nose-UP
   const sgn = new BikeSim(sp)
   sgn.pitch = 0.3
@@ -103,23 +86,18 @@ for (const sp of [SURRON, STREET]) {
   hi.v = sp.maxSpeed * 0.6
   run(hi, 2, () => I({ throttle: 0.3, steer: 0.4 }))
   console.log(`  MEASURED turning: at ${lo.v.toFixed(1)} m/s full lock turns ${deg(Math.abs(lo.h)).toFixed(0)}° in 2 s (radius ≈ ${(lo.v / Math.max(0.01, Math.abs(lo.h) / 2)).toFixed(1)} m); at ${hi.v.toFixed(0)} m/s a gentle input leans ${deg(Math.abs(hi.roll)).toFixed(0)}° with bars at ${deg(Math.abs(hi.delta)).toFixed(1)}°`)
-  // pitch response to REV taps
-  const resp = []
-  for (const n of [1, 2, 3]) {
-    const c = new BikeSim(sp)
-    let pk = 0
-    let tUp = 0
-    let tSettle = -1
-    run(c, 7, (t, bk) => {
-      pk = Math.max(pk, bk.pitch)
-      if (bk.pitch > 0.05) tUp = t
-      const k = Math.floor(t / 0.7)
-      return I({ throttle: k < n && t % 0.7 < 0.15 ? 1 : 0 })
-    })
-    tSettle = tUp
-    resp.push(`${n} tap${n > 1 ? 's' : ''}: peak ${deg(pk).toFixed(0)}° front down by ${tSettle.toFixed(1)} s`)
-  }
-  console.log(`  MEASURED pitch response (0.15 s taps, 0.7 s apart, from rest): ${resp.join(' · ')}`)
+  // the Wheelie button: how it lifts and where it holds
+  const wbtn = new BikeSim(sp)
+  let t20 = -1
+  let step = 0
+  let lp = 0
+  run(wbtn, 4, (t, bk) => {
+    step = Math.max(step, Math.abs(bk.pitch - lp))
+    lp = bk.pitch
+    if (t20 < 0 && bk.pitch > 0.35) t20 = t
+    return I({ wheelie: t >= 0.1 && t < 0.2 })
+  })
+  console.log(`  MEASURED Wheelie button from rest: 20° after ${(t20 - 0.1).toFixed(1)} s, settles at ${deg(wbtn.pitch).toFixed(0)}° (biggest step ${(step * 1000).toFixed(0)} mrad/frame); the tail bar touches the ground at ${deg(Math.atan2(sp.tailH, -sp.tailX)).toFixed(0)}°`)
   // pitch rate response and overbalance
   const ob = new BikeSim(sp)
   ob.v = 3

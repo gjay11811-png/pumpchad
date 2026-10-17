@@ -133,11 +133,12 @@ export class ScanBikeVisual implements BikeRig {
     // attachment points
     this.seat.position.set(R.seat[0], R.seat[1], 0)
     this.bodyG.add(this.seat)
-    this.gripL.position.set(R.gripL[0] - this.front.x, R.gripL[1] - this.front.y, R.gripL[2])
-    this.gripR.position.set(R.gripR[0] - this.front.x, R.gripR[1] - this.front.y, R.gripR[2])
+    // the bike's +z is its RIGHT-hand side (forward x up = +z), so the LEFT grip / peg sit at -z: mirror the rig's values
+    this.gripL.position.set(R.gripL[0] - this.front.x, R.gripL[1] - this.front.y, -R.gripL[2])
+    this.gripR.position.set(R.gripR[0] - this.front.x, R.gripR[1] - this.front.y, -R.gripR[2])
     this.frontPivot.add(this.gripL, this.gripR)
-    this.pegL.position.set(R.pegL[0], R.pegL[1], R.pegL[2])
-    this.pegR.position.set(R.pegR[0], R.pegR[1], R.pegR[2])
+    this.pegL.position.set(R.pegL[0], R.pegL[1], -R.pegL[2])
+    this.pegR.position.set(R.pegR[0], R.pegR[1], -R.pegR[2])
     this.bodyG.add(this.pegL, this.pegR)
     // a kickstand for when it is parked
     const sg = new THREE.CylinderGeometry(0.014, 0.014, 0.4, 6)
@@ -145,8 +146,8 @@ export class ScanBikeVisual implements BikeRig {
     const sm = new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.6, roughness: 0.5 })
     this.mats.push(sm)
     this.stand = new THREE.Mesh(sg, sm)
-    this.stand.position.set(-0.08, 0.17, 0.12)
-    this.stand.rotation.set(0.5, 0, -0.2)
+    this.stand.position.set(-0.08, 0.17, -0.12) // on the bike's left
+    this.stand.rotation.set(-0.5, 0, -0.2)
     this.bodyG.add(this.stand)
     this.stand.visible = false
   }
@@ -197,7 +198,7 @@ export class ScanBikeVisual implements BikeRig {
     this.setNear(true)
     this.stand.visible = false
     this.tilt.rotation.z = groundPitch
-    this.roll.rotation.x = -sim.roll
+    this.roll.rotation.x = sim.roll // + roll = leaning right; the bike's +z is its right, so a right lean is a POSITIVE rotation about +x
     this.pitchPivot.rotation.z = sim.pitch + sim.chassis
     this.pitchPivot.position.y = this.rear.y - sim.shockC * 0.7 - (sim.pitch > 0.05 ? 0 : sim.forkC * 0.25)
     this.frontPivot.quaternion.setFromAxisAngle(this.axis, -sim.delta)

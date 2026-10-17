@@ -27,6 +27,8 @@ export type RideInput = {
   steer: number // −1 (left) .. 1 (right)
   /** −1 (weight forward) .. 1 (weight back): an EXTRA push from a key (desktop C = forward). The rider shifts their own weight automatically from the throttle, brakes and pitch. */
   lean: number
+  /** the WHEELIE button (held state; a fresh press toggles wheelie mode: lift smoothly, press again to lower) */
+  wheelie?: boolean
   /** hold Reverse (only acts when nearly stopped) */
   reverse?: boolean
   /** the one-hand trick: only has an effect while the front wheel is already up; it moves the rider's hand, never the wheelie */
@@ -109,12 +111,15 @@ export class BikeSim {
   /** the front wheel touched down this step (rad/s impact), and the largest since the scene last cleared `events` */
   touchdown = 0
   events = { touchdown: 0, scrape: 0, spin: 0 }
-  /** REV (0..1, bounded): the rider's response to a fresh press of the gas. It rises while the button is fresh (0.1 s time constant, so a short tap gives a small REV) and fades back
-   *  over about half a second whether the gas stays down or not. While REV is up the rider's weight is further back (the centre of mass moves toward the rear contact by revShift × REV)
-   *  and the motor delivers up to revBoost more thrust (a throttle snap), limited by the tyre. Holding the gas is plain drive: it is only the FRESH press that REVs. */
+  /** WHEELIE MODE: pressed once it lifts the front smoothly to a balance region and holds it there with gameplay assistance (a pitch controller on top of the calculated physics, see the
+   *  assist block in `step`); Gas raises the angle, Brake lowers it, pressing again (or braking all the way down) ends it. `wm` (0..1) is how strongly the assistance is applied. */
+  wheelieOn = false
+  wm = 0
+  private prevWheelie = false
+  /** 0..1 rider posture shift (the wheelie mode's weight shift back), read by the pose and the sound */
   rev = 0
-  private pressT = 99
-  private prevCmd = 0
+  /** how far the tail bar is pressed into the ground (rad of pitch beyond the contact angle): the scrape depth */
+  tailPen = 0
   /** where the combined centre of mass is, forward of the rear contact (m), this step: the neutral position moved by the rider's posture */
   xEff = 0
   /** fixed physics step (s); 1/120 by default (see the 60 vs 120 Hz measurement in the plan) */
@@ -182,8 +187,9 @@ export class BikeSim {
     this.pitchRate = 0
     this.forkC = this.forkV = this.shockC = this.shockV = 0
     this.thr = this.brk = this.rbk = this.lean = 0
-    this.autoLean = this.spin = this.oneHand = this.oneHandTime = this.rev = this.prevCmd = 0
-    this.pressT = 99
+    this.autoLean = this.spin = this.oneHand = this.oneHandTime = this.rev = this.wm = 0
+    this.wheelieOn = false
+    this.prevWheelie = false
     this.xEff = this.spec.comD
     this.scrape = { part: null, side: 0, k: 0 }
     this.wheelieTime = this.wheelieDist = this.wheelieBest = 0
@@ -291,7 +297,7 @@ export class BikeSim {
 
     // ── rider inputs, smoothed so nothing jerks (a phone button is on/off; a key too) ──
     const ease = (cur: number, tgt: number, up: number, down: number) => cur + (tgt - cur) * Math.min(1, dt * (tgt > cur ? up : down))
-    this.thr = ease(this.thr, inp.throttle, 14, this.rev > 0.15 ? 3.2 : 8) // after a fresh press the motor spools down slowly (a tap keeps pushing for a moment)
+    this.thr = ease(this.thr, inp.throttle, 9, 9)
     this.brk = ease(this.brk, inp.brake, 10, 11)
     this.rbk = ease(this.rbk, inp.rear, 10, 11)
     // the rider's weight: pushed back by hard throttle (but only while the tyre is gripping, and less the faster the bike already goes), forward under braking and
@@ -301,27 +307,22 @@ export class BikeSim {
     const demand = s.accel * this.thr * (1 - Math.pow(spd, s.powerPow))
     const avail = mu0 * G * 1.05
     this.spin = Math.max(0, Math.min(1, demand / avail - 0.92)) * (this.v < s.maxSpeed * 0.7 ? 1 : 0.4)
-    // REV: a fresh press of the gas starts it, it rises with a 0.1 s time constant while the press is young (< 0.22 s) and decays back with a 0.45 s one; the rider's weight
-    // settles forward again whether the gas stays down or not, so holding the gas is plain drive and the nose is only raised by taps / fresh presses
-    if (inp.throttle > 0.6 && this.prevCmd <= 0.3) this.pressT = 0
-    else if (inp.throttle > 0.6) this.pressT += dt
-    else this.pressT = 99
-    this.prevCmd = inp.throttle
-    const revTarget = inp.throttle > 0.6 && this.pressT < 0.22 ? 1 : 0
-    this.rev += (revTarget - this.rev) * Math.min(1, dt / (revTarget > this.rev ? 0.06 : 0.45))
-    if (this.rev < 0.002) this.rev = 0
-    // THE RIDER'S POSTURE moves the combined centre of mass (m, forward of the rear contact):
-    //   back on a REV (and only while the tyre grips), forward under braking, forward as the nose climbs (hanging off the bars), forward on a plain launch (a crouch), forward when the nose is coming down
+    // WHEELIE MODE (the Wheelie button): a fresh press toggles it. Braking all the way down also ends it. Gas is ONLY drive: there are no gas-tap wheelies.
+    if (inp.wheelie && !this.prevWheelie && !this.crashed) this.wheelieOn = !this.wheelieOn
+    this.prevWheelie = !!inp.wheelie
+    if (this.wheelieOn && this.brk > 0.6 && this.pitch < 0.04) this.wheelieOn = false
+    this.wm += ((this.wheelieOn ? 1 : 0) - this.wm) * Math.min(1, dt / (this.wheelieOn ? 0.35 : 0.9))
+    if (this.wm < 0.002) this.wm = 0
+    this.rev = this.wm
+    // THE RIDER'S POSTURE moves the combined centre of mass (m, forward of the rear contact): back a little in wheelie mode, forward under braking, forward as the nose climbs (hanging off the
+    // bars), forward on a plain launch (a crouch), forward when the nose is coming down
     const hang = Math.max(0, Math.min(1, (this.pitch - 0.25) / 0.85))
-    const grip = Math.max(0, 1 - this.spin * 1.4)
-    let xEff = s.comD - s.revShift * this.rev * grip + s.hangShift * hang + s.brakeShift * Math.min(1, this.brk * 0.9 + this.rbk * 0.4)
-    xEff += s.launchShift * this.thr * (1 - this.rev) * (this.pitch < 0.3 ? 1 : 0)
+    let xEff = s.comD - s.revShift * this.wm + s.hangShift * hang + s.brakeShift * Math.min(1, this.brk * 0.9 + this.rbk * 0.4)
+    xEff += s.launchShift * this.thr * (1 - this.wm) * (this.pitch < 0.3 ? 1 : 0)
     if (this.pitch > 0.05 && this.pitchRate < -0.25) xEff += Math.min(0.12, -this.pitchRate * 0.06)
-    // a rider who KEEPS the gas down wants to pull away, not to wheelie: once a press is older than a tap the weight comes forward (0.15 s) and keeps the front on the road
-    if (inp.throttle > 0.6 && this.pressT > 0.18 && this.pressT < 90) xEff += s.holdShift * Math.min(1, (this.pressT - 0.18) / 0.1)
-    xEff -= inp.lean * 0.3 // the C key: an extra push of the weight (forward is lean −1)
+    xEff -= inp.lean * 0.3 // the C key: an extra push of the weight (forward is lean -1)
     this.xEff = xEff
-    // for the rider pose (the visual reads `lean`: 1 = weight right back, −1 = right forward)
+    // for the rider pose (the visual reads `lean`: 1 = weight right back, -1 = right forward)
     this.autoLean = ease(this.autoLean, Math.max(-1, Math.min(1, (s.comD - (xEff + inp.lean * 0.3)) / s.revShift)), 16, 12)
     this.lean = ease(this.lean, Math.max(-1, Math.min(1, (s.comD - xEff) / s.revShift)), 16, 12)
 
@@ -353,10 +354,8 @@ export class BikeSim {
         this.gear = 1
         this.rpm = Math.min(1, Math.max(0, this.v) / vmax)
       }
-      // motor thrust (up to +revBoost while REV is up: the throttle snap), limited by what the rear tyre can hold (mu g)
-      // with the front up the rider feathers the throttle (clutch slip): about half the thrust reaches the road, for the lift AND the speed alike (one effect, counted once, through `a`)
-      const feather = 1 - 0.55 * Math.max(0, Math.min(1, (this.pitch - 0.1) / 0.2))
-      a = Math.min(s.accel * this.thr * power * (1 + s.revBoost * this.rev) * feather, mu * G * 1.05)
+      // motor thrust, limited by what the rear tyre can hold (mu g)
+      a = Math.min(s.accel * this.thr * power, mu * G * 1.05)
       const bite = frontDown ? 1 : 0.2
       // braking force is limited by what the tyres can hold: no more than mu g in total (a little over for the contact patch's extra bite)
       const decel = Math.min((s.brakeFront * this.brk * bite + s.brakeRear * Math.max(this.rbk, this.brk * 0.35)) * mu, mu * G * 1.02)
@@ -421,8 +420,16 @@ export class BikeSim {
     const xC = Math.max(0.02, xEff)
     let alpha = (G * (s.comH * sin - xC * cos) + this.accelNow * (s.comH * cos + xC * sin)) / s.gyr2
     alpha -= s.pitchDamp * this.pitchRate // dissipation: rider, tyre and frame flex (an estimate)
-    // easing off the gas lowers the front gradually (the rider feathers it down); Brake takes that extra damping away
-    if (this.pitchRate < 0 && th > 0.02) alpha -= 3.0 * this.pitchRate * Math.max(0, 1 - this.brk * 1.4 - this.rbk) * (this.rev < 0.2 ? 1 : 0)
+    // ── GAMEPLAY ASSISTANCE (deliberate, not physics): the wheelie mode is a pitch controller added ON TOP of the calculated torques above. It aims at a balance-region angle that
+    //    the rider moves with the controls: Gas raises it (up to the rear-fender scrape), Brake lowers it (all the way to the ground), and it is a stiff-enough spring-damper (kp above the
+    //    gravity slope g h / gyr2) that small corrections hold the wheelie, the angle cannot run away backwards, and the front never has to be 'caught'. Its strength fades in over 0.35 s
+    //    so the lift is smooth, and fades out over 0.9 s when the mode ends so the front settles instead of dropping. It is limited (+-9 rad/s²): braking hard still wins.
+    if (this.wm > 0.001) {
+      const gasUp = Math.max(0, Math.min(1, (this.thr - 0.15) / 0.7))
+      const target = this.wheelieOn ? Math.max(0, 0.6 + 0.45 * gasUp - 1.1 * Math.max(this.brk, this.rbk * 0.8)) : 0
+      const kp = this.wheelieOn ? s.assistKp : s.assistKp * 0.3 // ending the mode lowers the front gently
+      alpha += this.wm * Math.max(-9, Math.min(9, kp * (target - th) - s.assistKd * this.pitchRate))
+    }
     // OPTIONAL assist (a setting): near the balance point it only DAMPS the pitch rate. It never pulls toward the balance point, so a wheelie can drift out of it and be lost.
     const A = this.assist * s.assistGain
     if (A > 0 && th > 0.1) {
@@ -435,9 +442,24 @@ export class BikeSim {
       this.pitchRate = 0
     } else {
       this.pitchRate += alpha * dt
-      this.pitchRate = Math.max(-2.2, Math.min(1.8, this.pitchRate)) // never an abrupt rotation, up or down
+      this.pitchRate = Math.max(-1.1, Math.min(1.8, this.pitchRate)) // never an abrupt rotation, up or down
       if (this.pitchRate < 0 && th < 0.24) this.pitchRate = Math.max(this.pitchRate, -(th + 0.012) * 6.5) // a soft touchdown
       this.pitch += this.pitchRate * dt
+    }
+    // ── THE REAR SCRAPE POINT (a discreet protective bar at the tail, estimated geometry): the contact is computed against the ground from the tail point's height as the body
+    // pitches about the rear contact: height(th) = tailX sin(th) + tailH cos(th) reaches 0 at th = atan(tailH / -tailX). Past that the ground SUPPORTS the tail (a stiff spring and a
+    // damper, so it cannot pass through and does not bounce), friction scrubs speed, and the rider stays on: a scrape is not a crash. Brake (or easing the Gas) brings it off again.
+    const thS = Math.atan2(s.tailH, -s.tailX)
+    this.tailPen = 0
+    if (this.pitch > thS) {
+      const pen = this.pitch - thS
+      this.tailPen = pen
+      this.pitchRate -= (700 * pen + 55 * Math.max(0, this.pitchRate)) * dt
+      if (this.pitch > thS + 0.04) {
+        this.pitch = thS + 0.04
+        this.pitchRate = Math.min(this.pitchRate, 0)
+      }
+      this.v *= Math.exp(-dt * 0.55 * Math.min(1, 0.25 + pen * 25)) // friction on the tail bar
     }
     if (this.pitch <= 0) {
       if (this.pitchRate < -0.05) {
@@ -485,9 +507,9 @@ export class BikeSim {
       part = 'peg'
       k = Math.min(1, (leanA - s.pegLean) / 0.1)
       side = Math.sign(this.roll)
-    } else if (this.pitch > s.maxPitch * 0.8) {
+    } else if (this.tailPen > 0 || this.pitch > thS - 0.01) {
       part = 'tail'
-      k = Math.min(1, (this.pitch - s.maxPitch * 0.8) / (s.maxPitch * 0.12))
+      k = Math.min(1, 0.3 + this.tailPen * 20)
     } else if ((this.forkC > s.forkTravel * 1.02 || this.shockC > s.shockTravel * 1.02) && av > 3) {
       part = 'bash'
       k = 0.6

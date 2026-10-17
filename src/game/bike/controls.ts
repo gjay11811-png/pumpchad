@@ -4,17 +4,22 @@ import type { RideInput } from './sim'
 /**
  * RIDE CONTROLS — one place that turns every input device into the riding model's `RideInput`.
  *
- *   DESKTOP   W / ↑ gas · S / ↓ brake · A D / ← → steer · SPACE rear brake · R reverse (when nearly stopped) · SHIFT one-hand trick (only acts while the front wheel is up) · C extra weight forward · E dismount
+ *   DESKTOP   W / ↑ gas · S / ↓ brake · A D / ← → steer · SPACE rear brake · R reverse (when nearly stopped) · SHIFT wheelie (press once: lift; press again: lower) · F one-hand trick (only acts while the front wheel is up) · C extra weight forward · E dismount
  *   TOUCH     LEFT: the floating virtual joystick (sideways only: steering; its vertical axis is ignored so a thumb drifting up never means gas). RIGHT: big GAS and BRAKE. Small extras that appear only when they make sense: REVERSE (nearly stopped), ONE HAND (already in a wheelie).
- *             There is NO lift / REV control on any device: the front comes up from the gas, the bike's torque and the rider's weight shifting by themselves.
+ *             WHEELIE button (Shift): press once to lift smoothly into a held wheelie; Gas then raises it (toward a rear-fender scrape), Brake lowers it; there are no gas-tap wheelies.
  *             Gas and Brake are their own elements with their own pointer capture and the joystick is a separate touch, so gas + steering + brake can all be held together; every one is released on pointer-up, cancel,
  *             lost capture, blur, visibility change and orientation change, so nothing can stick on.
  *
  * Buttons write into `rideBtn`; keys are read from window listeners that exist only while riding.
  */
-export const rideBtn = { throttle: false, brake: false, reverse: false, trick: false }
+export const rideBtn = { throttle: false, brake: false, reverse: false, trick: false, wheelie: false }
 export type RideBtn = keyof typeof rideBtn
 
+/** a Wheelie press is remembered until the riding model has read it once, so even a very short tap (a frame or less) is never lost */
+let wheelieLatch = false
+export function latchWheelie() {
+  wheelieLatch = true
+}
 let getOffRequested = false
 /** the on-screen GET OFF button */
 export function requestGetOff() {
@@ -26,7 +31,7 @@ export function takeGetOff() {
   return g
 }
 export function releaseAllRideButtons() {
-  rideBtn.throttle = rideBtn.brake = rideBtn.reverse = rideBtn.trick = false
+  rideBtn.throttle = rideBtn.brake = rideBtn.reverse = rideBtn.trick = rideBtn.wheelie = false
   getOffRequested = false
   // the on-screen buttons un-press their visuals too
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('chad-ride-release'))
@@ -40,6 +45,7 @@ export class RideControls {
   private down = (e: KeyboardEvent) => {
     const t = e.target as HTMLElement | null
     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
+    if (e.key === 'Shift' && !e.repeat) wheelieLatch = true
     this.keys.add(e.key.toLowerCase())
   }
   private up = (e: KeyboardEvent) => this.keys.delete(e.key.toLowerCase())
@@ -88,6 +94,8 @@ export class RideControls {
     if (rideBtn.brake) brake = 1
     const rear = k.has(' ') ? 1 : 0
     const fwd = k.has('c') || k.has('control') ? 1 : 0
-    return { throttle, brake, rear, steer, lean: -fwd, reverse: k.has('r') || rideBtn.reverse, trick: k.has('shift') || rideBtn.trick }
+    const wheelieNow = k.has('shift') || rideBtn.wheelie || wheelieLatch
+    wheelieLatch = false
+    return { throttle, brake, rear, steer, lean: -fwd, reverse: k.has('r') || rideBtn.reverse, trick: k.has('f') || rideBtn.trick, wheelie: wheelieNow }
   }
 }

@@ -143,11 +143,12 @@ export class ModelBikeVisual implements BikeRig {
     // 4. attachment points (in the node each rides with)
     this.seat.position.set(L.seat[0], L.seat[1], 0)
     this.bodyG.add(this.seat)
-    for (const [o, s] of [[this.gripL, 1], [this.gripR, -1]] as const) {
+    // the bike's +z is its RIGHT-hand side (forward x up = +z): the LEFT grip / peg are at -z
+    for (const [o, s] of [[this.gripL, -1], [this.gripR, 1]] as const) {
       o.position.set(L.grips[0] - this.front.x, L.grips[1] - this.front.y, s * L.grips[2])
       this.frontPivot.add(o)
     }
-    for (const [o, s] of [[this.pegL, 1], [this.pegR, -1]] as const) {
+    for (const [o, s] of [[this.pegL, -1], [this.pegR, 1]] as const) {
       o.position.set(L.pegs[0], L.pegs[1], s * L.pegs[2])
       this.bodyG.add(o)
     }
@@ -155,8 +156,8 @@ export class ModelBikeVisual implements BikeRig {
     const sg = new THREE.CylinderGeometry(0.014, 0.014, 0.4, 6)
     this.geos.push(sg)
     this.stand = new THREE.Mesh(sg, M.steel)
-    this.stand.position.set(-0.08, 0.17, 0.12)
-    this.stand.rotation.set(0.5, 0, -0.2)
+    this.stand.position.set(-0.08, 0.17, -0.12) // on the bike's left
+    this.stand.rotation.set(-0.5, 0, -0.2)
     this.bodyG.add(this.stand)
     this.stand.visible = false
   }
@@ -176,7 +177,7 @@ export class ModelBikeVisual implements BikeRig {
   apply(sim: BikeView, groundPitch = 0) {
     this.stand.visible = false
     this.tilt.rotation.z = groundPitch
-    this.roll.rotation.x = -sim.roll // + roll = leaning right; the bike's +z is its left, so right-lean is a negative rotation about +x
+    this.roll.rotation.x = sim.roll // + roll = leaning right; the bike's +z is its RIGHT, so a right lean is a POSITIVE rotation about +x
     this.pitchPivot.rotation.z = sim.pitch + sim.chassis
     // the body settles on the rear shock (the wheel stays put); the unsprung front sinks into the fork travel
     this.pitchPivot.position.y = this.rear.y - sim.shockC * 0.7 - (sim.pitch > 0.05 ? 0 : sim.forkC * 0.25)

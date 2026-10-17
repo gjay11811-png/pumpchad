@@ -55,19 +55,26 @@ check((await until((s) => s.riding && s.phase === 'riding', 4)).ok, 'E mounts: t
 await set({ x: 0, z: 14, h: 0, v: 0 })
 await adv(0.5)
 
-/* 2a. a fresh press (tap) of the gas lifts the front a little from a standstill; HOLDING the gas just pulls away */
+/* 2a. Gas taps never lift the front (no gas-tap wheelies); the Wheelie key (Shift) does */
 let tapPeak = 0
-for (let k = 0; k < 3; k++) {
+for (let k = 0; k < 4; k++) {
   await down('w')
   await adv(0.15)
   await up('w')
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 4; i++) {
     await adv(0.1)
     tapPeak = Math.max(tapPeak, (await B()).pitch)
   }
 }
-check(tapPeak > 0.1 && !(await B()).crashed, `taps of the gas lift the front from a standstill (peak ${deg(tapPeak)}°)`)
-await until((s) => s.pitch < 0.02, 8, 0.1)
+check(tapPeak === 0 && !(await B()).crashed, `Gas taps never lift the front (peak ${deg(tapPeak)}°)`)
+await set({ x: 0, z: 14, h: 0, v: 0 })
+await adv(0.4)
+await p.keyboard.press('Shift')
+const lifted = await until((s) => s.pitch > 0.25, 5, 0.1)
+check(lifted.ok && (await B()).wheelieOn, `pressing Wheelie (Shift) once from a standstill lifts the front (${deg(lifted.s.pitch)}°)`)
+await p.keyboard.press('Shift')
+const lowered0 = await until((s) => s.pitch < 0.03, 8, 0.1)
+check(lowered0.ok && !(await B()).wheelieOn, 'pressing Wheelie again lowers it')
 await set({ x: 0, z: 14, h: 0, v: 0 })
 await adv(0.4)
 /* 2b. holding the gas pulls away normally (the front stays on the road after a tiny hop): camera comes round behind */
@@ -118,107 +125,105 @@ const rev = await until((s) => s.v < -0.8, 6)
 check(rev.s.v < -0.6, `holding S at a standstill reverses (${rev.s.v.toFixed(2)} m/s)`)
 await up('s')
 
-/* 5. a held wheelie: a small reactive player on the keys (labelled: the "player" is a script, so this shows it is possible, not how it feels) */
-await set({ x: 0, z: 10, h: 0, v: 7 })
 const keys = { w: false, s: false, ' ': false }
 const press = async (k, on) => {
   if (keys[k] === on) return
   keys[k] = on
   await (on ? down(k) : up(k))
 }
-/** a small reactive rider: a fresh press (0.15 s tap) of the gas lifts / holds the front, easing off lets it settle, Brake brings it down if it climbs too far */
-let tapPhase = -1
-let tapGap = 0
-const player = async (s) => {
-  const predicted = s.pitch + s.pitchRate * 0.25
-  if (tapPhase >= 0) {
-    tapPhase++
-    if (tapPhase >= 3) {
-      await press('w', false)
-      tapPhase = -1
-      tapGap = 0
-    }
-  } else {
-    tapGap++
-    if (tapGap >= 7 && predicted < 0.32 && s.pitchRate < 0.35 && s.v < 22) {
-      await press('w', true)
-      tapPhase = 0
-    }
-  }
-  await press('s', predicted > 0.55)
-}
-await set({ x: 0, z: 10, h: 0, v: 4 })
-let held = 0
+/* 5. a wheelie held for ten seconds with modest corrections (a small script on the real keys: a little Gas when it sinks, a touch of Brake when it climbs) */
+await set({ x: 0, z: 10, h: 0, v: 3 })
+await adv(0.3)
+await p.keyboard.press('Shift')
+let upTime = 0
 let maxP = 0
 let crashed = false
-for (let t = 0; t < 20; t += 0.05) {
+let minAfter = 9
+for (let t = 0; t < 10.5; t += 0.1) {
   const s = await B()
-  if (!s.riding || s.crashed) {
-    crashed = !!s.crashed
+  if (s.crashed) {
+    crashed = true
     break
   }
   maxP = Math.max(maxP, s.pitch)
-  if (s.pitch > 0.3) held = Math.max(held, s.wheelieTime)
-  if (s.z > 70) await set({ x: 0, z: 10 })
-  await player(s)
-  if (held > 4) break
-  await adv(0.05)
+  if (s.pitch > 0.17) upTime += 0.1
+  if (t > 1) minAfter = Math.min(minAfter, s.pitch)
+  if (s.z > 66) await set({ x: 0, z: 10, v: Math.min(s.v, 6) })
+  await press('w', s.pitch < 0.4 && t > 0.8 && s.v < 9)
+  await press('s', s.pitch > 0.75)
+  await adv(0.1)
 }
-check(maxP > 0.25 && !crashed, `taps of the gas lift the front wheel (peak ${deg(maxP)}°) without a crash`)
-check(held > 2.5, `the wheelie can be held with taps and corrections (${held.toFixed(1)} s up)`)
+await press('w', false)
+await press('s', false)
+check(!crashed && upTime > 9.5 && maxP < 1.0 && minAfter > 0.1, `a wheelie held for 10 s with modest corrections (${upTime.toFixed(1)} s up, peak ${deg(maxP)}°, no fall)`)
 
-/* 5b. a gentle steer in the wheelie */
-if ((await B()).z > 55) await set({ x: 0, z: 10 })
-let hd = (await B()).heading
-if ((await B()).pitch > 0.2) {
-  await down('d')
+/* 5b. steering in the wheelie, both ways */
+for (const [key, sign] of [['d', -1], ['a', 1]]) {
+  if ((await B()).z > 55) await set({ x: 0, z: 10, v: 4 })
+  const hd = (await B()).heading
+  await down(key)
+  let pmin = 9
   for (let i = 0; i < 12; i++) {
     const s = await B()
-    if (s.z > 70) await set({ x: 0, z: 10 })
-    await player(s)
-    await adv(0.05)
+    pmin = Math.min(pmin, s.pitch)
+    if (s.z > 66) await set({ x: 0, z: 10, v: 4 })
+    await press('w', s.pitch < 0.4 && s.v < 7)
+    await adv(0.1)
   }
-  await up('d')
-  console.log('   steer', JSON.stringify(await B()).slice(0, 260))
-  check(Math.abs((await B()).heading - hd) > 0.02 && !(await B()).crashed, `a gentle steer works mid-wheelie (heading ${((await B()).heading - hd).toFixed(2)} rad)`)
+  await up(key)
+  const h1 = (await B()).heading
+  check(Math.sign(h1 - hd) === sign && Math.abs(h1 - hd) > 0.05 && !(await B()).crashed && pmin > 0.1, `steering ${key === 'd' ? 'right' : 'left'} in a wheelie turns that way (${(h1 - hd).toFixed(2)} rad) with the front up (min ${deg(pmin)}°)`)
 }
 await press('w', false)
-await press('s', false)
-await press(' ', false)
 
-/* 6. Brake lowers it; the touchdown is soft */
-await press('w', false)
-await press('s', false)
+/* 6. Gas raises it into a rear-fender scrape, a short Brake press brings it back; Brake lowers it; the touchdown is soft */
 await set({ x: 0, z: 10, h: 0, v: 4 })
-await adv(0.3)
-for (let k = 0; k < 5 && (await B()).pitch < 0.3; k++) {
-  await down('w')
-  await adv(0.15)
-  await up('w')
-  await adv(0.3)
+await adv(0.5)
+if (!(await B()).wheelieOn) await p.keyboard.press('Shift')
+await adv(1.5)
+await down('w')
+let scr = false
+for (let i = 0; i < 60 && !scr; i++) {
+  const s = await B()
+  if (s.z > 66) await set({ x: 0, z: 10, v: 5 })
+  if (s.scrape && s.scrape.part === 'tail') scr = true
+  await adv(0.1)
 }
-const before = await B()
+check(scr, 'holding Gas in a wheelie leans it back until the rear fender scrapes')
+let scrapeT = 0
+for (let i = 0; i < 15; i++) {
+  const s = await B()
+  if (s.z > 66) await set({ x: 0, z: 10, v: 5 })
+  if (s.scrape && s.scrape.part === 'tail') scrapeT += 0.1
+  await adv(0.1)
+}
+check(scrapeT > 1.0 && !(await B()).crashed, `the scrape is sustained (${scrapeT.toFixed(1)} s) without a crash`)
+await up('w')
+await down('s')
+await adv(0.3)
+await up('s')
+const off = await until((s) => !(s.scrape && s.scrape.part === 'tail'), 3, 0.1)
+check(off.ok && !(await B()).crashed && (await B()).wheelieOn, `a short Brake press brings it off the scrape back into the wheelie (${deg((await B()).pitch)}°)`)
 await down('s')
 let td = 0
 const lowered = await until((s) => ((td = Math.max(td, s.touchdown)), s.pitch < 0.02), 8, 0.05)
 await up('s')
-check(before.pitch > 0.2 && lowered.ok, `Brake brings the front wheel down (from ${deg(before.pitch)}°)`)
+check(lowered.ok && !(await B()).crashed, 'Brake lowers the wheelie to the ground')
 check(td < 2.6, `smooth touchdown (impact ${td.toFixed(2)} rad/s); fork compressed ${lowered.s.forkC.toFixed(3)} m`)
+await until((s) => s.v < 1.5, 12)
+await set({ x: 0, z: 10, h: 0, v: 0 })
+await adv(0.5)
 
-/* 7. FULL throttle held from a standstill: a small hop of the nose, then it pulls away with the front on the road (no lock, no loop-out); easing off after taps settles the front */
+/* 7. FULL throttle held from a standstill: plain acceleration, front on the road, no hop, no lock */
 await set({ x: 0, z: 10, h: 0, v: 0 })
 await down('w')
 let maxHold = 0
-let crashed7 = false
 for (let t = 0; t < 3; t += 0.1) {
-  const s0 = await B()
-  if (s0.crashed) crashed7 = true
-  maxHold = Math.max(maxHold, s0.pitch)
+  maxHold = Math.max(maxHold, (await B()).pitch)
   await adv(0.1)
 }
-const lateP = (await B()).pitch
 await up('w')
-check(!crashed7 && maxHold < 0.25 && lateP < 0.03, `holding full throttle is plain acceleration: front hop ${deg(maxHold)}°, front down after 3 s (${deg(lateP)}°), no loop-out`)
+check(maxHold === 0 && !(await B()).crashed, `holding full throttle is plain acceleration: the front never leaves the road (${deg(maxHold)}°)`)
 await until((s) => s.v < 1.5 && s.pitch < 0.02, 12)
 
 /* 8. a wall: a slow bump just stops you, a fast one is a crash */

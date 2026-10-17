@@ -35,6 +35,7 @@ type Active = {
   spec: BikeSpec
   phase: 'mounting' | 'riding' | 'dismounting' | 'crashed'
   fit?: { handL: number; handR: number; headBars: number; lean: number }
+  rigDbg?: Record<string, number[] | null>
   t: number
   from: THREE.Vector3
   gp: number
@@ -77,7 +78,7 @@ const LESSONS = [
   { text: 'Accelerate: hold W (or Gas) up to about 45 km/h', done: (a: Active) => Math.abs(a.sim.v) > 12 },
   { text: 'Brake: slow right down with S (the Brake button)', done: (a: Active) => a.school.t > 0.4 && Math.abs(a.sim.v) < 1.2 },
   { text: 'Turn: steer with A / D (the stick) through a quarter turn', done: (a: Active) => Math.abs(angleDiff(a.sim.h, a.school.t)) > 1.2 },
-  { text: 'Front-wheel lift: tap the Gas (a short fresh press, two or three in a row); the front rises a little each time', done: (a: Active) => a.sim.pitch > 0.17 },
+  { text: 'Front-wheel lift: press WHEELIE (Shift) once; Gas raises it, Brake lowers it', done: (a: Active) => a.sim.pitch > 0.17 },
   { text: 'Recover: ease off the Gas and touch the Brake to bring the front down', done: (a: Active) => a.school.t > 0.5 && a.sim.pitch < 0.02 },
 ]
 const angleDiff = (a: number, b: number) => Math.atan2(Math.sin(a - b), Math.cos(a - b))
@@ -465,7 +466,7 @@ export class RideSystem {
     else target.stand = Math.min(0.35, bumpy * 0.5) * (sim.wheelie ? 0 : 1)
     target.lean = 0.34 + target.stand * 0.2 - sim.accelNow * 0.011 + Math.max(0, -sim.accelNow) * 0.022 - sim.pitch * 0.55 - sim.lean * 0.22
     target.lean = THREE.MathUtils.clamp(target.lean, -0.3, 0.72)
-    target.shiftZ = -sim.roll * 0.2 // the rider's weight goes to the inside of the turn
+    target.shiftZ = sim.roll * 0.2 // the rider's weight goes to the inside of the turn (+z is the bike's right, + roll leans right)
     const kp = 1 - Math.exp(-dt * 9)
     const pz = a.pose
     pz.stand += (target.stand - pz.stand) * kp
@@ -502,7 +503,7 @@ export class RideSystem {
     }
     // pose, then fit the torso: hands must reach the grips (lean forward until they do) while the head (PumpChad's pumpkin is big) stays clear of the bars (lean back if not)
     let lean = lean0
-    let slide = 0 // the rider scoots forward on the saddle when the bars are a long reach away
+    let slide = -0.1 // the rider sits well back on the saddle (hips 10 cm behind the seat's middle, never beyond it); the torso leans to reach the bars rather than the hips sliding forward
     const palmOf = (player as unknown as { palm?: (s: 'l' | 'r', o?: THREE.Vector3) => THREE.Vector3 }).palm
     for (let i = 0; i < 9; i++) {
       // ride() puts the pelvis 0.13 above the point it is given; `hip` already includes that, so hand it the saddle surface
@@ -519,7 +520,7 @@ export class RideSystem {
       let next = lean
       if (clear < need) next -= (need - clear) * 1.1
       else if (reach > 0.03 && lean < 0.9) next += Math.min(0.25, reach * 1.2)
-      else if (reach > 0.03 && slide < 0.14) {
+      else if (reach > 0.03 && slide < -0.04) {
         slide += Math.min(0.07, reach)
         next = lean + 0.0001
       } else break
@@ -535,6 +536,11 @@ export class RideSystem {
     if (pl) {
       const head = player.headCenter?.(new V3())
       const barMid = gl.clone().add(gr).multiplyScalar(0.5)
+      const wp = (n: string) => {
+        const o = (player.root as THREE.Object3D).getObjectByName(n)
+        return o ? o.getWorldPosition(new V3()).toArray().map((v) => +v.toFixed(2)) : null
+      }
+      a.rigDbg = { gripL: gl.toArray().map((v) => +v.toFixed(2)), gripR: gr.toArray().map((v) => +v.toFixed(2)), shL: wp('upperarm_l'), shR: wp('upperarm_r'), elL: wp('lowerarm_l'), elR: wp('lowerarm_r'), pelvis: wp('pelvis'), seat: seatW.toArray().map((v) => +v.toFixed(2)), pegL: pegL.toArray().map((v) => +v.toFixed(2)), pegR: pegR.toArray().map((v) => +v.toFixed(2)) }
       a.fit = { handL: +pl.call(player, 'l', new V3()).distanceTo(gl).toFixed(3), handR: +pl.call(player, 'r', new V3()).distanceTo(gr).toFixed(3), headBars: head ? +head.distanceTo(barMid).toFixed(3) : -1, lean: +lean.toFixed(3) }
     }
   }
@@ -552,6 +558,7 @@ export class RideSystem {
           name: a.spec.name,
           kmh: Math.round(Math.abs(a.sim.v) * 3.6),
           up: a.sim.wheelie,
+          wheelieOn: a.sim.wheelieOn,
           slow: Math.abs(a.sim.v) < 0.8 && !a.sim.wheelie,
           view: this.settings.view,
           practice: this.last ? { name: this.last.name, line: this.last.line, score: this.last.score, best: this.judge.best(CHALLENGES.find((c) => c.name === this.last!.name)!.id) } : this.settings.school ? this.judge.card() : null,
@@ -587,6 +594,9 @@ export class RideSystem {
       balance: +s.balance.toFixed(3), // (QA only; never shown to the player)
       spin: +s.spin.toFixed(2),
       oneHand: +s.oneHand.toFixed(2),
+      wheelieOn: s.wheelieOn,
+      wm: +s.wm.toFixed(2),
+      tailPen: +s.tailPen.toFixed(3),
       scrape: { ...s.scrape },
       autoLean: +s.autoLean.toFixed(2),
       judge: { active: this.judge.active, results: this.judge.results.slice(-6), bests: this.judge.bests() },
@@ -604,6 +614,7 @@ export class RideSystem {
       rpm: +s.rpm.toFixed(2),
       pose: { ...a.pose },
       fit: a.fit ?? null,
+      rig: a.rigDbg ?? null,
       school: a.school.step,
       assist: this.settings.assist,
       buttons: { ...rideBtn },

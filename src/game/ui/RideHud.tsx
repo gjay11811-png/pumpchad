@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
-import { rideBtn, releaseAllRideButtons, requestGetOff, type RideBtn } from '../bike/controls'
+import { latchWheelie, rideBtn, releaseAllRideButtons, requestGetOff, type RideBtn } from '../bike/controls'
 
 type Practice = { name: string; line: string; score: number | null; best: number | null } | null
 type School = { step: number; total: number; text: string; done: boolean } | null
 type Detail =
   | { riding: false }
-  | { riding: true; name: string; kmh: number; up: boolean; slow: boolean; view: 'chase' | 'side'; practice: Practice; wheelieTime: number; wheelieDist: number; best: { t: number; d: number }; phase: string; note: string; assist: number; school: School }
+  | { riding: true; name: string; kmh: number; up: boolean; wheelieOn: boolean; slow: boolean; view: 'chase' | 'side'; practice: Practice; wheelieTime: number; wheelieDist: number; best: { t: number; d: number }; phase: string; note: string; assist: number; school: School }
 
 const set = (d: { assist?: number; school?: boolean; view?: 'chase' | 'side' }) => window.dispatchEvent(new CustomEvent('chad-ride-set', { detail: d }))
 
@@ -14,7 +14,7 @@ const set = (d: { assist?: number; school?: boolean; view?: 'chase' | 'side' }) 
  *   · while mounted the big profile / objective panels fold away (CSS below) and a one-line speed pill takes their place;
  *   · the optional lessons, the wheelie-assist setting and the key hints live behind ONE small corner button; a second small button swaps the camera (behind / side-on);
  *   · on a phone: LEFT thumb = the floating joystick (steering), RIGHT thumb = a big GAS and a BRAKE. Nothing else is always on screen. REVERSE appears only when the bike is nearly stopped,
- *     ONE HAND only while the front wheel is already up (it changes the rider's pose; it never starts or holds the wheelie). There is no REV / lift button: the gas lifts the front.
+ *     a WHEELIE button above Gas (press once to lift smoothly, Gas raises it, Brake lowers it, press again to lower), ONE HAND only while the front wheel is already up. No gas-tap wheelies.
  *     Every button is its own element with its own pointer capture, so any combination can be held at once and no finger cancels another; each releases on pointer-up, cancel and
  *     lost capture (and everything is released on pause, focus loss, orientation change, dismount and reset).
  */
@@ -54,6 +54,47 @@ function Key({ k, label, sub, className, testid }: { k: RideBtn; label: string; 
     >
       <span className="text-[13px]">{label}</span>
       {sub && <span className="mt-0.5 font-mono text-[8px] tracking-wider opacity-70">{sub}</span>}
+    </button>
+  )
+}
+
+/** the WHEELIE button: a fresh press toggles wheelie mode in the riding model (lift smoothly; press again to lower). It lights while the mode is on. */
+function WheelieKey({ on }: { on: boolean }) {
+  const [down, setDown] = useState(false)
+  const off = () => {
+    rideBtn.wheelie = false
+    setDown(false)
+  }
+  useEffect(() => {
+    const f = () => setDown(rideBtn.wheelie)
+    window.addEventListener('chad-ride-release', f)
+    return () => window.removeEventListener('chad-ride-release', f)
+  }, [])
+  return (
+    <button
+      type="button"
+      data-testid="ride-wheelie-btn"
+      aria-label="Wheelie"
+      aria-pressed={on}
+      onPointerDown={(e) => {
+        e.preventDefault()
+        try {
+          e.currentTarget.setPointerCapture(e.pointerId)
+        } catch {
+          /* synthetic pointers can't be captured */
+        }
+        rideBtn.wheelie = true
+        latchWheelie()
+        setDown(true)
+      }}
+      onPointerUp={off}
+      onPointerCancel={off}
+      onLostPointerCapture={off}
+      onContextMenu={(e) => e.preventDefault()}
+      className={`pointer-events-auto flex h-12 w-[6.2rem] select-none items-center justify-center rounded-2xl border font-display text-[13px] uppercase tracking-wide backdrop-blur-sm transition-transform ${down ? 'scale-95' : ''} ${on ? 'border-pump bg-pump text-ink' : 'border-bone/30 bg-ink/60 text-bone'}`}
+      style={{ touchAction: 'none', WebkitTouchCallout: 'none' }}
+    >
+      Wheelie
     </button>
   )
 }
@@ -157,13 +198,13 @@ export function RideHud({ touch }: { touch: boolean }) {
             ))}
           </div>
           <p className="mt-1 text-[9px] leading-tight text-bone/60">Softens the wobble near the balance point. It never holds a wheelie for you.</p>
-          {!touch && <p className="mt-2 text-[10px] leading-snug text-bone/70">W gas · S brake · A D steer · R reverse (nearly stopped) · Space rear brake · Shift one hand (in a wheelie) · E get off</p>}
+          {!touch && <p className="mt-2 text-[10px] leading-snug text-bone/70">W gas · S brake · A D steer · Shift wheelie (press again to lower) · F one hand · R reverse (nearly stopped) · Space rear brake · E get off</p>}
         </div>
       )}
 
       {!touch && (
         <p className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-ink/55 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-moon/90" data-testid="ride-keys">
-          W gas · S brake · A D steer · Shift one hand (in a wheelie) · E get off
+          W gas · S brake · A D steer · Shift wheelie · E get off
         </p>
       )}
 
@@ -179,6 +220,7 @@ export function RideHud({ touch }: { touch: boolean }) {
           </button>
           <div className="pointer-events-none absolute bottom-[max(14px,env(safe-area-inset-bottom))] right-[max(14px,env(safe-area-inset-right))] flex flex-col items-end gap-2" data-testid="ride-buttons">
             {d.up && <Key k="trick" label="One hand" testid="ride-trick" className="h-11 w-[5.6rem] text-[12px]" />}
+            <WheelieKey on={d.wheelieOn} />
             {d.slow && !d.up && <Key k="reverse" label="Reverse" testid="ride-reverse" className="h-9 w-[5.2rem] text-[10px] opacity-80" />}
             <div className="flex items-end gap-3">
               <Key k="brake" label="Brake" testid="ride-brake" className="h-[4.6rem] w-[4.6rem] text-[14px]" />

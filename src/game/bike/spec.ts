@@ -62,6 +62,12 @@ export type BikeSpec = {
   holdShift: number
   /** extra thrust fraction at full REV (a throttle snap) */
   revBoost: number
+  /** the rear scrape point (a protective bar at the tail), relative to the rear contact: x behind (negative) and height (m): ESTIMATED geometry */
+  tailX: number
+  tailH: number
+  /** gameplay assistance (not physics): the wheelie-mode pitch controller's stiffness and damping */
+  assistKp: number
+  assistKd: number
   /** values that are estimates, not measurements */
   est: string[]
 }
@@ -123,13 +129,17 @@ export const SURRON: BikeSpec = {
   massRider: MX4.massRider,
   kGyr: MX4.kGyr,
   thrustMax: MX4.thrustMax,
-  revShift: 0.52,
+  revShift: 0.14,
   hangShift: 0.5,
   brakeShift: 0.35,
   launchShift: 0.12,
+  tailX: -0.42,
+  tailH: 0.6,
+  assistKp: 14,
+  assistKd: 5,
   holdShift: 0.8,
-  revBoost: 0.2,
-  est: ['massBike', 'massRider', 'comD', 'comH', 'kGyr', 'thrustMax', 'brakeFront', 'brakeRear', 'gripLat', 'forkTravel', 'shockTravel', 'pitchDamp'],
+  revBoost: 0,
+  est: ['massBike', 'massRider', 'comD', 'comH', 'kGyr', 'thrustMax', 'brakeFront', 'brakeRear', 'gripLat', 'forkTravel', 'shockTravel', 'pitchDamp', 'tailX', 'tailH', 'assistKp (gameplay)', 'assistKd (gameplay)'],
 }
 
 /** the street bike: heavier, longer, faster, a lower centre of mass and a lazier front end — a wheelie needs real power and a proper REV */
@@ -162,11 +172,15 @@ export const STREET: BikeSpec = {
   massRider: ROAD.massRider,
   kGyr: ROAD.kGyr,
   thrustMax: ROAD.thrustMax,
-  revShift: 0.7,
+  revShift: 0.14,
   hangShift: 0.55,
   brakeShift: 0.4,
   launchShift: 0.14,
+  tailX: -0.5,
+  tailH: 0.62,
+  assistKp: 14,
+  assistKd: 5,
   holdShift: 0.85,
-  revBoost: 0.2,
-  est: ['massBike', 'massRider', 'comD', 'comH', 'kGyr', 'thrustMax', 'brakeFront', 'brakeRear', 'gripLat', 'forkTravel', 'shockTravel', 'pitchDamp'],
+  revBoost: 0,
+  est: ['massBike', 'massRider', 'comD', 'comH', 'kGyr', 'thrustMax', 'brakeFront', 'brakeRear', 'gripLat', 'forkTravel', 'shockTravel', 'pitchDamp', 'tailX', 'tailH', 'assistKp (gameplay)', 'assistKd (gameplay)'],
 }
