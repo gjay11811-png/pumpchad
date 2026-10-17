@@ -305,3 +305,15 @@ Words used: **implemented** (code in) · **visually reviewed** (I opened the scr
 | 13 | Performance | measured: see the handover. Experiments that did NOT help and were reverted: spatial chunking of the static batch, tiling the terrain mesh. |
 | 14 | Backlog | unchanged and carried: builder-piece show homes (the three show homes exist), remaining shop / workshop / castle interiors and chapters, accessibility, audio, save export. BLOCKED on a backend: accounts, multiplayer, trading, shared events, online leaderboards. Vehicle racing waits for reliable driving. |
 | 15 | Review pack | `Chadverse-Overnight-Review\2026-10-17-complete-upgrade\` |
+
+### Performance measured 17 Oct 2026 (same machine, quality medium, software GL — counts, not frame times; before = commit 6124aa5 on :5181)
+| Spot | draw calls before → after | triangles per frame (all passes) before → after | JS heap |
+|---|---|---|---|
+| avenue | 532 → 455 | 1.43 M → 1.52 M (+7 %) | 191 → 204 MB |
+| square | 643 → 673 | 1.80 M → 1.87 M (+4 %) | 190 → 223 MB |
+| Haunted Quarter | 750 → 819 | 1.65 M → 1.86 M (+13 %: the Victorian) | 192 → 219 MB |
+| Heights | 735 → 790 | 1.45 M → 1.65 M (+13 %: houses, trees) | 192 → 222 MB |
+Textures (avenue) 127 → 170 (the PBR sets); geometries unchanged. Steady play vs loading: the Victorian and MX4 files load asynchronously (2.5 MB and 4 MB) after the world is up. **Memory settles**: `scene-leak-test` over 8 enter / exit rounds: geometries 318, textures 117, programs 88 on every round (growth 0). Frame time and hitches could NOT be measured on real hardware (software rendering is about 1 fps). Reverted experiments: chunking the static batch (no triangle saving, +130 draw calls), tiling the terrain (no saving, +400 draw calls).
+
+### Test coverage (all SIMULATED headless browser)
+estate-rules-test 14/14 · bike-sim-test ALL PASS · bike-test 25/25 (MX4 and street) · bike-mobile-test 17/17 (emulated touch) · estates-large-test (buy → build → persist, migrated old plot) ALL PASS · heights-walk-test 13/13 · home-test 9/9 · showhome-test 11/11 · launch-test 21/21 · ledge-world-test ALL PASS · parkour-test 22/22 · quest-test 25/25 · events-test 19/19 · fishing-test 14/14 · shop-door-test 13/13 · scene-leak-test settled. Known failing: traversal-test shimmy-both-ways (wall-clock, slower build); species-test (foot-sliding 35 % vs 30 % once, a resource-exhaustion error once — the baseline also lost its WebGL context in that test); interior-test timed out at 482 s with 255 passes (its two failures were the Contemporary show home's door blocked by a tree, fixed and re-verified by showhome-test). NOT run: the other older suites (gym, sword, pistol, valley, descent, chapter 2, …).
