@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { house, placer, type Town } from './buildings'
-import { SHOW_HOMES, plotSize, type ShowHome } from '../../estates'
+import { SHOW_HOMES, SHOW_LOT, type ShowHome } from '../../estates'
 import { boxUV, gableGeo } from './kit'
 import { ornateSign } from './ornament'
 import { Frame } from './signs'
@@ -14,7 +14,7 @@ export function showHomes(T: Town) {
   const P = T.P
   const lawn = new THREE.MeshStandardMaterial({ map: P.ground.map, color: '#8aa86a', roughness: 1 })
   T.disposables.push(lawn)
-  const { w, d } = plotSize
+  const { w, d } = SHOW_LOT
   for (const h of SHOW_HOMES) {
     const x0 = h.x - w / 2
     const z0 = h.z - 5 // the site is a plot-sized lot (12 x 10), 26..36
@@ -30,8 +30,8 @@ export function showHomes(T: Town) {
     kerb(x0 + w - 0.12, z0, x0 + w + 0.12, z1)
     kerb(x0, z1 - 0.12, h.x - 1.2, z1 + 0.12)
     kerb(h.x + 1.2, z1 - 0.12, x0 + w, z1 + 0.12)
-    const path = new THREE.PlaneGeometry(2, 5).rotateX(-Math.PI / 2)
-    T.batch.put(path, P.cobble, h.x, 0.022, z1 - 2.5, 0, 1, 1, 1, { cast: false })
+    const path = new THREE.PlaneGeometry(2, 7.2).rotateX(-Math.PI / 2)
+    T.batch.put(path, P.cobble, h.x, 0.022, z1 - 2.5 + 1.1, 0, 1, 1, 1, { cast: false }) // on to the boulevard
     for (const sx of [-1, 1]) {
       // low hedge along each side of the path
       T.batch.put(boxUV(0.7, 0.8, 5.5, 1.2), P.foliageDark, h.x + sx * 1.7, 0.4, z1 - 4.3)

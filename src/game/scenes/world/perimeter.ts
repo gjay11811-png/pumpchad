@@ -38,7 +38,7 @@ export function perimeter(T: Town, stone: THREE.Material, trim: THREE.Material, 
         const z = az + (bz - az) * t
         const open = !insideCity(x + nx * 0.6, z + nz * 0.6) && !insideCity(x - nx * 0.05 + nx * 0.6, z - nz * 0.05 + nz * 0.6)
         const gate = Math.abs(x - VALLEY_GATE.x) < 4.4 && z > VALLEY_GATE.z - 1
-        const north = z < -5 && !rustic // the curtain wall's end towers close these corners
+        const north = z < -5 && !rustic && x > -110 // the curtain wall's end towers close these corners (only in the village's own north; Chadville Heights has its own edge)
         if (open && !gate && !north) {
           const p = new THREE.Vector2(x + nx * 0.25, z + nz * 0.25)
           if (!cur) cur = p

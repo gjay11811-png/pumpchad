@@ -46,7 +46,7 @@ import { ChallengePanel } from './ui/Challenges'
 import { ShopPanel } from './ui/Shop'
 import { MapJournal } from './ui/MapJournal'
 import { EstateEditor } from './ui/EstateEditor'
-import { PLOT, PLOT_PRICE, cottageDoor, type Piece } from './estates'
+import { CELL, COLS, ESTATE_VERSION, PLOT, PLOT_PRICE, ROWS, cottageDoor, type Piece } from './estates'
 import { homeSpec } from './scenes/interiors/home'
 import { FishingPanel, type FishingResult } from './ui/FishingPanel'
 import { fishingXp, type Catch } from './minigames/fishing'
@@ -385,7 +385,7 @@ export function GameApp() {
         speaker: plot.name,
         role: 'Chadville Estates · for sale',
         lines: [
-          `${plot.name}: 12 × 10 metres of good flat lawn on a quiet lane. Build a cottage, a tower, a garden — whatever you like.`,
+          `${plot.name}: ${COLS * CELL} × ${ROWS * CELL} metres of good flat lawn on a quiet lane — room for a manor, a double garage, a driveway and a garden. Build whatever you like.`,
           coins >= PLOT_PRICE ? `It costs ${PLOT_PRICE} Chad Coins (you have ${coins}). Pieces cost a few coins each and are refunded in full if you take them down.` : `It costs ${PLOT_PRICE} Chad Coins — you have ${coins}. Earn more by exploring, training, fishing and quests.`,
         ],
         options: coins >= PLOT_PRICE ? [{ label: `Buy it · ${PLOT_PRICE} coins`, action: 'buy_plot' }, { label: 'Not now', action: 'close' }] : [{ label: 'Maybe later', action: 'close' }],
@@ -667,7 +667,7 @@ export function GameApp() {
       const id = pendingPlot.current
       const p0 = saveRef.current.progress
       if (!id || p0.estate.plot || p0.coins < PLOT_PRICE) return
-      setSave((s) => ({ ...s, progress: { ...s.progress, coins: s.progress.coins - PLOT_PRICE, estate: { plot: id, pieces: [] } } }))
+      setSave((s) => ({ ...s, progress: { ...s.progress, coins: s.progress.coins - PLOT_PRICE, estate: { plot: id, pieces: [], v: ESTATE_VERSION } } }))
       world.current?.setEstate(saveRef.current.progress.estate, saveRef.current.character?.name ?? '')
       notify(`${PLOT(id)?.name} is yours`, 'Chadville Estates · tap your gate to build', 'discover')
       setOverlay('estate')

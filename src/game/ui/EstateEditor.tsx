@@ -88,7 +88,7 @@ export function EstateEditor({
       <Header title={plot.name} onBack={onBack} />
       <div className="mt-1 flex items-center justify-between gap-3">
         <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-moon">
-          Chadville Estates · {pieces.length}/{MAX_PIECES} pieces · refunds in full
+          Chadville Heights · {pieces.length}/{MAX_PIECES} pieces · {COLS * 2} × {ROWS * 2} m plot · refunds in full
         </p>
         <span className="rounded-full bg-[#ffd25a]/15 px-3 py-1 font-mono text-[12px] font-semibold text-[#ffd25a] ring-1 ring-[#ffd25a]/40" data-testid="estate-coins">
           ◉ {coins}
@@ -97,7 +97,7 @@ export function EstateEditor({
 
       <div className={`mt-3 flex justify-center gap-2 ${sideways ? "flex-col items-center" : "items-stretch"}`}>
         {laneFirst && <LaneStrip horizontal={sideways} />}
-        <svg viewBox={`-0.05 -0.05 ${COLS + 0.1} ${ROWS + 0.1}`} className="block h-[40svh] w-auto min-w-0 max-w-[calc(100%-2rem)] touch-manipulation rounded-xl bg-[#3a5236]" role="grid" aria-label="Your plot" data-testid="estate-grid">
+        <svg viewBox={`-0.05 -0.05 ${COLS + 0.1} ${ROWS + 0.1}`} className="block h-[46svh] w-auto min-w-0 max-w-[calc(100%-2rem)] touch-manipulation rounded-xl bg-[#3a5236]" role="grid" aria-label="Your plot" data-testid="estate-grid">
           {Array.from({ length: COLS * ROWS }, (_, i) => {
             const x = i % COLS
             const z = Math.floor(i / COLS)
@@ -169,7 +169,7 @@ export function EstateEditor({
               <span className="h-4 w-4 rounded" style={{ background: d.color }} />
               <span className="text-[13px] font-semibold">{d.name}</span>
               <span className="font-mono text-[11px] text-[#ffd25a]">◉{d.price}</span>
-              {d.w > 1 && <span className="font-mono text-[10px] text-ash">2×2</span>}
+              {(d.w > 1 || d.d > 1) && <span className="font-mono text-[10px] text-ash">{d.w}×{d.d}</span>}
             </button>
           ))}
         </div>

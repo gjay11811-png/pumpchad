@@ -76,7 +76,7 @@ export const defaultSettings = (): Settings => ({
 export const defaultSave = (): SaveData => ({
   version: SAVE_VERSION,
   character: null,
-  progress: { xp: 0, achievements: [], gymBest: 0, gymRuns: 0, discoveries: [], strength: 0, reps: {}, stamina: 0, stats: { sets: 0, clean: 0, bestCombo: 0 }, daily: { day: '', sets: {} }, records: {}, coins: 0, owned: [], pet: null, estate: { plot: null, pieces: [] } },
+  progress: { xp: 0, achievements: [], gymBest: 0, gymRuns: 0, discoveries: [], strength: 0, reps: {}, stamina: 0, stats: { sets: 0, clean: 0, bestCombo: 0 }, daily: { day: '', sets: {} }, records: {}, coins: 0, owned: [], pet: null, estate: { plot: null, pieces: [], v: 2 } },
   settings: defaultSettings(),
 })
 

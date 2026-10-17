@@ -15,14 +15,16 @@ import type { Collider } from './buildings'
  */
 export const ESTATES = {
   arch: { x: -31.2, z: 47 },
+  /** the arch's lane; it carries on west as the Heights Green's boulevard (HEIGHTS.boulevard) to the spine road */
   laneEW: { x0: -64, x1: -30, z0: 45, z1: 49 },
-  laneNS: { x0: -50, x1: -44, z0: 49, z1: 77 },
 }
-/** lamps: the old estate's six + Chadville Heights' lanes (every 26 m, alternating sides) and spine */
+/** lamps: the arch lane, the Green's boulevard (every 22 m, alternating sides), the spine road and the two lanes of Chadville Heights (every 26 m, alternating sides) */
 export const ESTATE_LAMPS: [number, number][] = [
-  [-36, 44.6], [-56, 44.6], [-44.5, 57], [-49.5, 57], [-44.5, 71], [-49.5, 71],
-  ...[0, 1, 2, 3, 4, 5, 6].flatMap((i): [number, number][] => [[-78 - i * 26, i % 2 ? 35.6 : 40.4], [-78 - i * 26, i % 2 ? 59.6 : 64.4]]),
-  [-69.3, 31], [-69.3, 54], [-69.3, 70],
+  [-36, 44.6], [-56, 44.6],
+  ...Array.from({ length: 8 }, (_, i): [number, number] => [-76 - i * 22, i % 2 ? 44.5 : 49.5]),
+  ...[0, 1, 2, 3].flatMap((i): [number, number][] => [[-248, -34 + i * 36]]),
+  ...Array.from({ length: 11 }, (_, i): [number, number] => [-262 - i * 26, i % 2 ? -15.4 : -10.6]),
+  ...Array.from({ length: 11 }, (_, i): [number, number] => [-262 - i * 26, i % 2 ? 42.6 : 47.4]),
 ]
 
 export function estatesDistrict(T: Town) {
@@ -33,12 +35,12 @@ export function estatesDistrict(T: Town) {
     for (let i = 0; i < u.count; i++) u.setXY(i, (u.getX(i) * (x1 - x0)) / 3, (u.getY(i) * (z1 - z0)) / 3)
     T.batch.put(g, mat, (x0 + x1) / 2, y, (z0 + z1) / 2, 0, 1, 1, 1, { cast: false })
   }
-  const { laneEW: a, laneNS: b } = ESTATES
+  const { laneEW: a } = ESTATES
   pave(a.x0, a.x1, a.z0, a.z1, P.cobble)
-  pave(b.x0, b.x1, b.z0, b.z1, P.cobble)
-  // CHADVILLE HEIGHTS: the spine, two lanes and a short link to the old estate lane
-  for (const l of [HEIGHTS.spine, HEIGHTS.laneA, HEIGHTS.laneB]) pave(l.x0, l.x1, l.z0, l.z1, P.cobble)
-  pave(-66.2, -63.8, 45, 49, P.cobble)
+  // CHADVILLE HEIGHTS: the boulevard (the arch lane carried west across the Green), the spine road and the two lanes
+  for (const l of [HEIGHTS.boulevard, HEIGHTS.spine, HEIGHTS.laneA, HEIGHTS.laneB]) pave(l.x0, l.x1, l.z0, l.z1, P.cobble)
+  // flat paving strips either side of the boulevard (footpaths) and a stone kerb line
+  for (const z of [HEIGHTS.boulevard.z0 - 1.2, HEIGHTS.boulevard.z1]) pave(HEIGHTS.boulevard.x0, HEIGHTS.boulevard.x1, z, z + 1.2, P.paving, 0.02)
   showHomes(T)
   const lawn = new THREE.MeshStandardMaterial({ map: P.ground.map, color: '#8aa86a', roughness: 1 })
   T.disposables.push(lawn)
@@ -87,8 +89,8 @@ export function estatesDistrict(T: Town) {
     T.batch.put(new THREE.TorusGeometry(2.4, 0.08, 6, 24, Math.PI).rotateY(Math.PI / 2), P.iron, x, 2.85, z)
     for (const ry of [Math.PI / 2, -Math.PI / 2]) ornateSign(T, Frame.at(T.batch, x + (ry > 0 ? 0.07 : -0.07), 3.75, z, ry), 'CHADVILLE ESTATES', { h: 0.56, crest: 'crown' })
     fingerpost(T, x + 2.8, z - 3.6, [
-      { label: 'CHADVILLE ESTATES', to: [-47, 60] },
-      { label: 'CHADVILLE HEIGHTS', to: [-120, 38] },
+      { label: 'CHADVILLE HEIGHTS · 52 PLOTS', to: [-250, 47] },
+      { label: 'SHOW HOMES', to: [-198, 38] },
       { label: 'PARKOUR YARD', to: [-234, 30] },
       { label: 'CHAD VIEW', to: [-53, 38.5] },
       { label: 'CANAL · GATEWAY', to: [0, 50] },
@@ -98,7 +100,7 @@ export function estatesDistrict(T: Town) {
 
 /* ── the live part: plot signs + the pieces people have built ── */
 
-type Mats = Record<'plaster' | 'roof' | 'wood' | 'door' | 'stone' | 'hedge' | 'leaf' | 'bark' | 'iron' | 'glow' | 'window' | 'water' | 'flowerA' | 'flowerB' | 'pumpkin' | 'path', THREE.Material>
+type Mats = Record<'plaster' | 'roof' | 'wood' | 'door' | 'stone' | 'hedge' | 'leaf' | 'bark' | 'iron' | 'glow' | 'window' | 'water' | 'flowerA' | 'flowerB' | 'pumpkin' | 'path' | 'drive' | 'terrace' | 'garageDoor' | 'trim', THREE.Material>
 
 export class EstateView {
   private group = new THREE.Group()
@@ -136,6 +138,10 @@ export class EstateView {
       flowerB: std({ color: '#ffd25a', roughness: 0.8 }),
       pumpkin: std({ color: '#e8641a', roughness: 0.6 }),
       path: std({ map: P.plaza.map ?? undefined, color: '#c8c0b0', roughness: 0.95 }),
+      drive: P.asphalt,
+      terrace: P.paving,
+      garageDoor: std({ color: '#d8d2c4', roughness: 0.6, metalness: 0.1 }),
+      trim: std({ color: '#f0e8d8', roughness: 0.8 }),
     }
     const G = this.G
     const geo = (k: string, g: THREE.BufferGeometry) => {
@@ -261,6 +267,72 @@ export class EstateView {
         put('box', M.stone, W / 2 - 0.6, 3.6, -D / 4, 0.45, 1.2, 0.45)
         break
       }
+      case 'manor': {
+        // a two-storey manor (6 × 5 cells = 12 × 10 m): plinth, plaster walls with a timber floor band, a hipped-look main roof along the width with a front gable over the
+        // door, a pillared porch, five windows upstairs and four downstairs (lit), side windows, two chimneys. Front toward +z.
+        const W = fw - 0.6
+        const D = fd - 0.6
+        put('box', M.stone, 0, 0.18, 0, W + 0.3, 0.36, D + 0.3)
+        put('box', M.plaster, 0, 3.36, 0, W, 6.0, D)
+        put('box', M.wood, 0, 3.45, 0, W + 0.14, 0.18, D + 0.14)
+        put('box', M.trim, 0, 6.3, 0, W + 0.3, 0.22, D + 0.3) // eaves band
+        // roof: a long gable along x, plus a cross gable on the front
+        put('prism', M.roof, 0, 6.4, 0, D + 1.2, 6.4, W + 1.0, Math.PI / 2)
+        put('prism', M.roof, 0, 6.4, D / 2 - 1.2, 4.6, 4.8, 3.6)
+        // front: a central door in a pillared porch
+        put('box', M.door, 0, 1.4, D / 2 + 0.04, 1.5, 2.5, 0.1)
+        put('box', M.trim, 0, 2.75, D / 2 + 0.08, 2.0, 0.2, 0.2)
+        for (const sx of [-1, 1]) {
+          put('cyl', M.trim, sx * 1.35, 1.7, D / 2 + 1.3, 0.28, 3.1, 0.28)
+          put('box', M.stone, sx * 1.35, 0.1, D / 2 + 1.3, 0.55, 0.2, 0.55)
+        }
+        put('box', M.trim, 0, 3.4, D / 2 + 1.3, 3.5, 0.2, 2.8)
+        put('box', M.stone, 0, 0.08, D / 2 + 1.1, 3.3, 0.16, 2.6) // porch step
+        // windows (a frame, a lit pane, a sill): ground floor either side of the door, upper floor across the front
+        const win = (x: number, y: number, z: number, ry: number) => {
+          put('box', M.trim, x, y, z, ry ? 0.16 : 1.12, 1.62, ry ? 1.12 : 0.16, 0)
+          put('box', M.window, x, y, z, ry ? 0.2 : 0.86, 1.34, ry ? 0.86 : 0.2, 0)
+          put('box', M.stone, x, y - 0.85, z, ry ? 0.3 : 1.35, 0.12, ry ? 1.35 : 0.3, 0)
+        }
+        for (const sx of [-1, 1]) for (const k of [2.3, 4.4]) win(sx * k, 1.9, D / 2 + 0.02, 0)
+        for (let k = -2; k <= 2; k++) win(k * 2.1, 4.9, D / 2 + 0.02, 0)
+        for (const sx of [-1, 1]) for (const z of [-2.8, 0, 2.8]) for (const y of [1.9, 4.9]) win(sx * (W / 2 + 0.02), y, z, 1)
+        for (const k of [-2.4, 2.4]) win(k, 4.9, -D / 2 - 0.02, 0)
+        // chimneys
+        for (const sx of [-1, 1]) put('box', M.stone, sx * (W / 2 - 1.4), 8.6, -D / 4, 0.85, 3.2, 0.85)
+        break
+      }
+      case 'garage': {
+        // a double garage (3 × 3 cells = 6 × 6 m): plaster box, low pitched roof, a wide sectional door with slats, a side door. Door toward +z.
+        const W = fw - 0.5
+        const D = fd - 0.5
+        put('box', M.stone, 0, 0.12, 0, W + 0.2, 0.24, D + 0.2)
+        put('box', M.plaster, 0, 1.75, 0, W, 3.0, D)
+        put('prism', M.roof, 0, 3.25, 0, D + 0.7, 3.2, W + 0.7, Math.PI / 2)
+        put('box', M.garageDoor, -0.35, 1.25, D / 2 + 0.04, 3.9, 2.3, 0.1)
+        for (let k = 0; k < 4; k++) put('box', M.trim, -0.35, 0.5 + k * 0.58, D / 2 + 0.1, 3.8, 0.05, 0.05)
+        put('box', M.door, W / 2 - 0.62, 1.05, D / 2 + 0.04, 0.9, 2.0, 0.1)
+        put('box', M.window, 0, 2.7, D / 2 + 0.04, 1.2, 0.35, 0.06)
+        break
+      }
+      case 'drive':
+        put('box', M.drive, 0, 0.03, 0, fw - 0.02, 0.06, fd - 0.02)
+        break
+      case 'terrace':
+        put('box', M.terrace, 0, 0.04, 0, fw - 0.06, 0.08, fd - 0.06)
+        break
+      case 'gates': {
+        // two stone piers with caps and a pair of iron gates between them (pass-through)
+        for (const sx of [-1, 1]) {
+          put('box', M.stone, sx * (fw / 2 - 0.3), 1.05, 0, 0.6, 2.1, 0.6)
+          put('box', M.trim, sx * (fw / 2 - 0.3), 2.2, 0, 0.78, 0.14, 0.78)
+          put('sphere', M.stone, sx * (fw / 2 - 0.3), 2.45, 0, 0.36, 0.36, 0.36)
+        }
+        for (let k = -4; k <= 4; k++) put('box', M.iron, k * 0.32, 0.8, 0, 0.04, 1.5, 0.04)
+        put('box', M.iron, 0, 1.5, 0, fw - 1.2, 0.05, 0.05)
+        put('box', M.iron, 0, 0.2, 0, fw - 1.2, 0.05, 0.05)
+        break
+      }
       case 'tower':
         put('cyl', M.stone, 0, 1.8, 0, 1.4, 3.6, 1.4)
         put('cone12', M.roof, 0, 4.2, 0, 1.8, 1.4, 1.8)
@@ -310,9 +382,11 @@ export class EstateView {
     this.group.add(g)
     if (def.solid) {
       const odd = piece.r % 2 === 1
-      const hw = ((odd ? fd : fw) / 2) * (piece.k === 'cottage' || piece.k === 'hedge' ? 0.92 : 0.45)
-      const hd = ((odd ? fw : fd) / 2) * (piece.k === 'cottage' || piece.k === 'hedge' ? 0.92 : 0.45)
-      const c: Collider = piece.k === 'fence' || piece.k === 'cottage' || piece.k === 'hedge' ? { kind: 'box', minX: w.x - hw, maxX: w.x + hw, minZ: w.z - hd, maxZ: w.z + hd, h: 2 } : { kind: 'circle', x: w.x, z: w.z, r: Math.min(hw, hd), h: 2 }
+      const boxy = piece.k === 'fence' || piece.k === 'cottage' || piece.k === 'hedge' || piece.k === 'manor' || piece.k === 'garage'
+      const k = boxy ? 0.92 : 0.45
+      const hw = ((odd ? fd : fw) / 2) * k
+      const hd = ((odd ? fw : fd) / 2) * k
+      const c: Collider = boxy ? { kind: 'box', minX: w.x - hw, maxX: w.x + hw, minZ: w.z - hd, maxZ: w.z + hd, h: piece.k === 'manor' ? 9 : piece.k === 'garage' ? 4 : 2 } : { kind: 'circle', x: w.x, z: w.z, r: Math.min(hw, hd), h: 2 }
       this.colliders.push(c)
       this.worldColliders.push(c)
     }

@@ -17,8 +17,9 @@ import { CASTLE_AT, GATE_PLAZA, castleTerrain, clampToCastle, inCastleWalk } fro
 import { VALLEY_Y, clampToDescent, descentTerrain, inDescentWalk } from './descent'
 import { clampToValley, inValleyWalk, valleyTerrain } from './valley'
 import { EXPANSION_DISTRICTS, EXPANSION_OPEN } from '../../launch'
+import { HEIGHTS } from '../../estates'
 
-export const DISTRICTS: Record<'south' | 'east' | 'west' | 'overlook' | 'haunted' | 'motor' | 'forest' | 'lake' | 'estates' | 'heights' | 'parkour' | 'downtown' | 'plaza' | 'southshore' | 'millrow', Rect> = {
+export const DISTRICTS: Record<'south' | 'east' | 'west' | 'overlook' | 'haunted' | 'motor' | 'forest' | 'lake' | 'estates' | 'heights' | 'heightsWest' | 'parkour' | 'downtown' | 'plaza' | 'southshore' | 'millrow', Rect> = {
   south: { x0: -32, x1: 32, z0: 20, z1: 75 },
   east: { x0: 28, x1: 58, z0: -6, z1: 34 },
   west: { x0: -58, x1: -28, z0: -6, z1: 34 },
@@ -35,7 +36,9 @@ export const DISTRICTS: Record<'south' | 'east' | 'west' | 'overlook' | 'haunted
   // CHADVILLE ESTATES: plots to buy and build on, west of the arrival lawns, below the Chad View terrace
   estates: { x0: -66, x1: -30, z0: 41, z1: 78 },
   // CHADVILLE HEIGHTS: the big housing district west of the estates — 49 sellable plots, three show homes, two lanes and a spine (see HEIGHTS in estates.ts)
-  heights: { x0: -242, x1: -64, z0: 26, z1: 78 },
+  heights: { x0: -242, x1: -64, z0: 26, z1: 78 }, // now the HEIGHTS GREEN: a boulevard, lawns, the show homes (the plots moved west, see heightsWest)
+  // CHADVILLE HEIGHTS: the 52 large plots (22 × 26 m), four rows on two lanes west of the spine road — rules and layout in estates.ts
+  heightsWest: HEIGHTS.rect,
   // the CHAD PARKOUR YARD: north of Heights' west end, entered through the gap in the north row (see parkour.ts)
   parkour: { x0: -242, x1: -170, z0: -20, z1: 27 },
   // DOWNTOWN: Chad City proper, in the valley basin 52 m below the village; the Gate Plaza is where the Castle Road begins
@@ -222,7 +225,7 @@ export function terrainLines(axis: 'x' | 'z') {
   const s = new Set<number>()
   // dense (2 m) over the village plateau + its approaches; 4 m across the valley basin where the ground is gentler
   const dense = axis === 'x' ? [-106, 142] : [-90, 160]
-  const wide = axis === 'x' ? [-300, 190] : [-90, 500]
+  const wide = axis === 'x' ? [-620, 190] : [-90, 500]
   for (let v = dense[0]; v <= dense[1]; v += 2) s.add(v)
   for (let v = wide[0]; v < dense[0]; v += 4) s.add(v)
   for (let v = dense[1]; v <= wide[1]; v += 4) s.add(v)
