@@ -493,11 +493,12 @@ export class RideSystem {
     const lean0 = pz.lean * blend + (1 - blend) * 0.1
     const gl = rig.gripL.getWorldPosition(new V3())
     const gr = rig.gripR.getWorldPosition(new V3())
-    // ONE HAND: only while the front wheel is up. The clutch (left) hand lifts off the grip and rises a little out to the side; the gas hand stays on the bar. Released, it settles back onto the grip.
+    // ONE HAND: only while the front wheel is up. The clutch hand (the rig's `grip R`: the throttle hand is the other one) lifts off the grip and rises out to the side; the gas hand
+    // stays on the bar. Released, it settles back onto the grip.
     const one = THREE.MathUtils.clamp(sim.oneHand, 0, 1)
     if (one > 0.004) {
-      const raised = gl.clone().addScaledVector(up, 0.62).addScaledVector(left, 0.22).addScaledVector(fwd, -0.12)
-      gl.lerp(raised, one * one * (3 - 2 * one))
+      const raised = gr.clone().add(new V3(0, 0.72, 0)).addScaledVector(left, -0.3).addScaledVector(fwd, 0.1)
+      gr.lerp(raised, one * one * (3 - 2 * one))
     }
     // pose, then fit the torso: hands must reach the grips (lean forward until they do) while the head (PumpChad's pumpkin is big) stays clear of the bars (lean back if not)
     let lean = lean0
@@ -514,7 +515,7 @@ export class RideSystem {
       const barMid = gl.clone().add(gr).multiplyScalar(0.5)
       const clear = head.distanceTo(barMid)
       const need = 0.5
-      const reach = palmOf ? Math.max(one > 0.5 ? 0 : palmOf.call(player, 'l', new V3()).distanceTo(gl), palmOf.call(player, 'r', new V3()).distanceTo(gr)) : 0
+      const reach = palmOf ? Math.max(palmOf.call(player, 'l', new V3()).distanceTo(gl), one > 0.5 ? 0 : palmOf.call(player, 'r', new V3()).distanceTo(gr)) : 0
       let next = lean
       if (clear < need) next -= (need - clear) * 1.1
       else if (reach > 0.03 && lean < 0.9) next += Math.min(0.25, reach * 1.2)
@@ -553,7 +554,7 @@ export class RideSystem {
           up: a.sim.wheelie,
           slow: Math.abs(a.sim.v) < 0.8 && !a.sim.wheelie,
           view: this.settings.view,
-          practice: this.last ? { name: this.last.name, line: this.last.line, score: this.last.score, best: this.judge.best(CHALLENGES.find((c) => c.name === this.last!.name)!.id) } : this.judge.card(),
+          practice: this.last ? { name: this.last.name, line: this.last.line, score: this.last.score, best: this.judge.best(CHALLENGES.find((c) => c.name === this.last!.name)!.id) } : this.settings.school ? this.judge.card() : null,
           wheelieTime: +a.sim.wheelieTime.toFixed(1),
           wheelieDist: Math.round(a.sim.wheelieDist),
           best: { t: +a.bestWheelie.t.toFixed(1), d: Math.round(a.bestWheelie.d) },

@@ -1346,9 +1346,9 @@ export class World implements GameScene {
       this.rideCamOn = true
       this.camDist += (this.camDistBase * (r.cam.side ? 0.95 : 1.22) + sp * (r.cam.side ? 0.03 : 0.05) - this.camDist) * (1 - Math.exp(-dt * 2.5))
       if (this.t - this.lastLookT > 1.4 && !this.input.mouseLooked) {
-        // chase: swing in behind the bike. SIDE: sit square on the bike's right, low and level, so the front wheel's height and the landing can be judged by eye
+        // chase: swing in behind the bike. SIDE: sit square on the bike's left (the free clutch hand is on the camera side), low and level, so the front wheel's height and the landing can be judged by eye
         const side = r.cam.side
-        let cd = r.cam.heading + (side ? -Math.PI / 2 : Math.PI) - this.camYaw
+        let cd = r.cam.heading + (side ? Math.PI / 2 : Math.PI) - this.camYaw
         cd = Math.atan2(Math.sin(cd), Math.cos(cd))
         this.camYaw += cd * (1 - Math.exp(-dt * (side ? 4.5 : 1.6 + sp * 0.12)))
         this.camPitch += ((side ? 0.1 : 0.3) - this.camPitch) * (1 - Math.exp(-dt * (side ? 4 : 1.5)))
