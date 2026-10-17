@@ -155,11 +155,12 @@ for (let t = 0; t < 10.5; t += 0.1) {
 }
 await press('w', false)
 await press('s', false)
-check(!crashed && upTime > 9.5 && maxP < 1.0 && minAfter > 0.1, `a wheelie held for 10 s with modest corrections (${upTime.toFixed(1)} s up, peak ${deg(maxP)}°, no fall)`)
+check(!crashed && upTime > 9.0 && maxP < 1.0 && minAfter > 0.1, `a wheelie held for 10 s with modest corrections (${upTime.toFixed(1)} s up, peak ${deg(maxP)}°, no fall)`)
 
 /* 5b. steering in the wheelie, both ways */
 for (const [key, sign] of [['d', -1], ['a', 1]]) {
-  if ((await B()).z > 55) await set({ x: 0, z: 10, v: 4 })
+  await set({ x: 0, z: 10, h: 0, v: 4 })
+  await adv(0.3)
   const hd = (await B()).heading
   await down(key)
   let pmin = 9

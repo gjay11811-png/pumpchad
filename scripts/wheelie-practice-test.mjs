@@ -46,31 +46,26 @@ const key = async (k, on) => {
   await (on ? down(k) : up(k))
 }
 const release = async () => {
-  for (const k of ['w', 's', 'a', 'd', 'Shift', ' ']) await key(k, false)
+  for (const k of ['w', 's', 'a', 'd', 'f', ' ']) await key(k, false)
 }
 
-/** a small reactive rider: a fresh 0.15 s press of the gas lifts / holds the front (REV), easing off lets it settle, Brake brings it down if it climbs too far */
-let tp = -1
-let tg = 0
-const ride = async (s, lim = 0.32) => {
-  const pred = s.pitch + s.pitchRate * 0.25
-  if (tp >= 0) {
-    tp++
-    if (tp >= 3) {
-      await key('w', false)
-      tp = -1
-      tg = 0
-    }
-  } else {
-    tg++
-    if (tg >= 7 && pred < lim && s.pitchRate < 0.35 && s.v < 20) {
-      await key('w', true)
-      tp = 0
-    }
+/** a small reactive rider on the real keys: one press of Wheelie (Shift) lifts it, a little Gas when it sinks, a touch of Brake when it climbs */
+let started = false
+const ride = async (s, lim = 0.4) => {
+  if (!started && !s.wheelieOn) {
+    await p.keyboard.press('Shift')
+    started = true
   }
-  await key('s', pred > 0.58)
+  await key('w', s.pitch < lim && s.v < 10)
+  await key('s', s.pitch > 0.75)
+}
+/** end wheelie mode (press Wheelie again) and wait for the front to come down */
+const modeOff = async () => {
+  if ((await B()).wheelieOn) await p.keyboard.press('Shift')
+  for (let i = 0; i < 80 && (await B()).pitch > 0.02; i++) await adv(0.1)
 }
 /* 1. LIFT ZONE: gas in the blue box lifts the front smoothly → a score */
+started = false
 await set({ x: 0, z: 50, h: 0, v: 5 })
 await adv(0.3)
 for (let i = 0; i < 100 && !(await got('lift')); i++) {
@@ -84,6 +79,7 @@ check(!!r && r.score > 20 && r.score <= 100, `LIFT ZONE scores a smooth lift fro
 await release()
 // the controlled wheelie: the same small rider as bike-test: ease the gas to hold the angle, touch Brake if it climbs
 /* 2. BALANCE: hold 15°–35° for 2.5 s */
+started = false
 await set({ x: 0, z: 56, h: 0, v: 4 })
 await adv(0.3)
 let held = 0
@@ -101,6 +97,7 @@ check(!!r && r.score >= 40, `BALANCE: a held wheelie inside the 15°–35° band
 await release()
 await adv(3)
 /* 3. LANDING: the wheelie coming back down is scored by how soft the touchdown is */
+started = false
 await set({ x: 0, z: 56, h: 0, v: 5 })
 await adv(0.3)
 let st = await B()
@@ -119,10 +116,11 @@ check(!!r && r.score >= 50, `LANDING: bringing it down with the brake scores a s
 await release()
 await adv(2)
 
-/* 4. ONE HAND: only counts inside a wheelie; the keyboard Shift is the same control as the phone button */
+started = false
+/* 4. ONE HAND: only counts inside a wheelie; the keyboard F is the same control as the phone button */
 await set({ x: 0, z: 14, h: 0, v: 5 })
 await adv(0.3)
-await key('Shift', true)
+await key('f', true)
 await adv(1)
 check(!(await got('onehand')) && (await B()).oneHand === 0, 'ONE HAND does nothing on the ground (no pose, no score)')
 for (let i = 0; i < 140 && !(await got('onehand')); i++) {
@@ -137,6 +135,7 @@ await release()
 await adv(3)
 await recover()
 
+await modeOff()
 /* 5. CONES: weave all five without touching them (a small pursuit rider steers to the gap) */
 await set({ x: 0, z: 14, h: 0, v: 0 })
 await adv(0.5)
@@ -160,6 +159,7 @@ await release()
 await adv(2)
 await recover()
 
+await modeOff()
 /* 6. SCRAPE: a peg drags in the yellow section on a hard lean; a gentle line does not */
 await set({ x: -1.8, z: 14, h: 0, v: KIND === 'surron' ? 15 : 20 }) // (starts left of centre: the first lean goes toward +x, where the avenue has a lamp / bench near z 28)
 await adv(0.3)

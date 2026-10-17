@@ -56,7 +56,7 @@ await adv(0.3)
 check((await B()).riding, 'mounted (touch layout)')
 
 /* layout: the virtual joystick on the left, GAS + BRAKE right, GET OFF; no REV, no rear / lean buttons, no steering arrows */
-const ids = ['ride-throttle', 'ride-brake', 'ride-getoff']
+const ids = ['ride-throttle', 'ride-brake', 'ride-getoff', 'ride-wheelie-btn']
 const boxes = {}
 for (const id of ids) boxes[id] = await p.locator(`[data-testid=${id}]`).boundingBox()
 check(ids.every((id) => boxes[id] && boxes[id].x >= 0 && boxes[id].y >= 0 && boxes[id].x + boxes[id].width <= VW && boxes[id].y + boxes[id].height <= VH), 'every riding button sits inside the visible screen')
@@ -186,14 +186,21 @@ check(!(await p.locator('[data-testid=ride-reverse]').count()), 'REVERSE is hidd
 /* ONE HAND appears only inside a wheelie, changes only the pose, and the hand goes back on release */
 await set({ x: 0, z: 14, h: 0, v: 5 })
 let up2 = false
-for (let i = 0; i < 6 && !up2; i++) {
-  // a fresh press of the gas is a lift request: tap it
-  await touchStart(12, gx, gy)
+// a Gas tap never lifts the front; one press of the Wheelie button does
+await touchStart(12, gx, gy)
+await adv(0.15)
+await touchEnd(12)
+await adv(0.5)
+check((await B()).pitch === 0, 'a tap of the Gas button never lifts the front')
+const [wx, wy] = await center('ride-wheelie-btn')
+await touchStart(12, wx, wy)
+await adv(0.15)
+await touchEnd(12)
+for (let i = 0; i < 20 && !up2; i++) {
   await adv(0.15)
-  await touchEnd(12)
-  await adv(0.35)
   up2 = (await B()).pitch > 0.22
 }
+check(up2 && (await B()).wheelieOn, 'one press of the Wheelie button lifts the front into a held wheelie')
 await adv(0.05)
 const thBox = await p.locator('[data-testid=ride-trick]').boundingBox().catch(() => null)
 check(up2 && !!thBox, `the ONE HAND button shows up only once the front wheel is up (${up2 ? 'wheelie up' : 'no lift'})`)
@@ -207,8 +214,11 @@ if (thBox) {
   s = await B()
   check(!s.buttons.trick && s.oneHand < 0.1, `releasing it returns the hand to the grip (pose ${s.oneHand})`)
 }
+await touchStart(12, wx, wy)
+await adv(0.15)
+await touchEnd(12)
 await set({ x: 0, z: 14, h: 0, v: 3 })
-await adv(2.5)
+await adv(3)
 check(!(await p.locator('[data-testid=ride-trick]').count()), 'ONE HAND is gone again once the front wheel is down')
 
 /* orientation change releases everything, and the portrait layout still fits */
