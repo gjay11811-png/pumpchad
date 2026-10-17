@@ -109,6 +109,14 @@ export class RideSystem {
     return p
   }
 
+  /** parked bikes: full detail within `near` metres of the viewer, the low-detail set beyond (a parked MX4 is 80 K triangles up close, 25 K far) */
+  updateDetail(vx: number, vz: number, near = 16) {
+    for (const p of this.parked) {
+      if (this.active?.parked === p) continue
+      p.rig.setNear?.(Math.hypot(p.x - vx, p.z - vz) < near)
+    }
+  }
+
   /** swap a parked bike's visual for another one (the scan finished loading); a bike being ridden keeps its current visual until it is put down */
   replaceRig(id: string, make: () => BikeRig) {
     const p = this.parked.find((q) => q.id === id)

@@ -17,7 +17,8 @@ const part = classify()
 const NAMES = ['body', 'wheel_r', 'wheel_f', 'fork']
 const COLORS = [[0.25, 0.27, 0.3], [0.9, 0.2, 0.2], [0.2, 0.8, 0.3], [0.95, 0.75, 0.15]]
 // tris per part in the GAME version: the rider cam sees the bike from 3-6 m, so wheels (spokes, knobs) and the fork keep more than the body's hidden insides
-const TARGET = { body: 30000, wheel_r: 16000, wheel_f: 16000, fork: 18000 }
+const LOD = process.argv.includes('--lod') // a low-detail set for bikes seen from afar (parked on the forecourt): about a fifth of the triangles
+const TARGET = LOD ? { body: 6500, wheel_r: 3600, wheel_f: 3600, fork: 4200 } : { body: 30000, wheel_r: 16000, wheel_f: 16000, fork: 18000 }
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS)
 mkdirSync('public/chadverse/models/mx4', { recursive: true })
 const info = {}
@@ -67,7 +68,7 @@ for (let pi = 0; pi < 4; pi++) {
     let after = 0
     for (const p of doc.getRoot().listMeshes()[0].listPrimitives()) after += p.getIndices().getCount() / 3
     info[pname] = { before, after }
-    await io.write(`public/chadverse/models/mx4/${pname}.glb`, doc)
+    await io.write(`public/chadverse/models/mx4/${LOD ? 'lod_' : ''}${pname}.glb`, doc)
     console.log(pname, before, '->', after)
   }
 }
@@ -75,13 +76,13 @@ if (debug) {
   await all.transform(weld({ tolerance: 0.00002 }), simplify({ simplifier: MeshoptSimplifier, ratio: 0.08, error: 0.02 }), prune())
   await io.write('tmp-viewer/mx4_parts_debug.glb', all)
   console.log('debug written')
-} else {
+} else if (!LOD) {
   const rig = { source: 'Talaria Sting R MX4 by nicknothom, CC-BY-4.0', units: 'm', front: '+x', up: '+y', groundY: 0, rear: { x: RIG.rear.x, y: RIG.rear.y }, frontAxle: { x: RIG.front.x, y: RIG.front.y }, wheelRear: RIG.rear.r, wheelFront: RIG.front.r, rake: RIG.rake, tris: info }
   writeFileSync('public/chadverse/models/mx4/rig.json', JSON.stringify(rig, null, 1))
 }
 
 // attachment points (rider seat / grips / pegs) measured from the aligned scan
-if (!debug) {
+if (!debug && !LOD) {
   const mean = (pts) => pts.reduce((a, p) => [a[0] + p[0] / pts.length, a[1] + p[1] / pts.length, a[2] + p[2] / pts.length], [0, 0, 0])
   const sel = (pi, f) => { const out = []; for (let t = 0; t < ni / 3; t++) { if (part[t] !== pi) continue; for (let k = 0; k < 3; k++) { const v = I[t * 3 + k]; const p = [P[v * 3], P[v * 3 + 1], P[v * 3 + 2]]; if (f(p)) out.push(p) } } return out }
   // the rider sits on the saddle about a third of the way back from the tank: x = -0.25, on the top surface there (the tail is higher, but nobody sits on it)

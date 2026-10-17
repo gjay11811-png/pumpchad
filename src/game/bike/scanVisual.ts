@@ -23,7 +23,8 @@ export type ScanRig = {
   pegL: number[]
   pegR: number[]
 }
-export type ScanParts = { rig: ScanRig; body: THREE.Group; fork: THREE.Group; wheel_f: THREE.Group; wheel_r: THREE.Group }
+export type ScanPart = { body: THREE.Group; fork: THREE.Group; wheel_f: THREE.Group; wheel_r: THREE.Group }
+export type ScanParts = { rig: ScanRig } & ScanPart & { lod: ScanPart }
 
 let loading: Promise<ScanParts> | null = null
 /** load (once) the four optimised parts and the rig numbers */
@@ -32,7 +33,7 @@ export function loadScanBike(dir = 'chadverse/models/mx4/'): Promise<ScanParts> 
   const base = `${import.meta.env.BASE_URL}${dir}`
   const loader = new GLTFLoader()
   loading = (async () => {
-    const [rig, body, fork, wf, wr] = await Promise.all([
+    const [rig, body, fork, wf, wr, lb, lf, lwf, lwr] = await Promise.all([
       fetch(`${base}rig.json`).then((r) => {
         if (!r.ok) throw new Error('rig.json ' + r.status)
         return r.json() as Promise<ScanRig>
@@ -41,8 +42,12 @@ export function loadScanBike(dir = 'chadverse/models/mx4/'): Promise<ScanParts> 
       loader.loadAsync(`${base}fork.glb`),
       loader.loadAsync(`${base}wheel_f.glb`),
       loader.loadAsync(`${base}wheel_r.glb`),
+      loader.loadAsync(`${base}lod_body.glb`),
+      loader.loadAsync(`${base}lod_fork.glb`),
+      loader.loadAsync(`${base}lod_wheel_f.glb`),
+      loader.loadAsync(`${base}lod_wheel_r.glb`),
     ])
-    return { rig, body: body.scene, fork: fork.scene, wheel_f: wf.scene, wheel_r: wr.scene }
+    return { rig, body: body.scene, fork: fork.scene, wheel_f: wf.scene, wheel_r: wr.scene, lod: { body: lb.scene, fork: lf.scene, wheel_f: lwf.scene, wheel_r: lwr.scene } }
   })()
   loading.catch(() => (loading = null))
   return loading
@@ -70,6 +75,9 @@ export class ScanBikeVisual implements BikeRig {
   private front: THREE.Vector3
   private geos: THREE.BufferGeometry[] = []
   private mats: THREE.Material[] = []
+  private hi: THREE.Mesh[] = []
+  private lo: THREE.Mesh[] = []
+  private near = true
   readonly kind = 'surron' as const
 
   constructor(parts: ScanParts) {
@@ -78,7 +86,7 @@ export class ScanBikeVisual implements BikeRig {
     this.front = new THREE.Vector3(R.frontAxle.x, R.frontAxle.y, 0)
     this.axis = new THREE.Vector3(-Math.sin(R.rake), Math.cos(R.rake), 0)
     // clone each part's meshes (the loaded scenes are shared by every bike) and re-centre their geometry on the node they ride in
-    const take = (src: THREE.Group, origin: THREE.Vector3, into: THREE.Object3D) => {
+    const take = (src: THREE.Group, origin: THREE.Vector3, into: THREE.Object3D, bucket: THREE.Mesh[] = this.hi) => {
       src.updateMatrixWorld(true) // the optimised parts are quantised: the real scale and offset live on the node
       src.traverse((o) => {
         const m = o as THREE.Mesh
@@ -93,6 +101,7 @@ export class ScanBikeVisual implements BikeRig {
         this.mats.push(mat)
         const mesh = new THREE.Mesh(g, mat)
         mesh.castShadow = true
+        bucket.push(mesh)
         into.add(mesh)
       })
     }
@@ -105,17 +114,22 @@ export class ScanBikeVisual implements BikeRig {
     this.inner.add(this.wheelR)
     this.wheelR.position.copy(this.rear)
     take(parts.wheel_r, this.rear, this.wheelR)
+    take(parts.lod.wheel_r, this.rear, this.wheelR, this.lo)
     this.inner.add(this.pitchPivot)
     this.pitchPivot.position.copy(this.rear)
     this.pitchPivot.add(this.bodyG)
     this.bodyG.position.set(-this.rear.x, -this.rear.y, 0)
     take(parts.body, zero, this.bodyG)
+    take(parts.lod.body, zero, this.bodyG, this.lo)
     this.bodyG.add(this.frontPivot)
     this.frontPivot.position.copy(this.front)
     take(parts.fork, this.front, this.frontPivot)
+    take(parts.lod.fork, this.front, this.frontPivot, this.lo)
     this.frontPivot.add(this.unsprung)
     this.unsprung.add(this.wheelF)
     take(parts.wheel_f, this.front, this.wheelF)
+    take(parts.lod.wheel_f, this.front, this.wheelF, this.lo)
+    this.setNear(true)
     // attachment points
     this.seat.position.set(R.seat[0], R.seat[1], 0)
     this.bodyG.add(this.seat)
@@ -159,6 +173,14 @@ export class ScanBikeVisual implements BikeRig {
     m.envMapIntensity = 1
   }
 
+  /** show the full-detail meshes (the bike is close or being ridden) or the low-detail set (parked, far away): about 80 K vs 25 K triangles */
+  setNear(near: boolean) {
+    if (near === this.near && this.hi[0]?.visible === near) return
+    this.near = near
+    for (const m of this.hi) m.visible = near
+    for (const m of this.lo) m.visible = !near
+  }
+
   park() {
     this.stand.visible = true
     this.tilt.rotation.z = 0
@@ -172,6 +194,7 @@ export class ScanBikeVisual implements BikeRig {
   }
 
   apply(sim: BikeView, groundPitch = 0) {
+    this.setNear(true)
     this.stand.visible = false
     this.tilt.rotation.z = groundPitch
     this.roll.rotation.x = -sim.roll

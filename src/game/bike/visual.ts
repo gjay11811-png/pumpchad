@@ -30,6 +30,8 @@ export interface BikeRig {
   apply(view: BikeView, groundPitch?: number): void
   /** stand it up parked on its kickstand, leaning, with no rider */
   park(): void
+  /** optional: switch between full and low detail by how far the viewer is (parked bikes) */
+  setNear?(near: boolean): void
   dispose(): void
 }
 

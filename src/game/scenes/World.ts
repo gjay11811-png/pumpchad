@@ -1816,6 +1816,7 @@ export class World implements GameScene {
         mv = { x: 0, z: 0, run: false, analog: false }
       }
     }
+    this.ride.updateDetail(this.playerPos.x, this.playerPos.z)
     // a bike stays where it was left: its "Ride" prompt follows it
     for (const b of this.ride.parked) {
       const it = this.interactables.find((i) => i.id === `ride:${b.id}`)
@@ -2445,7 +2446,7 @@ export class World implements GameScene {
       const t = per * inst
       total += t
       m.getWorldPosition(v)
-      rows.push({ tris: Math.round(t), inst, geo: g.type, at: [Math.round(v.x), Math.round(v.y), Math.round(v.z)], mat: (m.material as THREE.Material)?.type ?? '?', lod: !!(o.parent && (o.parent as THREE.LOD).isLOD) })
+      rows.push({ tris: Math.round(t), inst, geo: g.type, at: [Math.round(v.x), Math.round(v.y), Math.round(v.z)], mat: (() => { const mm = m.material as THREE.MeshStandardMaterial; return `${mm?.type ?? '?'} ${mm?.color ? '#' + mm.color.getHexString() : ''} ${mm?.map ? 'map' : ''}${mm?.normalMap ? '+n' : ''}` })(), lod: !!(o.parent && (o.parent as THREE.LOD).isLOD) })
     })
     rows.sort((a, b) => b.tris - a.tris)
     return { total: Math.round(total), meshes: rows.length, top: rows.slice(0, top) }
