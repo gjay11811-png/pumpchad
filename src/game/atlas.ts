@@ -34,6 +34,7 @@ export const LANDMARKS: Landmark[] = [
   { id: 'motor', name: 'Motor Row', x: 46, z: 36.25, kind: 'place', visit: 'visit_motor', spawn: { x: 34, z: 36.25, yaw: Math.PI / 2 } },
   { id: 'haunted', name: 'Haunted Quarter', x: -80, z: 2.5, kind: 'place', visit: 'visit_haunted', spawn: { x: -66, z: 2.5, yaw: -Math.PI / 2 } },
   { id: 'forest', name: 'Enchanted Forest', x: -70, z: -48, kind: 'place', visit: 'visit_forest', spawn: { x: -80, z: -14, yaw: Math.PI } },
+  { id: 'waterfall', name: 'The Falls', x: -49, z: -60, kind: 'place', spawn: { x: -52.5, z: -51.5, yaw: Math.PI } },
   { id: 'lake', name: 'Moonlight Lake', x: 98, z: 31, kind: 'place', visit: 'visit_lake', spawn: { x: 74, z: 36.25, yaw: Math.PI / 2 } },
   { id: 'estates', name: 'Chadville Estates', x: -47, z: 60, kind: 'place', visit: 'visit_estates', spawn: { x: -34, z: 47, yaw: -Math.PI / 2 } },
   { id: 'heights', name: 'Chadville Heights', x: -400, z: 16, kind: 'place', visit: 'visit_estates', spawn: { x: -252, z: 47, yaw: -Math.PI / 2 } },

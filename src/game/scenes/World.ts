@@ -73,6 +73,7 @@ import { westside, type BenchSpot } from './world/westside'
 import { chadRides } from './world/rides'
 import { RideSystem } from '../bike/ride'
 import { loadSurfaces } from './world/surfaces'
+import { waterfall, WATERFALL } from './world/waterfall'
 import { ScanBikeVisual, loadScanBike } from '../bike/scanVisual'
 import { lawns, PATCH } from './world/lawns'
 import { streetDetails } from './world/details'
@@ -448,6 +449,7 @@ export class World implements GameScene {
     hauntedQuarter(T, SM.stone, SM.trim)
     motorRow(T, tex.stone)
     enchantedForest(T, q, extraSeats)
+    waterfall(T, wn)
     moonlightLake(T, wn, q, extraSeats)
     this.quest = guardianLanterns(T)
     estatesDistrict(T)
@@ -824,6 +826,7 @@ export class World implements GameScene {
     add('lore_citadel', 'Read the citadel plaque', CITADEL.lore.x + 0.5, CITADEL.lore.z + 0.95, 1.2, 'info')
     add('yard', 'Read the yard board', 17.4, 12.9, 1.3, 'info')
     add('well', 'Toss a coin in the wishing well', -29.4, 2.5, 1.7, 'activity')
+    add('waterfall', 'Watch the waterfall', WATERFALL.view.x, WATERFALL.view.z + 0.2, 1.9, 'info')
     add('window', 'Peer through the window', 16.6, -19.5, 1.8, 'info')
     add('arcade', 'Pump Arcade — opening soon', ARCADE.x - 2.4, ARCADE.z, 2.4, 'info')
     add('rune', 'Press the strange rune', -23.6, -25.5, 1.6, 'secret')

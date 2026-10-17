@@ -36,32 +36,32 @@ const CX0 = -240
 const CX1 = -228
 /** the rookie corridor */
 const A: Platform[] = [
-  box(CX0, CX1, 16.8, 17.2, 0.95, 'wall', { vault: true, color: '#e8a02a' }),
-  box(CX0, CX1, 10.8, 11.2, 1.2, 'wall', { vault: true, color: '#e8641a' }),
+  box(CX0, CX1, 16.8, 17.2, 0.95, 'wall', { vault: true, color: '#9a6a54' }),
+  box(CX0, CX1, 10.8, 11.2, 1.2, 'wall', { vault: true, color: '#9a6a54' }),
   // the balance beam: 1 m wide, 0.55 high, 8 long (centre line x -234)
   box(-234.5, -233.5, -4, 4, 0.55, 'beam', { climb: true, color: '#9a6b44' }),
   // the gap jump: two blocks with a 1.8 m pit between
-  box(CX0 + 1, CX1 - 1, -10, -8, 1.0, 'block', { climb: true, color: '#7a8696' }),
-  box(CX0 + 1, CX1 - 1, -14.4, -11.8, 1.0, 'block', { climb: true, color: '#7a8696' }),
+  box(CX0 + 1, CX1 - 1, -10, -8, 1.0, 'block', { climb: true, color: '#8a8c90' }),
+  box(CX0 + 1, CX1 - 1, -14.4, -11.8, 1.0, 'block', { climb: true, color: '#8a8c90' }),
   // the finish stair: a mantle up to the finish block
-  box(CX0 + 1, CX1 - 1, -18, -14.4, 1.6, 'step', { climb: true, color: '#e0a83e' }),
+  box(CX0 + 1, CX1 - 1, -18, -14.4, 1.6, 'step', { climb: true, color: '#8a8c90' }),
 ]
 /** the rooftop branch: crate stair then five roofs (z −2.5…2.5) */
 const RZ0 = -2.5
 const RZ1 = 2.5
 const B: Platform[] = [
-  box(-227.4, -224.8, -2, 2, 1.2, 'crate', { climb: true, color: '#b84a2a' }),
-  box(-224.8, -222.2, -2, 2, 2.2, 'crate', { climb: true, color: '#2a6a9a' }),
-  box(-222.2, -212.0, RZ0, RZ1, 3.2, 'roof', { climb: true, ledge: true, color: '#8a4a2a' }),
+  box(-227.4, -224.8, -2, 2, 1.2, 'crate', { climb: true, color: '#a89070' }),
+  box(-224.8, -222.2, -2, 2, 2.2, 'crate', { climb: true, color: '#3a5a76' }),
+  box(-222.2, -212.0, RZ0, RZ1, 3.2, 'roof', { climb: true, ledge: true, color: '#7a3b2a' }),
   // roof 2 is hollow: a slab on three walls, open to the north (the secret room, its mouth screened by a vaultable crate wall)
-  box(-209.4, -202.0, RZ0, RZ1, 3.6, 'slab', { climb: true, bottom: 2.6, color: '#3a7a5a' }),
-  box(-209.4, -208.9, -4.2, RZ1, 3.6, 'wall', { color: '#3a7a5a' }),
-  box(-202.5, -202.0, -4.2, RZ1, 3.6, 'wall', { color: '#3a7a5a' }),
-  box(-209.4, -202.0, 2.0, RZ1, 3.6, 'wall', { color: '#3a7a5a' }),
-  box(-208.9, -202.5, -4.2, -3.8, 1.1, 'wall', { vault: true, color: '#b84a2a' }), // the decoy wall in front of the room's mouth
-  box(-199.2, -192.0, RZ0, RZ1, 3.2, 'roof', { climb: true, ledge: true, color: '#8a4a2a' }),
-  box(-189.4, -182.0, RZ0, RZ1, 3.6, 'roof', { climb: true, ledge: true, color: '#2a6a9a' }),
-  box(-179.2, -171.5, -3, 3, 4.0, 'roof', { climb: true, color: '#e0a83e' }),
+  box(-209.4, -202.0, RZ0, RZ1, 3.6, 'slab', { climb: true, bottom: 2.6, color: '#3d5f4c' }),
+  box(-209.4, -208.9, -4.2, RZ1, 3.6, 'wall', { color: '#3d5f4c' }),
+  box(-202.5, -202.0, -4.2, RZ1, 3.6, 'wall', { color: '#3d5f4c' }),
+  box(-209.4, -202.0, 2.0, RZ1, 3.6, 'wall', { color: '#3d5f4c' }),
+  box(-208.9, -202.5, -4.2, -3.8, 1.1, 'wall', { vault: true, color: '#a89070' }), // the decoy wall in front of the room's mouth
+  box(-199.2, -192.0, RZ0, RZ1, 3.2, 'roof', { climb: true, ledge: true, color: '#7a3b2a' }),
+  box(-189.4, -182.0, RZ0, RZ1, 3.6, 'roof', { climb: true, ledge: true, color: '#3a5a76' }),
+  box(-179.2, -171.5, -3, 3, 4.0, 'roof', { climb: true, color: '#8a8c90' }),
 ]
 /** the yard's solid enclosure (tall: never climbable) — x/z boxes only, drawn + collided by the builder */
 export const YARD_WALLS: Rect[] = [
@@ -92,7 +92,7 @@ export const LANE = {
 const LANE_B: Platform[] = [
   box(-208, -199, 14, 22, 2.35, 'building', { ledge: true, color: '#8a5a44' }), // the Workshop
   box(-195.6, -187, 14, 22, 2.2, 'building', { ledge: true, color: '#56667a' }), // the Store
-  box(-184.4, -182.6, 15, 19, 1.2, 'crate', { climb: true, color: '#b84a2a' }), // a crate to climb
+  box(-184.4, -182.6, 15, 19, 1.2, 'crate', { climb: true, color: '#a89070' }), // a crate to climb
   box(-182, -176, 14, 20, 3.5, 'building', { ledge: true, color: '#6a4a5a' }), // the Tower Shed
 ]
 export const PLATFORMS: Platform[] = [...A, ...B, ...LANE_B]

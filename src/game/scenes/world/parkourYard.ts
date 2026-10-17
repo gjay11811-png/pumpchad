@@ -34,6 +34,15 @@ export function parkourYard(T: Town) {
   }
   const hazard = std({ color: '#f2c230', roughness: 0.6, emissive: '#3a2a00' })
   const dark = std({ color: '#26242c', roughness: 0.9 })
+  const edgeLine = std({ color: '#efe9d8', roughness: 0.6 }) // a thin painted edge line: the lip reads from a run-up without a glowing stripe
+  const steelDark = std({ color: '#2d3036', roughness: 0.55, metalness: 0.55 })
+  const concrete = std({ map: P.stoneLight.map, color: '#a9a9a2', roughness: 0.95 })
+  const containerMats = new Map<string, THREE.MeshStandardMaterial>()
+  const container = (c: string) => {
+    let m = containerMats.get(c)
+    if (!m) containerMats.set(c, (m = std({ color: c, roughness: 0.55, metalness: 0.45 })))
+    return m
+  }
 
   // the yard floor
   {
@@ -100,23 +109,69 @@ export function parkourYard(T: Town) {
       })
       continue
     }
-    const body = p.kind === 'beam' ? P.woodLight : p.kind === 'slab' ? colour(p.color ?? '#3a7a5a') : colour(p.color ?? '#7a8696')
-    T.batch.put(boxUV(w, h, d, 2), body, cx, y0 + h / 2, cz)
-    if (p.kind === 'roof' || p.kind === 'slab' || p.kind === 'block' || p.kind === 'step' || p.kind === 'crate') {
-      // a light top plate + hazard stripes along the long edges (so the edge reads from a run-up)
-      T.batch.put(boxUV(w + 0.06, 0.08, d + 0.06, 1), P.stoneLight, cx, p.top + 0.04 - 0.02, cz, 0, 1, 1, 1, { cast: false })
-      const longX = w >= d
-      for (const s of [-1, 1]) T.batch.put(new THREE.BoxGeometry(longX ? w : 0.14, 0.02, longX ? 0.14 : d), hazard, longX ? cx : cx + s * (w / 2 - 0.1), p.top + 0.09, longX ? cz + s * (d / 2 - 0.1) : cz, 0, 1, 1, 1, { cast: false })
+    // supported, believable pieces: timber crates, concrete blocks, a plank beam on trestles, brick vault walls with a stone coping, and shipping containers on steel legs
+    const cx2 = cx
+    const cz2 = cz
+    const longX = w >= d
+    if (p.kind === 'wall') {
+      // a brick low wall with a stone coping and a thin painted white edge line (no padding stripe): reads as "go over"
+      T.batch.put(boxUV(w, h - 0.1, d, 1.6), brick('#9a6a54'), cx, y0 + (h - 0.1) / 2, cz)
+      T.batch.put(boxUV(w + 0.08, 0.1, d + 0.12, 1), P.stoneLight, cx, p.top - 0.05, cz)
+      if (p.vault) T.batch.put(new THREE.BoxGeometry(longX ? w : 0.04, 0.012, longX ? 0.04 : d), edgeLine, longX ? cx : cx, p.top + 0.006, cz, 0, 1, 1, 1, { cast: false })
+    } else if (p.kind === 'beam') {
+      // a plank beam on stone trestles every 2 m
+      T.batch.put(boxUV(w, 0.16, d, 1), P.woodLight, cx, p.top - 0.08, cz)
+      const n = Math.max(2, Math.round(Math.max(w, d) / 2) + 1)
+      for (let i = 0; i < n; i++) {
+        const t = -0.5 + i / (n - 1)
+        const px = longX ? cx + t * (w - 0.3) : cx
+        const pz = longX ? cz : cz + t * (d - 0.3)
+        T.batch.put(boxUV(longX ? 0.3 : w + 0.2, p.top - 0.16, longX ? d + 0.2 : 0.3, 1.2), P.stone, px, (p.top - 0.16) / 2, pz)
+      }
+    } else if (p.kind === 'block' || p.kind === 'step') {
+      // concrete blocks with a cast-in chamfer line and a light top
+      T.batch.put(boxUV(w, h, d, 1.6), concrete, cx, y0 + h / 2, cz)
+      T.batch.put(boxUV(w + 0.05, 0.07, d + 0.05, 1), P.stoneLight, cx, p.top - 0.035, cz, 0, 1, 1, 1, { cast: false })
+      T.batch.put(new THREE.BoxGeometry(longX ? w : 0.05, 0.012, longX ? 0.05 : d), edgeLine, cx, p.top + 0.006, cz, 0, 1, 1, 1, { cast: false })
+    } else if (p.kind === 'crate') {
+      // a timber crate: planked sides, corner posts and cross-battens
+      T.batch.put(boxUV(w, h, d, 1.2), P.woodLight, cx, y0 + h / 2, cz)
+      for (const sx of [-1, 1]) for (const sz of [-1, 1]) T.batch.put(boxUV(0.14, h + 0.02, 0.14, 1), P.timber, cx + sx * (w / 2 - 0.05), y0 + h / 2, cz + sz * (d / 2 - 0.05))
+      for (const f of [0.35, 0.7]) T.batch.put(boxUV(w + 0.04, 0.09, d + 0.04, 1), P.timber, cx, y0 + h * f, cz, 0, 1, 1, 1, { cast: false })
+      T.batch.put(new THREE.BoxGeometry(longX ? w : 0.04, 0.012, longX ? 0.04 : d), edgeLine, cx, p.top + 0.006, cz, 0, 1, 1, 1, { cast: false })
+    } else if (p.kind === 'roof' || p.kind === 'slab') {
+      // a shipping container on steel legs: corrugated sides (vertical ribs), corner castings, a door end with locking bars, a painted top rim; the legs and a brace carry it
+      const body = container(p.color ?? '#8a4a2a')
+      const bottom = Math.max(y0, 0.55)
+      const ch = p.top - bottom
+      T.batch.put(boxUV(w, ch, d, 2), body, cx, bottom + ch / 2, cz)
+      const ribs = Math.max(6, Math.floor(w / 0.28))
+      for (let i = 0; i <= ribs; i++) {
+        const rx = p.minX + 0.1 + ((w - 0.2) * i) / ribs
+        for (const sz of [-1, 1]) T.batch.put(new THREE.BoxGeometry(0.07, ch - 0.16, 0.035), body, rx, bottom + ch / 2, cz + sz * (d / 2 + 0.012), 0, 1, 1, 1, { cast: false })
+      }
+      for (const sx of [-1, 1]) for (const sz of [-1, 1]) for (const sy of [0.06, ch - 0.06]) T.batch.put(new THREE.BoxGeometry(0.16, 0.12, 0.16), steelDark, cx + sx * (w / 2 - 0.05), bottom + sy, cz + sz * (d / 2 - 0.05), 0, 1, 1, 1, { cast: false })
+      T.batch.put(new THREE.BoxGeometry(w + 0.04, 0.012, 0.06), edgeLine, cx, p.top + 0.006, cz - d / 2 + 0.12, 0, 1, 1, 1, { cast: false })
+      T.batch.put(new THREE.BoxGeometry(w + 0.04, 0.012, 0.06), edgeLine, cx, p.top + 0.006, cz + d / 2 - 0.12, 0, 1, 1, 1, { cast: false })
+      // steel legs (posts at the corners and one mid-span) with a cross brace, so it is clearly supported
+      if (bottom > 0.6 || p.kind === 'roof') {
+        const legs = Math.max(2, Math.round(w / 3.3) + 1)
+        for (let i = 0; i < legs; i++) {
+          const lx = p.minX + 0.2 + ((w - 0.4) * i) / (legs - 1)
+          for (const sz of [-1, 1]) T.batch.put(new THREE.CylinderGeometry(0.07, 0.07, bottom, 8), steelDark, lx, bottom / 2, cz + sz * (d / 2 - 0.25), 0, 1, 1, 1, { cast: false })
+          if (i < legs - 1) {
+            const span = (w - 0.4) / (legs - 1)
+            const br = new THREE.BoxGeometry(Math.hypot(span, bottom * 0.8), 0.05, 0.05)
+            br.rotateZ(Math.atan2(bottom * 0.8, span))
+            T.batch.put(br, steelDark, lx + span / 2, bottom / 2, cz + d / 2 - 0.25, 0, 1, 1, 1, { cast: false })
+          }
+        }
+      }
+    } else {
+      T.batch.put(boxUV(w, h, d, 2), colour(p.color ?? '#7a8696'), cx, y0 + h / 2, cz)
     }
-    if (p.kind === 'wall' && p.vault) {
-      // the vault walls: a padded top with a stripe so they read as "go over"
-      T.batch.put(boxUV(w, 0.12, d + 0.14, 1), hazard, cx, p.top + 0.06, cz, 0, 1, 1, 1, { cast: false })
-    }
-    if (p.kind === 'crate' || p.kind === 'roof') {
-      // container ribs
-      const n = Math.max(2, Math.floor((p.maxX - p.minX) / 0.9))
-      for (let i = 1; i < n; i++) T.batch.put(new THREE.BoxGeometry(0.06, h - 0.2, d + 0.08), dark, p.minX + (i * w) / n, y0 + h / 2, cz, 0, 1, 1, 1, { cast: false })
-    }
+    void cx2
+    void cz2
   }
 
   // pits: safety mats across the fall zones

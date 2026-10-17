@@ -523,6 +523,13 @@ export function GameApp() {
         cityStepRef.current(id === 'rides' ? 'visit_rides' : 'visit_arcade')
         setDialogue(DIALOGUE[id])
         break
+      case 'waterfall':
+        if (!saveRef.current.progress.discoveries.includes('waterfall')) {
+          discover('waterfall')
+          notify('Discovered: The Falls', 'A hidden waterfall in the Enchanted Forest.', 'discover')
+        }
+        setDialogue(DIALOGUE.waterfall)
+        break
       case 'overlook':
         if (!saveRef.current.progress.discoveries.includes('overlook')) {
           discover('overlook')

@@ -31,7 +31,7 @@ const UP = new THREE.Vector3(0, 1, 0)
 /* ── shared helpers ── */
 
 /** a flat ribbon along a smooth curve through `pts` (a dirt or gravel path) */
-function ribbon(pts: V2[], w: number, closed = false) {
+export function ribbon(pts: V2[], w: number, closed = false) {
   const curve = new THREE.CatmullRomCurve3(pts.map(([x, z]) => new THREE.Vector3(x, 0, z)), closed, 'centripetal')
   const n = Math.max(8, Math.round(curve.getLength() / 0.8))
   const pos: number[] = []
@@ -118,6 +118,8 @@ export const FOREST = {
   ring: { x: -70, z: -49.5, r: 3 },
   glade: { x: -93, z: -57, r: 6 },
   view: { x: -46, z: -27, r: 5 },
+  /** the waterfall's rock mass, pool and viewing spot (see waterfall.ts): no trees here */
+  fall: { x: -49, z: -59, r: 12 },
 }
 const F_MAIN: V2[] = [[-80, -11], [-80, -22], [-79, -30], [-74, -38], [-71, -46], [-70, -50]]
 const F_WEST: V2[] = [[-79, -31], [-86, -36], [-92, -44], [-93, -53]]
@@ -180,7 +182,7 @@ export function enchantedForest(T: Town, q: Quality, seats: BenchSpot[]) {
   // ── trees: dark trunks, teal / violet / deep-green canopies; never on paths or in clearings ──
   const clear = (x: number, z: number, m: number) => {
     if (F_PATHS.some((p) => distToLine(x, z, p) < m + 1.4)) return false
-    for (const c of [FOREST.clearing, FOREST.glade, FOREST.view]) if (Math.hypot(x - c.x, z - c.z) < c.r + m) return false
+    for (const c of [FOREST.clearing, FOREST.glade, FOREST.view, FOREST.fall]) if (Math.hypot(x - c.x, z - c.z) < c.r + m) return false
     if (Math.hypot(x - FOREST.gate.x, z - FOREST.gate.z) < 5 + m) return false
     return x > Fz.x0 + 1.2 && x < Fz.x1 - 1.2 && z > Fz.z0 + 1.2 && z < Fz.z1 - 1.2
   }

@@ -200,6 +200,11 @@ export const DIALOGUE: Record<string, Dialogue> = {
     role: 'Coming soon',
     lines: ['Chad Rides — bikes are coming in a future update.', 'For now they’re parked in the rack, polished and slightly judgemental.'],
   },
+  waterfall: {
+    speaker: 'The Falls',
+    role: 'Enchanted Forest',
+    lines: ['A brook comes out of a crack in the rock, slides over a flat stone lip and falls into a pool rimmed with mossy boulders. The mist smells of cold stone and pine.', 'The overflow trickles away through the ferns, under the little footbridge, back into the roots of the forest. Nobody has ever found where the brook starts — only where it decides to be dramatic.'],
+  },
   overlook: {
     speaker: 'Chad View',
     role: 'Scenic overlook',
