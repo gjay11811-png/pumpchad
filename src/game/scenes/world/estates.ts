@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import type { Town } from './buildings'
 import { CELL, HEIGHTS, PIECE, PLOTS, PLOT_PRICE, plotGate, plotSize, pieceWorld, type Estate, type Piece, type Plot } from '../../estates'
 import { showHomes } from './showHomes'
+import { traversalSpots } from './traversalSpots'
 import { boxUV } from './kit'
 import { ornateSign } from './ornament'
 import { Frame } from './signs'
@@ -42,6 +43,7 @@ export function estatesDistrict(T: Town) {
   // flat paving strips either side of the boulevard (footpaths) and a stone kerb line
   for (const z of [HEIGHTS.boulevard.z0 - 1.2, HEIGHTS.boulevard.z1]) pave(HEIGHTS.boulevard.x0, HEIGHTS.boulevard.x1, z, z + 1.2, P.paving, 0.02)
   showHomes(T)
+  traversalSpots(T)
   const lawn = new THREE.MeshStandardMaterial({ map: P.ground.map, color: '#8aa86a', roughness: 1 })
   T.disposables.push(lawn)
   for (const p of PLOTS) {

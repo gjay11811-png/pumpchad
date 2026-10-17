@@ -18,6 +18,8 @@ import { BENCHES, kingdom, mountains } from './world/kingdom'
 import { GARDEN, SPAWN, VALLEY_GATE, bridgeHeight, clampToCity } from './world/city'
 import { EXPANSION_OPEN, LANTERN_ROLLOUT, SAFE_ARRIVAL, isLocked } from '../launch'
 import { COURSES, PLATFORMS, SECRET, YARD, fmtMs, type CourseId } from '../parkour'
+import { WORLD_LEDGES } from './world/ledgeData'
+import { spotPlatforms } from './world/traversalSpots'
 import type { Platform } from '../parkour'
 import { END_MARGIN, HANG_DROP, cornerNext, edgeAt, findCatch, hangPose, ledgeGeom, pullUpSpot, type LedgeGeom } from '../ledge'
 import { ParkourRun, mono, planTraverse, platformFloor, platformResolve, travAt, type RunResult, type TravFrame, type TravPlan } from '../parkourSystem'
@@ -113,7 +115,7 @@ export type WorldEvents = {
 /** the parkour platforms as camera blockers (the lens must not sit inside a roof; slabs you can walk under are left out) */
 /** +1 when the right hand (facing the wall) lies toward +s of the ledge, −1 when toward −s */
 const handSign = (g: LedgeGeom) => g.nz * g.tx - g.nx * g.tz
-const PLATFORM_BOXES = PLATFORMS.filter((p) => !p.bottom).map((p) => ({ kind: 'box' as const, minX: p.minX, maxX: p.maxX, minZ: p.minZ, maxZ: p.maxZ, h: p.top }))
+const PLATFORM_BOXES: { kind: 'box'; minX: number; maxX: number; minZ: number; maxZ: number; h: number }[] = PLATFORMS.filter((p) => !p.bottom).map((p) => ({ kind: 'box' as const, minX: p.minX, maxX: p.maxX, minZ: p.minZ, maxZ: p.maxZ, h: p.top }))
 
 /** six hidden pumpkins: fair, reachable spots (no climbing), one per district */
 export const HIDDEN: [string, number, number, string][] = [
@@ -332,6 +334,7 @@ export class World implements GameScene {
     s.environmentIntensity = 0.5
     this.bloom = this.night ? 0.6 : 0.22 // night: windows, lanterns, the moon and the fires halo; day: only glints
     this.buildTown(quality)
+    this.registerWorldLedges()
     window.addEventListener('chad-parkour-cmd', this.onParkourCmd)
     window.addEventListener('keydown', this.onParkourKey)
     window.addEventListener('chad-sword-cmd', this.onSwordCmd)
@@ -1147,6 +1150,31 @@ export class World implements GameScene {
    * no thicker than 1.2 m, not flagged noVault). The planner still refuses a landing outside the walkable city, inside the closed expansion or inside something solid,
    * so the outer barrier, the Valley Gate and the expansion boundary can never be crossed this way.
    */
+  /**
+   * LEDGES THROUGHOUT THE WORLD: every collider whose top `scripts/ledge-scan.mjs` verified to be a real, flat, reachable surface (see ledgeData.ts) becomes a platform
+   * you can mantle (a low top) or catch, hang from, shimmy along and pull up onto (a tall top), instead of a plain blocking box. The yard keeps its hand-authored platforms.
+   */
+  private registerWorldLedges() {
+    let n = 0
+    for (const [minX, maxX, minZ, maxZ, top] of WORLD_LEDGES) {
+      const i = this.colliders.findIndex((c) => c.kind === 'box' && Math.abs(c.minX - minX) < 0.02 && Math.abs(c.maxX - maxX) < 0.02 && Math.abs(c.minZ - minZ) < 0.02 && Math.abs(c.maxZ - maxZ) < 0.02 && Math.abs((c.h ?? 0) - top) < 0.02)
+      if (i < 0) continue
+      this.colliders.splice(i, 1)
+      const plat: Platform = { minX, maxX, minZ, maxZ, top, kind: 'block', climb: true, ledge: top >= 1.6 }
+      PLATFORMS.push(plat)
+      PLATFORM_BOXES.push({ kind: 'box' as const, minX, maxX, minZ, maxZ, h: top })
+      n++
+    }
+    // the purpose-built spots (a crate stair to the Rides roof, the Heights Green walls and shed)
+    for (const plat of spotPlatforms()) {
+      PLATFORMS.push(plat)
+      PLATFORM_BOXES.push({ kind: 'box' as const, minX: plat.minX, maxX: plat.maxX, minZ: plat.minZ, maxZ: plat.maxZ, h: plat.top })
+      n++
+    }
+    this.worldLedgeCount = n
+  }
+  worldLedgeCount = 0
+
   private obstaclesNear(base: Platform[]): Platform[] {
     const px = this.playerPos.x
     const pz = this.playerPos.z
@@ -1340,6 +1368,29 @@ export class World implements GameScene {
     }
   }
   /** QA: the rider's bike, mount a parked one, set it going */
+  /** QA: cast a ray straight down at (x, z) from y0 against the visible scenery: the first surface's height and normal (used to verify a collider's top is really flat) */
+  private qaRay = new THREE.Raycaster()
+  qaRayDown(x: number, z: number, y0: number) {
+    this.qaRay.set(new THREE.Vector3(x, y0, z), new THREE.Vector3(0, -1, 0))
+    this.qaRay.far = 60
+    const meshes: THREE.Object3D[] = []
+    this.scene.traverse((o) => {
+      const m = o as THREE.Mesh
+      if (m.isMesh && m.visible && !(m as unknown as { isSkinnedMesh?: boolean }).isSkinnedMesh && (m.material as THREE.Material).visible !== false) meshes.push(m)
+    })
+    const hits = this.qaRay.intersectObjects(meshes, false).filter((h) => (h.object as THREE.Mesh).geometry.type !== 'SphereGeometry' || h.distance < 200)
+    for (const h of hits) {
+      const mat = (h.object as THREE.Mesh).material as THREE.Material
+      if (mat.transparent && (mat as THREE.MeshStandardMaterial).opacity < 0.5) continue
+      const n = h.face ? h.face.normal.clone().transformDirection(h.object.matrixWorld) : new THREE.Vector3(0, 1, 0)
+      return { y: +h.point.y.toFixed(3), ny: +n.y.toFixed(2) }
+    }
+    return null
+  }
+  /** QA: every collider (kind, bounds, height) */
+  qaAllColliders() {
+    return this.colliders.map((c) => (c.kind === 'circle' ? [0, +c.x.toFixed(2), +c.z.toFixed(2), c.r, c.h ?? -1] : [1, c.minX, c.maxX, c.minZ, c.maxZ, c.h ?? -1]))
+  }
   /** QA: colliders that touch a box (to find clear ground) */
   qaCollidersIn(x0: number, x1: number, z0: number, z1: number) {
     return this.colliders

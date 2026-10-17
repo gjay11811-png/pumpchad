@@ -1096,6 +1096,8 @@ export function GameApp() {
       freeze: (on: boolean) => {
         if (engine.current) engine.current.qaFrozen = on
       },
+      rayDown: (x: number, z: number, y0: number) => world.current?.qaRayDown(x, z, y0),
+      allColliders: () => world.current?.qaAllColliders(),
       collidersIn: (a: number, b: number, c: number, d: number) => world.current?.qaCollidersIn(a, b, c, d),
       renders: () => engine.current?.qaRenders ?? 0,
       bike: () => world.current?.rideState() ?? null,

@@ -1,0 +1,16 @@
+import { chromium } from 'playwright'
+import { writeFileSync } from 'node:fs'
+const b = await chromium.launch({ executablePath: process.env.LOCALAPPDATA + '/ms-playwright/chromium-1228/chrome-win64/chrome.exe', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--disable-gpu-watchdog'] })
+const p = await b.newPage({ viewport: { width: 800, height: 500 } })
+await p.addInitScript(() => localStorage.setItem('pumpchad.chadverse.save', JSON.stringify({ version: 2, character: null, progress: { discoveries: ['intro_seen'], xp: 800 }, settings: { quality: 'low', muted: true } })))
+await p.goto('http://localhost:5180/chadverse/?sky=day')
+await p.click('[data-testid=enter-muted]')
+await p.waitForSelector('[role=tablist]')
+await p.getByRole('tab', { name: 'Name' }).click()
+await p.fill('#chad-name', 'Rider')
+await p.getByRole('button', { name: /Enter Chad Square/ }).click()
+await p.waitForFunction(() => window.__chadverse?.phase === 'world' && window.__chadverse.world(), null, { timeout: 120000 })
+const all = await p.evaluate(() => window.__chadverse.allColliders())
+writeFileSync('tmp-viewer/colliders.json', JSON.stringify(all))
+console.log('colliders', all.length)
+await b.close()
