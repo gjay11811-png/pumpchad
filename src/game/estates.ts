@@ -84,6 +84,8 @@ export const HEIGHTS_TREES: [number, number][] = (() => {
   // (kept clear of every front-door line on the Green: the show homes and Greenside Row)
   const doors = [-214, -195.5, -182, -111, -98.5, -86]
   for (let x = -76, k = 0; x > -244; x -= 24, k++) if (doors.every((d) => Math.abs(x - d) > 7)) out.push([x, k % 2 ? 44.2 : 49.8])
+  // the Green's lawns: loose groves south of the boulevard (the big open lawn) and a few along the north strip, clear of the show homes, Greenside Row and the traversal spots
+  for (const [x, z] of [[-214, 62], [-205, 69], [-196, 58], [-184, 66], [-172, 60], [-160, 70], [-150, 57], [-138, 66], [-126, 60], [-114, 69], [-104, 58], [-92, 66], [-80, 60], [-226, 72], [-232, 56], [-168, 31], [-146, 30], [-128, 30], [-70, 31], [-238, 33]]) out.push([x, z])
   return out.filter(([x]) => x > -548)
 })()
 export type ShowHome = { id: 'cottage' | 'contemporary' | 'premium'; name: string; blurb: string; x: number; z: number; face: 's' }

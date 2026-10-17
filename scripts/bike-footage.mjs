@@ -54,6 +54,7 @@ const grab = async (s) => {
     const r = [Math.cos(s.heading), -Math.sin(s.heading)]
     await p.evaluate(([c, l]) => window.__chadverse.shotCam({ cam: c, look: l, fov: 34 }), [[s.x + r[0] * 3.3 - f[0] * 0.3, 1.0, s.z + r[1] * 3.3 - f[1] * 0.3], [s.x - f[0] * 0.15, 0.85, s.z - f[1] * 0.15]])
   } else if (CAM === 'side') await p.evaluate(() => window.__chadverse.shotCam(null))
+  if (CAM === 'side') await adv(0.001) // the scene places the shot camera inside its update: one tiny step so the frame shows the bike where the camera is
   const n0 = await p.evaluate(() => window.__chadverse.renders())
   await p.waitForFunction((n) => window.__chadverse.renders() >= n + 2, n0, { timeout: 60000, polling: 40 })
   if (await p.getByText('The graphics took a nap').count()) throw new Error('WEBGL CONTEXT LOST at frame ' + frames)

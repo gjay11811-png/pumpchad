@@ -43,6 +43,17 @@ export function estatesDistrict(T: Town) {
   for (const l of [HEIGHTS.boulevard, HEIGHTS.spine, HEIGHTS.laneA, HEIGHTS.laneB]) pave(l.x0, l.x1, l.z0, l.z1, P.cobble)
   // flat paving strips either side of the boulevard (footpaths) and a stone kerb line
   for (const z of [HEIGHTS.boulevard.z0 - 1.2, HEIGHTS.boulevard.z1]) pave(HEIGHTS.boulevard.x0, HEIGHTS.boulevard.x1, z, z + 1.2, P.paving, 0.02)
+  // benches along the boulevard's south footpath, facing the street, with a lantern post-height planter beside each
+  for (const bx of [-118, -150, -188, -232]) {
+    const bz = 51.0
+    T.batch.put(boxUV(1.8, 0.08, 0.46, 1), P.woodLight, bx, 0.46, bz)
+    T.batch.put(boxUV(1.8, 0.4, 0.06, 1), P.woodLight, bx, 0.8, bz + 0.2)
+    for (const sx of [-1, 1]) T.batch.put(boxUV(0.08, 0.46, 0.42, 1), P.iron, bx + sx * 0.82, 0.23, bz)
+    T.colliders.push({ kind: 'box', minX: bx - 1.0, maxX: bx + 1.0, minZ: bz - 0.28, maxZ: bz + 0.3, h: 1 })
+    T.batch.put(boxUV(0.9, 0.5, 0.9, 1), P.stone, bx + 1.7, 0.25, bz)
+    T.batch.put(new THREE.IcosahedronGeometry(0.5, 1).scale(1, 0.7, 1), P.foliageDark, bx + 1.7, 0.7, bz)
+    T.colliders.push({ kind: 'circle', x: bx + 1.7, z: bz, r: 0.5, h: 0.6 })
+  }
   showHomes(T)
   traversalSpots(T)
   greensideRow(T)
