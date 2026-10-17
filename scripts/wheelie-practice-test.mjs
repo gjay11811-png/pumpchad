@@ -49,14 +49,34 @@ const release = async () => {
   for (const k of ['w', 's', 'a', 'd', 'Shift', ' ']) await key(k, false)
 }
 
+/** a small reactive rider: a fresh 0.15 s press of the gas lifts / holds the front (REV), easing off lets it settle, Brake brings it down if it climbs too far */
+let tp = -1
+let tg = 0
+const ride = async (s, lim = 0.32) => {
+  const pred = s.pitch + s.pitchRate * 0.25
+  if (tp >= 0) {
+    tp++
+    if (tp >= 3) {
+      await key('w', false)
+      tp = -1
+      tg = 0
+    }
+  } else {
+    tg++
+    if (tg >= 7 && pred < lim && s.pitchRate < 0.35 && s.v < 20) {
+      await key('w', true)
+      tp = 0
+    }
+  }
+  await key('s', pred > 0.58)
+}
 /* 1. LIFT ZONE: gas in the blue box lifts the front smoothly → a score */
 await set({ x: 0, z: 50, h: 0, v: 5 })
 await adv(0.3)
-await key('w', true)
-for (let i = 0; i < 60 && !(await got('lift')); i++) {
-  await adv(0.1)
+for (let i = 0; i < 100 && !(await got('lift')); i++) {
   const s = await B()
-  await key('w', s.pitch < 0.4)
+  await ride(s, 0.4)
+  await adv(0.05)
   if (s.z > 70) break
 }
 let r = await got('lift')
@@ -66,14 +86,11 @@ await release()
 /* 2. BALANCE: hold 15°–35° for 2.5 s */
 await set({ x: 0, z: 56, h: 0, v: 4 })
 await adv(0.3)
-await key('w', true)
 let held = 0
-for (let i = 0; i < 90; i++) {
+for (let i = 0; i < 140; i++) {
   const s = await B()
   if (s.crashed) break
-  const pred = s.pitch + s.pitchRate * 0.25
-  await key('w', pred < 0.42 && s.v < 20)
-  await key('s', pred > 0.58)
+  await ride(s, 0.4)
   if (s.pitch > 0.26) held += 0.05
   if (s.z > 70) await set({ x: 0, z: 57, v: Math.min(s.v, 8) })
   await adv(0.05)
@@ -86,9 +103,9 @@ await adv(3)
 /* 3. LANDING: the wheelie coming back down is scored by how soft the touchdown is */
 await set({ x: 0, z: 56, h: 0, v: 5 })
 await adv(0.3)
-await key('w', true)
 let st = await B()
-for (let i = 0; i < 60 && st.pitch < 0.35; i++) {
+for (let i = 0; i < 100 && st.pitch < 0.35; i++) {
+  await ride(st, 0.5)
   await adv(0.05)
   st = await B()
 }
@@ -108,12 +125,9 @@ await adv(0.3)
 await key('Shift', true)
 await adv(1)
 check(!(await got('onehand')) && (await B()).oneHand === 0, 'ONE HAND does nothing on the ground (no pose, no score)')
-await key('w', true)
-for (let i = 0; i < 80 && !(await got('onehand')); i++) {
+for (let i = 0; i < 140 && !(await got('onehand')); i++) {
   const s = await B()
-  const pred = s.pitch + s.pitchRate * 0.25
-  await key('w', pred < 0.4 && s.v < 20)
-  await key('s', pred > 0.55)
+  await ride(s, 0.4)
   if (s.z > 66) await set({ x: 0, z: 14, v: Math.min(s.v, 7) })
   await adv(0.05)
 }
