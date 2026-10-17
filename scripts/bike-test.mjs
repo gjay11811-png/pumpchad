@@ -105,21 +105,20 @@ await up('s')
 
 /* 5. a held wheelie: a small reactive player on the keys (labelled: the "player" is a script, so this shows it is possible, not how it feels) */
 await set({ x: 0, z: 10, h: 0, v: 7 })
-const keys = { w: false, Shift: false, ' ': false }
+const keys = { w: false, s: false, ' ': false }
 const press = async (k, on) => {
   if (keys[k] === on) return
   keys[k] = on
   await (on ? down(k) : up(k))
 }
 await press('w', true)
-await press('Shift', true)
-/** a small reactive rider: heave to start, then throttle to hold the nose up and the rear brake to stop it going over */
+/** a small reactive rider: GAS alone lifts the front (no lift button); ease off to hold the angle, touch Brake if it climbs too far */
 const player = async (s) => {
   const predicted = s.pitch + s.pitchRate * 0.25
-  await press('Shift', s.pitch < s.balance * 0.45 && s.pitchRate < 0.9)
-  await press('w', predicted < s.balance * 0.82 && s.v < 22)
-  await press(' ', predicted > s.balance * 0.95)
+  await press('w', predicted < 0.38 && s.v < 22)
+  await press('s', predicted > 0.5)
 }
+await set({ x: 0, z: 10, h: 0, v: 4 })
 let held = 0
 let maxP = 0
 let crashed = false
@@ -136,7 +135,7 @@ for (let t = 0; t < 20; t += 0.05) {
   if (held > 4) break
   await adv(0.05)
 }
-check(maxP > 0.3 && !crashed, `throttle + Shift lifts the front wheel (peak ${deg(maxP)}°) without a crash`)
+check(maxP > 0.3 && !crashed, `the gas alone lifts the front wheel (peak ${deg(maxP)}°) without a crash`)
 check(held > 3, `the wheelie can be held with small corrections (${held.toFixed(1)} s up)`)
 
 /* 5b. a gentle steer in the wheelie */
@@ -155,35 +154,37 @@ if ((await B()).pitch > 0.2) {
   check(Math.abs((await B()).heading - hd) > 0.02 && !(await B()).crashed, `a gentle steer works mid-wheelie (heading ${((await B()).heading - hd).toFixed(2)} rad)`)
 }
 await press('w', false)
-await press('Shift', false)
+await press('s', false)
 await press(' ', false)
 
 /* 6. the rear brake lowers it; the touchdown is soft */
 await set({ x: 0, z: 10, h: 0, v: 8 })
 await press('w', true)
-await press('Shift', true)
-await until((s) => s.pitch > 0.35 || s.crashed, 6, 0.05)
-await press('Shift', false)
+await until((s) => s.pitch > 0.3 || s.crashed, 6, 0.05)
 await press('w', false)
 const before = await B()
-await down(' ')
+await down('s')
 let td = 0
 const lowered = await until((s) => ((td = Math.max(td, s.touchdown)), s.pitch < 0.02), 8, 0.05)
-await up(' ')
-check(before.pitch > 0.2 && lowered.ok, `Space (rear brake) brings the front wheel down (from ${deg(before.pitch)}°)`)
+await up('s')
+check(before.pitch > 0.2 && lowered.ok, `easing off and touching Brake brings the front wheel down (from ${deg(before.pitch)}°)`)
 check(td < 2.6, `smooth touchdown (impact ${td.toFixed(2)} rad/s); fork compressed ${lowered.s.forkC.toFixed(3)} m`)
 
-/* 7. over-hold → loop-out → the bike is righted and the rider is back on it */
-await set({ x: 0, z: 10, h: 0, v: 7 })
+/* 7. holding the gas from a standstill is acceleration with a power lift: it never flips the bike */
+await set({ x: 0, z: 10, h: 0, v: 0 })
 await down('w')
-await down('Shift')
-const lo = await until((s) => s.phase === 'crashed', 12)
-await up('Shift')
+let flip = false
+let maxHold = 0
+for (let t = 0; t < 7; t += 0.1) {
+  const s0 = await B()
+  if (s0.crashed) flip = true
+  maxHold = Math.max(maxHold, s0.pitch)
+  if (s0.z > 66) await set({ x: 0, z: 10, v: 6 })
+  await adv(0.1)
+}
 await up('w')
-check(lo.ok && lo.s.crashed === 'loop', `holding the heave too long loops the bike out (${lo.s.crashed})`)
-const rc = await until((s) => s.phase === 'riding' && !s.crashed, 8)
-console.log('   recovery', rc.ok, rc.s.phase, rc.s.crashed, rc.s.v)
-check(rc.ok && Math.abs(rc.s.v) < 1.2, 'the bike is stood back up and the rider is on it again (recovery)')
+check(!flip, `holding the gas never loops the bike out (front rose to ${deg(maxHold)}°)`)
+await until((s) => s.v < 1.5 && s.pitch < 0.02, 12)
 
 /* 8. a wall: a slow bump just stops you, a fast one is a crash */
 await set({ x: 12, z: 52, h: 0, v: 6 })
@@ -196,7 +197,9 @@ await down('w')
 const hit = await until((s) => s.phase === 'crashed', 8)
 await up('w')
 check(hit.ok, 'a fast impact is a crash (then recovered like the loop-out)')
-await until((s) => s.phase === 'riding' && !s.crashed, 8)
+const rc = await until((s) => s.phase === 'riding' && !s.crashed, 8)
+console.log('   recovery', rc.ok, rc.s.phase, rc.s.crashed, rc.s.v)
+check(rc.ok && Math.abs(rc.s.v) < 1.2, 'after a crash the bike is stood back up and the rider is on it again (recovery)')
 
 /* 9. dismount at a standstill, remount; pause / dismount leave no held inputs */
 await set({ x: 0, z: 14, h: 0, v: 0 })

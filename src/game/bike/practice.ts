@@ -21,6 +21,7 @@ export function buildPracticeRoute(scene: THREE.Scene, ground: (x: number, z: nu
   g.name = 'bike-practice-route'
   const geos: THREE.BufferGeometry[] = []
   const mats: THREE.Material[] = []
+  const texs: THREE.Texture[] = []
   const mat = (c: number, o: Partial<THREE.MeshStandardMaterialParameters> = {}) => {
     const m = new THREE.MeshStandardMaterial({ color: c, roughness: 0.85, ...o })
     mats.push(m)
@@ -81,12 +82,60 @@ export function buildPracticeRoute(scene: THREE.Scene, ground: (x: number, z: nu
   for (let z = PRACTICE.runFrom; z <= PRACTICE.end; z += 8) post(X + 3.2, z, z % 16 === 0 ? orange : white)
   // start-to-end distance posts on the left, every 10 m
   for (let z = PRACTICE.start + 10; z < PRACTICE.brakeFrom - 2; z += 10) post(X - 3.2, z, white)
+  // ── the wheelie yard marks (see practiceJudge.ts): LIFT ZONE (blue box), BALANCE band (green posts), CONES, SCRAPE SECTION (yellow chevrons) ──
+  const blue = mat(0x2f7ff0, { emissive: 0x0a2a60 })
+  const green = mat(0x2fb36a)
+  const edge = (x: number, z0: number, z1: number, m: THREE.Material) => strip(x, (z0 + z1) / 2, 0.14, z1 - z0, m)
+  edge(X - 2.7, 57, 65, blue)
+  edge(X + 2.7, 57, 65, blue)
+  strip(X, 57, 5.4, 0.16, blue)
+  strip(X, 65, 5.4, 0.16, blue)
+  for (let z = 65; z <= 72; z += 3.5) {
+    post(X - 2.7, z, green)
+    post(X + 2.7, z, green)
+  }
+  for (let z = 22; z <= 38; z += 4) for (const sx of [-1, 1]) strip(X + sx * 3.6, z, 0.9, 0.18, yellow)
+  const sign = (text: string, sub: string, x: number, z: number, ry: number) => {
+    const c = document.createElement('canvas')
+    c.width = 256
+    c.height = 96
+    const k = c.getContext('2d')
+    if (!k) return
+    k.fillStyle = '#16181f'
+    k.fillRect(0, 0, 256, 96)
+    k.strokeStyle = '#f2c230'
+    k.lineWidth = 4
+    k.strokeRect(4, 4, 248, 88)
+    k.fillStyle = '#f2c230'
+    k.font = 'bold 34px sans-serif'
+    k.textAlign = 'center'
+    k.fillText(text, 128, 44)
+    k.fillStyle = '#e9e2d0'
+    k.font = '20px sans-serif'
+    k.fillText(sub, 128, 76)
+    const tex = new THREE.CanvasTexture(c)
+    tex.colorSpace = THREE.SRGBColorSpace
+    texs.push(tex)
+    const m = new THREE.MeshBasicMaterial({ map: tex })
+    mats.push(m)
+    const sg = new THREE.Mesh(geo(new THREE.PlaneGeometry(1.5, 0.56)), m)
+    sg.position.set(x, ground(x, z) + 1.0, z)
+    sg.rotation.y = ry
+    const pole = new THREE.Mesh(geo(new THREE.CylinderGeometry(0.03, 0.03, 1.0, 6)), mat(0x2b2b2b))
+    pole.position.set(x, ground(x, z) + 0.5, z)
+    g.add(sg, pole)
+  }
+  sign('LIFT ZONE', 'gas in the box', X - 3.5, 57, Math.PI)
+  sign('BALANCE', '15° – 35°', X + 3.5, 65, Math.PI)
+  sign('CONES', 'weave all five', X - 3.5, 20, Math.PI)
+  sign('SCRAPE', 'lean hard here', X + 4.4, 30, Math.PI)
   scene.add(g)
   return {
     dispose() {
       scene.remove(g)
       geos.forEach((x) => x.dispose())
       mats.forEach((x) => x.dispose())
+      texs.forEach((x) => x.dispose())
     },
   }
 }

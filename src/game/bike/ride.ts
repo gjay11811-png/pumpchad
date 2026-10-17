@@ -6,6 +6,8 @@ import { RideControls, releaseAllRideButtons, rideBtn, takeGetOff } from './cont
 import { BikeSim, NO_INPUT, type Ground } from './sim'
 import { STREET, SURRON, type BikeSpec } from './spec'
 import { buildPracticeRoute } from './practice'
+import { CHALLENGES, PracticeJudge } from './practiceJudge'
+import { makeSparks } from './sparks'
 import { ModelBikeVisual, type BikeKind, type BikeRig } from './visual'
 
 /**
@@ -51,13 +53,15 @@ const qAlign = new THREE.Quaternion().setFromAxisAngle(Y_UP, Math.PI / 2) // the
 
 /** player settings for riding, kept in this browser only */
 const KEY = 'pumpchad.ride.v1'
-export type RideSettings = { assist: number; school: boolean }
+export type RideSettings = { assist: number; school: boolean; view: 'chase' | 'side'; best: Record<string, number> }
 export function loadRideSettings(): RideSettings {
   try {
     const j = JSON.parse(localStorage.getItem(KEY) ?? '{}')
-    return { assist: typeof j.assist === 'number' ? Math.max(0, Math.min(1, j.assist)) : 0.3, school: j.school !== false }
+    const best: Record<string, number> = {}
+    if (j.best && typeof j.best === 'object') for (const c of CHALLENGES) if (typeof j.best[c.id] === 'number') best[c.id] = Math.max(0, Math.min(100, j.best[c.id]))
+    return { assist: typeof j.assist === 'number' ? Math.max(0, Math.min(1, j.assist)) : 0.3, school: j.school !== false, view: j.view === 'side' ? 'side' : 'chase', best }
   } catch {
-    return { assist: 0.3, school: true }
+    return { assist: 0.3, school: true, view: 'chase', best: {} }
   }
 }
 export function saveRideSettings(s: RideSettings) {
@@ -73,8 +77,8 @@ const LESSONS = [
   { text: 'Accelerate: hold W (or Gas) up to about 45 km/h', done: (a: Active) => Math.abs(a.sim.v) > 12 },
   { text: 'Brake: slow right down with S (the Brake button)', done: (a: Active) => a.school.t > 0.4 && Math.abs(a.sim.v) < 1.2 },
   { text: 'Turn: steer with A / D (the stick) through a quarter turn', done: (a: Active) => Math.abs(angleDiff(a.sim.h, a.school.t)) > 1.2 },
-  { text: 'Front-wheel lift: roll on the Gas, then ease in REV (Shift). Let REV go as the front rises', done: (a: Active) => a.sim.pitch > 0.17 },
-  { text: 'Recover: ease off REV and touch the rear brake (Space)', done: (a: Active) => a.school.t > 0.5 && a.sim.pitch < 0.02 },
+  { text: 'Front-wheel lift: at about 20 km/h roll the Gas on hard; the front rises by itself. Ease off to lower it', done: (a: Active) => a.sim.pitch > 0.17 },
+  { text: 'Recover: ease off the Gas and touch the Brake to bring the front down', done: (a: Active) => a.school.t > 0.5 && a.sim.pitch < 0.02 },
 ]
 const angleDiff = (a: number, b: number) => Math.atan2(Math.sin(a - b), Math.cos(a - b))
 
@@ -87,11 +91,16 @@ export class RideSystem {
   private noteT = 0
   settings: RideSettings = loadRideSettings()
   /** set by the scene each frame while this is active: the camera should follow (heading, speed) */
-  readonly cam = { heading: 0, speed: 0, wheelie: 0 }
+  readonly cam = { heading: 0, speed: 0, wheelie: 0, side: false, pitch: 0 }
+  /** the practice strip's judge (scores only; never changes the riding) and the last result shown for a few seconds */
+  private judge = new PracticeJudge(loadRideSettings().best)
+  private last: { name: string; line: string; score: number; t: number } | null = null
+  private sparks: { dispose: () => void; emit: (p: THREE.Vector3, n: THREE.Vector3, k: number) => void; update: (dt: number) => void } | null = null
 
   private practice: { dispose: () => void } | null = null
   constructor(private host: RideHost) {
     this.practice = buildPracticeRoute(host.scene, host.ground)
+    this.sparks = makeSparks(host.scene)
     this.controls = new RideControls(host.input)
     window.addEventListener('chad-ride-set', this.onSet)
   }
@@ -300,10 +309,50 @@ export class RideSystem {
     this.cam.heading = sim.h
     this.cam.speed = Math.abs(sim.v)
     this.cam.wheelie = sim.pitch
-    audio.rideTick({ kind: a.parked.kind, v: Math.abs(sim.v), vmax: a.spec.maxSpeed, thr: sim.thr, brake: Math.max(sim.brk, sim.rbk), rpm: sim.rpm, gear: sim.gear, wheelie: sim.pitch, touchdown: sim.events.touchdown, crashed: !!sim.crashed })
+    this.cam.side = this.settings.view === 'side'
+    this.cam.pitch = sim.pitch
+    audio.rideTick({ kind: a.parked.kind, v: Math.abs(sim.v), vmax: a.spec.maxSpeed, thr: sim.thr, brake: Math.max(sim.brk, sim.rbk), rpm: sim.rpm, gear: sim.gear, wheelie: sim.pitch, touchdown: sim.events.touchdown, crashed: !!sim.crashed, scrape: sim.scrape.k, part: sim.scrape.part, spin: sim.spin })
     sim.events.touchdown = 0
+    this.practiceStep(a, dt)
+    this.sparksStep(a, dt)
     this.emitHud(false, dt)
     this.syncRig(dt)
+  }
+
+  /** the practice strip: the judge only reads the riding state; its results show as a brief note and are kept as local personal bests */
+  private practiceStep(a: Active, dt: number) {
+    const sim = a.sim
+    if (a.phase !== 'riding' && a.phase !== 'crashed') return
+    const done = this.judge.update(dt, { x: sim.x, z: sim.z, v: sim.v, pitch: sim.pitch, pitchRate: sim.pitchRate, roll: sim.roll, oneHand: sim.oneHand, scrapePart: sim.scrape.part, touchdown: sim.lastTouchdown, crashed: !!sim.crashed })
+    if (done.length) {
+      for (const r of done) {
+        const c = CHALLENGES.find((x) => x.id === r.id)!
+        this.last = { name: c.name, line: r.line, score: r.score, t: 4 }
+      }
+      this.settings = { ...this.settings, best: this.judge.bests() }
+      saveRideSettings(this.settings)
+    }
+    if (this.last) {
+      this.last.t -= dt
+      if (this.last.t <= 0) this.last = null
+    }
+    sim.lastTouchdown = 0
+  }
+
+  /** sparks and the contact point of whatever part is touching the road */
+  private sparksStep(a: Active, dt: number) {
+    const sim = a.sim
+    const sp = sim.scrape
+    if (sp.part && !sim.crashed) {
+      const rig = a.rig
+      const p = new V3()
+      if (sp.part === 'peg') (sp.side > 0 ? rig.pegR : rig.pegL).getWorldPosition(p)
+      else rig.root.getWorldPosition(p)
+      p.y = this.host.ground(p.x, p.z)
+      const back = new V3(-Math.sin(sim.h), 0, -Math.cos(sim.h))
+      if (Math.random() < 0.6 + sp.k * 0.4) this.sparks?.emit(p, back, sp.k)
+    }
+    this.sparks?.update(dt)
   }
 
   /** collisions: let the world push the bike out of whatever it ran into, and take the speed out of the hit */
@@ -444,6 +493,12 @@ export class RideSystem {
     const lean0 = pz.lean * blend + (1 - blend) * 0.1
     const gl = rig.gripL.getWorldPosition(new V3())
     const gr = rig.gripR.getWorldPosition(new V3())
+    // ONE HAND: only while the front wheel is up. The clutch (left) hand lifts off the grip and rises a little out to the side; the gas hand stays on the bar. Released, it settles back onto the grip.
+    const one = THREE.MathUtils.clamp(sim.oneHand, 0, 1)
+    if (one > 0.004) {
+      const raised = gl.clone().addScaledVector(up, 0.62).addScaledVector(left, 0.22).addScaledVector(fwd, -0.12)
+      gl.lerp(raised, one * one * (3 - 2 * one))
+    }
     // pose, then fit the torso: hands must reach the grips (lean forward until they do) while the head (PumpChad's pumpkin is big) stays clear of the bars (lean back if not)
     let lean = lean0
     let slide = 0 // the rider scoots forward on the saddle when the bars are a long reach away
@@ -459,7 +514,7 @@ export class RideSystem {
       const barMid = gl.clone().add(gr).multiplyScalar(0.5)
       const clear = head.distanceTo(barMid)
       const need = 0.5
-      const reach = palmOf ? Math.max(palmOf.call(player, 'l', new V3()).distanceTo(gl), palmOf.call(player, 'r', new V3()).distanceTo(gr)) : 0
+      const reach = palmOf ? Math.max(one > 0.5 ? 0 : palmOf.call(player, 'l', new V3()).distanceTo(gl), palmOf.call(player, 'r', new V3()).distanceTo(gr)) : 0
       let next = lean
       if (clear < need) next -= (need - clear) * 1.1
       else if (reach > 0.03 && lean < 0.9) next += Math.min(0.25, reach * 1.2)
@@ -496,6 +551,9 @@ export class RideSystem {
           name: a.spec.name,
           kmh: Math.round(Math.abs(a.sim.v) * 3.6),
           up: a.sim.wheelie,
+          slow: Math.abs(a.sim.v) < 0.8 && !a.sim.wheelie,
+          view: this.settings.view,
+          practice: this.last ? { name: this.last.name, line: this.last.line, score: this.last.score, best: this.judge.best(CHALLENGES.find((c) => c.name === this.last!.name)!.id) } : this.judge.card(),
           wheelieTime: +a.sim.wheelieTime.toFixed(1),
           wheelieDist: Math.round(a.sim.wheelieDist),
           best: { t: +a.bestWheelie.t.toFixed(1), d: Math.round(a.bestWheelie.d) },
@@ -526,6 +584,11 @@ export class RideSystem {
       roll: +s.roll.toFixed(3),
       pitch: +s.pitch.toFixed(3),
       balance: +s.balance.toFixed(3), // (QA only; never shown to the player)
+      spin: +s.spin.toFixed(2),
+      oneHand: +s.oneHand.toFixed(2),
+      scrape: { ...s.scrape },
+      autoLean: +s.autoLean.toFixed(2),
+      judge: { active: this.judge.active, results: this.judge.results.slice(-6), bests: this.judge.bests() },
       pitchRate: +s.pitchRate.toFixed(3),
       forkC: +s.forkC.toFixed(3),
       shockC: +s.shockC.toFixed(3),
@@ -563,6 +626,7 @@ export class RideSystem {
     this.controls.stop()
     audio.rideStop()
     this.practice?.dispose()
+    this.sparks?.dispose()
     for (const p of this.parked) p.rig.dispose()
     this.parked.length = 0
     this.active = null

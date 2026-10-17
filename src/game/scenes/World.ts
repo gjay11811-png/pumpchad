@@ -1344,12 +1344,14 @@ export class World implements GameScene {
       // the follow camera: swings in behind the bike (unless you are looking around), sits further back as you go faster, and stays level through a wheelie
       const sp = r.cam.speed
       this.rideCamOn = true
-      this.camDist += (this.camDistBase * 1.22 + sp * 0.05 - this.camDist) * (1 - Math.exp(-dt * 2.5))
+      this.camDist += (this.camDistBase * (r.cam.side ? 0.95 : 1.22) + sp * (r.cam.side ? 0.03 : 0.05) - this.camDist) * (1 - Math.exp(-dt * 2.5))
       if (this.t - this.lastLookT > 1.4 && !this.input.mouseLooked) {
-        let cd = r.cam.heading + Math.PI - this.camYaw
+        // chase: swing in behind the bike. SIDE: sit square on the bike's right, low and level, so the front wheel's height and the landing can be judged by eye
+        const side = r.cam.side
+        let cd = r.cam.heading + (side ? -Math.PI / 2 : Math.PI) - this.camYaw
         cd = Math.atan2(Math.sin(cd), Math.cos(cd))
-        this.camYaw += cd * (1 - Math.exp(-dt * (1.6 + sp * 0.12)))
-        this.camPitch += (0.3 - this.camPitch) * (1 - Math.exp(-dt * 1.5))
+        this.camYaw += cd * (1 - Math.exp(-dt * (side ? 4.5 : 1.6 + sp * 0.12)))
+        this.camPitch += ((side ? 0.1 : 0.3) - this.camPitch) * (1 - Math.exp(-dt * (side ? 4 : 1.5)))
       }
     } else {
       // got off: back on foot beside the bike

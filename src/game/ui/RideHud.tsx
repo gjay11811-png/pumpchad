@@ -1,21 +1,22 @@
 import { useEffect, useState } from 'react'
 import { rideBtn, releaseAllRideButtons, requestGetOff, type RideBtn } from '../bike/controls'
 
+type Practice = { name: string; line: string; score: number | null; best: number | null } | null
 type School = { step: number; total: number; text: string; done: boolean } | null
 type Detail =
   | { riding: false }
-  | { riding: true; name: string; kmh: number; up: boolean; wheelieTime: number; wheelieDist: number; best: { t: number; d: number }; phase: string; note: string; assist: number; school: School }
+  | { riding: true; name: string; kmh: number; up: boolean; slow: boolean; view: 'chase' | 'side'; practice: Practice; wheelieTime: number; wheelieDist: number; best: { t: number; d: number }; phase: string; note: string; assist: number; school: School }
 
-const set = (d: { assist?: number; school?: boolean }) => window.dispatchEvent(new CustomEvent('chad-ride-set', { detail: d }))
+const set = (d: { assist?: number; school?: boolean; view?: 'chase' | 'side' }) => window.dispatchEvent(new CustomEvent('chad-ride-set', { detail: d }))
 
 /**
  * The riding HUD, kept small so the road and the rider stay visible:
  *   · while mounted the big profile / objective panels fold away (CSS below) and a one-line speed pill takes their place;
- *   · the optional lessons, the wheelie-assist setting and the key hints live behind ONE small corner button;
- *   · on a phone the controls are compact keys around the edges: the left thumb steers (the joystick, sideways only), the right thumb has GAS, REV (power lift +
- *     weight back, eased in), BRAKE, REAR brake and a small LEAN FWD, plus a small GET OFF. Every key is its own element with its own pointer capture, so any
- *     combination can be held at once and no finger cancels another; each releases on pointer-up, cancel and lost capture (and everything is released on pause,
- *     focus loss, dismount and reset). There is no timing bar, target zone or marker: the wheelie readout is a plain score of what you did.
+ *   · the optional lessons, the wheelie-assist setting and the key hints live behind ONE small corner button; a second small button swaps the camera (behind / side-on);
+ *   · on a phone: LEFT thumb = two steering arrows, RIGHT thumb = a big GAS and a BRAKE. Nothing else is always on screen. REVERSE appears only when the bike is nearly stopped,
+ *     ONE HAND only while the front wheel is already up (it changes the rider's pose; it never starts or holds the wheelie). There is no REV / lift button: the gas lifts the front.
+ *     Every button is its own element with its own pointer capture, so any combination can be held at once and no finger cancels another; each releases on pointer-up, cancel and
+ *     lost capture (and everything is released on pause, focus loss, orientation change, dismount and reset).
  */
 function Key({ k, label, sub, className, testid }: { k: RideBtn; label: string; sub?: string; className?: string; testid: string }) {
   const [down, setDown] = useState(false)
@@ -82,13 +83,22 @@ export function RideHud({ touch }: { touch: boolean }) {
   return (
     <>
       {/* fold the big on-foot panels away while mounted; on a phone the walking buttons go too */}
-      <style>{`[data-testid="hud-profile"],[data-testid="challenge-tab"],[data-testid="objective-wrap"],[data-testid="walk-hint"]{display:none!important}${touch ? `[data-testid="sprint"],[data-testid="jump-button"],[data-testid="emote-button"],button[aria-label^="Interact"]{display:none!important}` : ''}`}</style>
+      <style>{`[data-testid="hud-profile"],[data-testid="challenge-tab"],[data-testid="objective-wrap"],[data-testid="walk-hint"]{display:none!important}${touch ? `[data-testid="sprint"],[data-testid="jump-button"],[data-testid="emote-button"],[data-testid="joystick-zone"],button[aria-label^="Interact"]{display:none!important}` : ''}`}</style>
 
       <div className="pointer-events-none absolute left-[max(12px,env(safe-area-inset-left))] top-[max(10px,env(safe-area-inset-top))] flex flex-col items-start gap-1" data-testid="ride-hud">
         <div className="flex items-center gap-1.5">
           <p className="rounded-full bg-ink/70 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.16em] text-moon">
             {d.name} · <span data-testid="ride-speed">{d.kmh}</span> km/h
           </p>
+          <button
+            type="button"
+            onClick={() => set({ view: d.view === 'side' ? 'chase' : 'side' })}
+            aria-label={d.view === 'side' ? 'Camera: side view (tap for behind)' : 'Camera: behind (tap for side view)'}
+            data-testid="ride-view-btn"
+            className="pointer-events-auto flex h-8 items-center rounded-full bg-ink/70 px-2.5 font-mono text-[10px] uppercase tracking-wider text-moon"
+          >
+            {d.view === 'side' ? 'Side' : 'Behind'}
+          </button>
           <button
             type="button"
             onClick={() => setMenu((m) => !m)}
@@ -100,6 +110,13 @@ export function RideHud({ touch }: { touch: boolean }) {
             ⋯{lesson && <span className="absolute right-0.5 top-0.5 h-2 w-2 rounded-full bg-pump" aria-hidden="true" />}
           </button>
         </div>
+        {d.practice && (
+          <p className="rounded-lg bg-ink/75 px-3 py-1 font-mono text-[10px] leading-snug tracking-[0.08em] text-bone" data-testid="ride-practice">
+            <span className="uppercase text-moon">{d.practice.name}</span> · {d.practice.line}
+            {d.practice.score !== null && <span className="ml-1 text-pump">{d.practice.score}</span>}
+            {d.practice.best !== null && <span className="ml-1 text-bone/60">best {d.practice.best}</span>}
+          </p>
+        )}
         {d.up && (
           <p className="rounded-full bg-ink/70 px-3 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-bone" data-testid="ride-wheelie">
             Wheelie {d.wheelieTime.toFixed(1)} s · {d.wheelieDist} m
@@ -140,13 +157,13 @@ export function RideHud({ touch }: { touch: boolean }) {
             ))}
           </div>
           <p className="mt-1 text-[9px] leading-tight text-bone/60">Softens the wobble near the balance point. It never holds a wheelie for you.</p>
-          {!touch && <p className="mt-2 text-[10px] leading-snug text-bone/70">W gas · S brake (hold to reverse) · A D steer · Space rear brake · Shift REV · C lean forward · E get off</p>}
+          {!touch && <p className="mt-2 text-[10px] leading-snug text-bone/70">W gas · S brake · A D steer · R reverse (nearly stopped) · Space rear brake · Shift one hand (in a wheelie) · E get off</p>}
         </div>
       )}
 
       {!touch && (
         <p className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-ink/55 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-moon/90" data-testid="ride-keys">
-          W gas · S brake · A D steer · Space rear brake · Shift REV · E get off
+          W gas · S brake · A D steer · Shift one hand (in a wheelie) · E get off
         </p>
       )}
 
@@ -160,15 +177,16 @@ export function RideHud({ touch }: { touch: boolean }) {
           >
             Get off
           </button>
-          <div className="pointer-events-none absolute bottom-[max(12px,env(safe-area-inset-bottom))] right-[max(12px,env(safe-area-inset-right))] flex flex-col items-end gap-2" data-testid="ride-buttons">
-            <div className="flex items-end gap-2">
-              <Key k="forward" label="Lean" sub="forward" testid="ride-forward" className="h-11 w-14" />
-              <Key k="heave" label="REV" sub="lift" testid="ride-heave" className="h-14 w-[4.6rem]" />
-            </div>
-            <div className="flex items-end gap-2">
-              <Key k="rear" label="Rear" sub="brake" testid="ride-rear" className="h-14 w-14" />
-              <Key k="brake" label="Brake" testid="ride-brake" className="h-14 w-14" />
-              <Key k="throttle" label="Gas" testid="ride-throttle" className="h-[4.6rem] w-[4.6rem] text-[15px]" />
+          <div className="pointer-events-none absolute bottom-[max(14px,env(safe-area-inset-bottom))] left-[max(14px,env(safe-area-inset-left))] flex items-end gap-3" data-testid="ride-steer">
+            <Key k="left" label="◀" testid="ride-left" className="h-[4.6rem] w-[4.6rem] text-[26px]" />
+            <Key k="right" label="▶" testid="ride-right" className="h-[4.6rem] w-[4.6rem] text-[26px]" />
+          </div>
+          <div className="pointer-events-none absolute bottom-[max(14px,env(safe-area-inset-bottom))] right-[max(14px,env(safe-area-inset-right))] flex flex-col items-end gap-2" data-testid="ride-buttons">
+            {d.up && <Key k="trick" label="One hand" testid="ride-trick" className="h-11 w-[5.6rem] text-[12px]" />}
+            {d.slow && !d.up && <Key k="reverse" label="Reverse" testid="ride-reverse" className="h-9 w-[5.2rem] text-[10px] opacity-80" />}
+            <div className="flex items-end gap-3">
+              <Key k="brake" label="Brake" testid="ride-brake" className="h-[4.6rem] w-[4.6rem] text-[14px]" />
+              <Key k="throttle" label="Gas" testid="ride-throttle" className="h-[5.8rem] w-[5.8rem] text-[18px]" />
             </div>
           </div>
         </>

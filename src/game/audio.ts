@@ -383,7 +383,7 @@ class AudioEngine {
   }
 
   /* ── riding: a procedural motor note per bike, driven by speed and load (no recorded audio is used) ── */
-  private ride: { kind: 'surron' | 'street'; osc: OscillatorNode[]; gains: GainNode[]; noise: AudioBufferSourceNode; nGain: GainNode; lp: BiquadFilterNode; out: GainNode } | null = null
+  private ride: { kind: 'surron' | 'street'; osc: OscillatorNode[]; gains: GainNode[]; noise: AudioBufferSourceNode; nGain: GainNode; lp: BiquadFilterNode; out: GainNode; scrape: { src: AudioBufferSourceNode; gain: GainNode; hp: BiquadFilterNode } } | null = null
   rideStart(kind: 'surron' | 'street') {
     if (!this.ctx) return
     this.rideStop()
@@ -416,10 +416,21 @@ class AudioEngine {
     noise.connect(nf).connect(nGain).connect(out)
     noise.start()
     out.gain.setTargetAtTime(0.5, ctx.currentTime, 0.15)
-    this.ride = { kind, osc: parts.map((p) => p.o), gains: parts.map((p) => p.gn), noise, nGain, lp, out }
+    // a separate rasp for a part dragging on the road (silent unless something actually touches): high-passed noise whose level follows the contact
+    const sSrc = ctx.createBufferSource()
+    sSrc.buffer = this.noise
+    sSrc.loop = true
+    const sHp = ctx.createBiquadFilter()
+    sHp.type = 'highpass'
+    sHp.frequency.value = 1800
+    const sGain = ctx.createGain()
+    sGain.gain.value = 0
+    sSrc.connect(sHp).connect(sGain).connect(this.sfxGain)
+    sSrc.start()
+    this.ride = { kind, osc: parts.map((p) => p.o), gains: parts.map((p) => p.gn), noise, nGain, lp, out, scrape: { src: sSrc, gain: sGain, hp: sHp } }
   }
   /** called every frame while riding: speed 0..1 and the engine's load shape the note, smoothly */
-  rideTick(s: { kind: 'surron' | 'street'; v: number; vmax: number; thr: number; brake: number; rpm: number; gear: number; wheelie: number; touchdown: number; crashed: boolean }) {
+  rideTick(s: { kind: 'surron' | 'street'; v: number; vmax: number; thr: number; brake: number; rpm: number; gear: number; wheelie: number; touchdown: number; crashed: boolean; scrape?: number; part?: string | null; spin?: number }) {
     const r = this.ride
     const ctx = this.ctx
     if (!r || !ctx) return
@@ -443,6 +454,11 @@ class AudioEngine {
       r.out.gain.setTargetAtTime(s.crashed ? 0 : 0.2 + 0.34 * s.thr + 0.1 * s.rpm, t, 0.08)
       r.nGain.gain.setTargetAtTime(0.01 + 0.1 * s.thr, t, 0.08)
     }
+    // contact sounds: a peg / tail / plate scraping the road, and a rear tyre spinning up
+    const sc = s.scrape ?? 0
+    r.scrape.hp.frequency.setTargetAtTime(s.part === 'peg' ? 2600 : s.part === 'tail' ? 1200 : 900, t, 0.05)
+    r.scrape.gain.gain.setTargetAtTime(sc > 0 ? 0.05 + 0.13 * sc * (0.5 + 0.5 * sf) : 0, t, sc > 0 ? 0.03 : 0.08)
+    if ((s.spin ?? 0) > 0.15) r.nGain.gain.setTargetAtTime(0.05 + 0.2 * (s.spin ?? 0), t, 0.05)
     if (s.touchdown > 0.6 && this.ready) this.play('thud')
   }
   rideStop() {
@@ -453,6 +469,8 @@ class AudioEngine {
     setTimeout(() => {
       r.osc.forEach((o) => o.stop())
       r.noise.stop()
+      r.scrape.src.stop()
+      r.scrape.gain.disconnect()
       r.out.disconnect()
     }, 400)
     this.ride = null
