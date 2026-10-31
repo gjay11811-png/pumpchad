@@ -2,6 +2,7 @@ import { AnimatePresence, m } from 'framer-motion'
 import { Plus } from 'lucide-react'
 import { useId, useState } from 'react'
 import { faq, launchStatus, type LaunchState } from '../config'
+import { tradingCopy, useLaunch } from '../launch'
 import { Reveal, SectionLabel, ease } from './ui'
 
 const STATE_STYLE: Record<LaunchState, { dot: string; text: string }> = {
@@ -11,6 +12,9 @@ const STATE_STYLE: Record<LaunchState, { dot: string; text: string }> = {
 }
 
 export function LaunchStatus() {
+  const { trading, poolOpensAt } = useLaunch()
+  const tc = tradingCopy(trading, poolOpensAt)
+  const rows = [...launchStatus, { label: 'Trading', state: tc.tone as LaunchState, text: tc.short.toUpperCase() }]
   return (
     <div className="metal overflow-hidden rounded-[24px]">
       <div className="flex items-center justify-between border-b border-bone/[0.07] px-5 py-4 sm:px-6">
@@ -18,7 +22,7 @@ export function LaunchStatus() {
         <span className="font-mono text-[11px] uppercase tracking-[0.25em] text-ember">Launch · 31 Oct 2026</span>
       </div>
       <ul>
-        {launchStatus.map((s) => {
+        {rows.map((s) => {
           const st = STATE_STYLE[s.state]
           return (
             <li key={s.label} className="flex items-center justify-between gap-4 border-b border-bone/[0.05] px-5 py-3.5 last:border-0 sm:px-6">

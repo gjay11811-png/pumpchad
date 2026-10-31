@@ -1,6 +1,7 @@
 import { m, useReducedMotion, useScroll, useTransform } from 'framer-motion'
 import { useRef } from 'react'
 import { art, launch, site, social, xUrl } from '../config'
+import { tradingCopy, useLaunch } from '../launch'
 import { Countdown } from './Countdown'
 import { ArtSlot, Cta, TelegramIcon, XIcon, ease } from './ui'
 
@@ -111,7 +112,8 @@ export function Hero() {
             transition={{ duration: 0.9, ease, delay: 1 }}
             className="mt-6 flex flex-col gap-3 sm:flex-row"
           >
-            <Cta href={social.telegramUrl} icon={<TelegramIcon className="h-5 w-5" />}>Join Telegram</Cta>
+            <Cta href={site.buyUrl}>Buy $PCHAD</Cta>
+            <Cta href={social.telegramUrl} variant="ghost" icon={<TelegramIcon className="h-5 w-5" />}>Join Telegram</Cta>
             <Cta href={xUrl} soon="X — coming soon" variant="ghost" icon={<XIcon className="h-4 w-4" />}>Follow on X</Cta>
           </m.div>
 
@@ -172,13 +174,15 @@ export function Hero() {
 }
 
 function StatusBadge() {
+  const { reached, trading, poolOpensAt } = useLaunch()
+  const text = reached ? `Trading: ${tradingCopy(trading, poolOpensAt).short}` : 'Launches 31 Oct'
   return (
     <span className="inline-flex items-center gap-2.5 rounded-full py-1.5 pl-2.5 pr-3.5 font-mono text-[11px] uppercase tracking-[0.2em] text-bone/85 backdrop-blur [background-image:linear-gradient(#0b0a0e,#0b0a0e),linear-gradient(90deg,rgba(155,92,255,0.6),rgba(25,241,154,0.6))] [background-clip:padding-box,border-box] [border:1px_solid_transparent]">
       <span className="relative flex h-2 w-2">
         <span className="absolute inset-0 animate-ping rounded-full bg-sol-green/70 motion-reduce:animate-none" />
         <span className="relative h-2 w-2 rounded-full bg-sol-green" />
       </span>
-      Launching on Solana
+      {text}
     </span>
   )
 }

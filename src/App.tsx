@@ -8,6 +8,9 @@ import { Community } from './components/Community'
 import { Cursor } from './components/Cursor'
 import { Diagnostics } from './components/Diagnostics'
 import { Faq } from './components/Faq'
+import { GameStatus } from './components/GameStatus'
+import { Launch } from './components/Launch'
+import { LaunchProvider } from './launch'
 import { Footer } from './components/Footer'
 import { Header } from './components/Header'
 import { Hero } from './components/Hero'
@@ -18,6 +21,7 @@ import { Tokenomics } from './components/Tokenomics'
 
 export default function App() {
   return (
+    <LaunchProvider>
     <LazyMotion features={domAnimation} strict>
       <MotionConfig reducedMotion="user">
         <div className="grain relative">
@@ -29,8 +33,10 @@ export default function App() {
             <Hero />
             <MoodStrip />
             <Ticker />
+            <Launch />
             <About />
             <ChadverseTeaser />
+            <GameStatus />
             <Progress />
             <Community />
             <Diagnostics />
@@ -46,5 +52,6 @@ export default function App() {
         </div>
       </MotionConfig>
     </LazyMotion>
+    </LaunchProvider>
   )
 }

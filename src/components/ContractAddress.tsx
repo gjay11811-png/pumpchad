@@ -1,13 +1,10 @@
-import { AnimatePresence, m } from 'framer-motion'
-import { Check, Copy, ShieldAlert } from 'lucide-react'
+import { m } from 'framer-motion'
+import { Check, Copy, ExternalLink, ShieldAlert } from 'lucide-react'
 import { useState } from 'react'
 import { contractLive, site } from '../config'
 
-const shorten = (a: string) => `${a.slice(0, 6)}…${a.slice(-6)}`
-
-/** Reads site.contractAddress. Shows NOT LIVE YET until a valid Solana address is set. */
+/** Official contract address: full address always visible, one-tap copy, Solscan link, verify-before-trading warning. */
 export function ContractAddress({ compact = false }: { compact?: boolean }) {
-  const [full, setFull] = useState(false)
   const [copied, setCopied] = useState(false)
   const address = site.contractAddress.trim()
 
@@ -17,70 +14,71 @@ export function ContractAddress({ compact = false }: { compact?: boolean }) {
     } catch {
       const ta = document.createElement('textarea')
       ta.value = address
+      ta.setAttribute('readonly', '')
+      ta.style.position = 'fixed'
+      ta.style.opacity = '0'
       document.body.appendChild(ta)
       ta.select()
+      ta.setSelectionRange(0, address.length)
       document.execCommand('copy')
       ta.remove()
     }
     setCopied(true)
-    setTimeout(() => setCopied(false), 1800)
+    setTimeout(() => setCopied(false), 2200)
+  }
+
+  if (!contractLive) {
+    return (
+      <div className="rounded-[24px] border border-dashed border-bone/20 bg-ink/60 p-6">
+        <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-ash">Contract address</p>
+        <p className="mt-2 font-display text-4xl uppercase">Not published</p>
+      </div>
+    )
   }
 
   return (
-    <div
-      className={`relative overflow-hidden rounded-[24px] ${
-        contractLive ? 'metal ring-1 ring-pump/40' : 'border border-dashed border-bone/20 bg-ink/60'
-      } ${compact ? 'p-5' : 'p-6 sm:p-8 md:p-10'}`}
-    >
-      {!contractLive && <div aria-hidden="true" className="hatch pointer-events-none absolute inset-y-0 right-0 w-1/3 opacity-40 [mask-image:linear-gradient(90deg,transparent,#000)]" />}
-      <div className="relative flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-        <div className="min-w-0 flex-1">
-          <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-ash">Contract address</p>
+    <div className={`metal relative overflow-hidden rounded-[24px] ring-1 ring-pump/40 ${compact ? 'p-5' : 'p-5 sm:p-8 md:p-10'}`}>
+      <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-ash">Official contract address · Solana · $PCHAD</p>
 
-          {contractLive ? (
-            <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <button
-                type="button"
-                onClick={() => setFull((v) => !v)}
-                aria-expanded={full}
-                title={full ? 'Show short address' : 'Show full address'}
-                className="min-w-0 text-left font-mono text-[clamp(1.1rem,4.5vw,2rem)] font-semibold text-bone transition-colors hover:text-ember"
-              >
-                <span className={full ? 'break-all' : ''}>{full ? address : shorten(address)}</span>
-              </button>
-              <button
-                type="button"
-                onClick={copy}
-                className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 self-start rounded-full bg-pump px-5 text-sm font-semibold uppercase tracking-wider text-ink transition-colors hover:bg-ember sm:self-auto"
-              >
-                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                {copied ? 'Copied' : 'Copy'}
-              </button>
-              <AnimatePresence>
-                {copied && (
-                  <m.span role="status" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="sr-only">
-                    Contract address copied
-                  </m.span>
-                )}
-              </AnimatePresence>
-            </div>
-          ) : (
-            <>
-              <p className={`mt-2 font-display uppercase leading-none text-bone ${compact ? 'text-4xl' : 'text-[clamp(3rem,12vw,6.5rem)]'}`}>
-                Not live <span className="text-outline-pump">yet</span>
-              </p>
-              <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-bone/65">
-                The official {site.ticker} contract address will appear here at launch.
-              </p>
-            </>
-          )}
-        </div>
+      <p
+        data-testid="contract-address"
+        className="mt-3 select-all break-all rounded-xl bg-ink/70 px-4 py-3.5 font-mono text-[clamp(0.95rem,3.9vw,1.6rem)] font-semibold leading-snug text-bone ring-1 ring-bone/10"
+      >
+        {address}
+      </p>
 
-        <div className="flex max-w-sm items-start gap-3 rounded-2xl border border-ember/25 bg-ember/[0.06] p-4 text-sm leading-relaxed text-bone/80">
-          <ShieldAlert aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-ember" />
-          <p>Never trust a contract posted anywhere except our official website, X account and Telegram.</p>
-        </div>
+      <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+        <button
+          type="button"
+          onClick={copy}
+          data-testid="copy-contract"
+          className="inline-flex min-h-13 flex-1 items-center justify-center gap-2.5 rounded-full bg-pump px-6 text-[15px] font-semibold uppercase tracking-[0.08em] text-ink transition-colors hover:bg-ember active:scale-[0.98] sm:flex-none"
+        >
+          {copied ? <Check className="h-5 w-5" /> : <Copy className="h-5 w-5" />}
+          {copied ? 'Copied!' : 'Copy address'}
+        </button>
+        <a
+          href={site.solscanUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex min-h-13 flex-1 items-center justify-center gap-2.5 rounded-full border border-bone/25 px-6 text-[15px] font-semibold uppercase tracking-[0.08em] text-bone transition-colors hover:border-pump hover:text-pump active:scale-[0.98] sm:flex-none"
+        >
+          <ExternalLink className="h-5 w-5" />
+          Verify on Solscan
+        </a>
       </div>
+
+      <p role="status" aria-live="polite" className={`mt-3 h-5 font-mono text-[12px] uppercase tracking-[0.18em] text-sol-green transition-opacity ${copied ? 'opacity-100' : 'opacity-0'}`}>
+        {copied ? 'Contract address copied to clipboard' : ''}
+      </p>
+
+      <m.div initial={false} className="mt-2 flex items-start gap-3 rounded-2xl border border-ember/30 bg-ember/[0.07] p-4 text-sm leading-relaxed text-bone/85">
+        <ShieldAlert aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-ember" />
+        <p>
+          <strong className="font-semibold text-bone">Verify before you trade.</strong> Copy-cat tokens exist. Check that the mint you swap matches this address exactly, and only trust it
+          from this website, the official X account and the official Telegram.
+        </p>
+      </m.div>
     </div>
   )
 }

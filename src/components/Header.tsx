@@ -29,11 +29,11 @@ export function Header() {
       }`}
     >
       <div className="mx-auto flex h-16 max-w-[1440px] items-center justify-between px-4 sm:px-6 md:h-20 lg:px-10">
-        <a href="#top" className="group flex items-center gap-3" aria-label="Pumpchad — back to top">
+        <a href="#top" className="group flex min-h-11 items-center gap-3" aria-label="PumpChad — back to top">
           <span className="relative h-9 w-9 overflow-hidden rounded-full ring-1 ring-pump/50 transition-transform duration-500 group-hover:rotate-[-8deg] md:h-10 md:w-10">
             <img src={art.logo.src} alt="" className="h-full w-full object-cover" width={40} height={40} />
           </span>
-          <span className="font-display text-xl tracking-[0.06em] md:text-2xl">PUMPCHAD</span>
+          <span className="hidden font-display text-xl tracking-[0.06em] min-[430px]:inline md:text-2xl">PUMPCHAD</span>
         </a>
 
         <nav aria-label="Primary" className="hidden lg:block">
@@ -53,6 +53,7 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-2">
+          <a href={site.buyUrl} target="_blank" rel="noopener noreferrer" className="flex h-11 items-center rounded-full bg-[linear-gradient(180deg,#ff9a3c,#ff7a1a)] px-4 text-[12px] font-bold uppercase tracking-[0.1em] text-ink transition-transform hover:-translate-y-0.5">Buy</a>
           {xUrl && (
             <SocialPill href={xUrl} label="Pumpchad on X">
               <XIcon className="h-4 w-4" />
@@ -114,13 +115,14 @@ export function Header() {
               className="relative mt-10 space-y-5"
             >
               <p className="font-display text-2xl uppercase text-bone/80">{site.slogan}</p>
+              <a href={site.buyUrl} target="_blank" rel="noopener noreferrer" className="flex min-h-14 items-center justify-center rounded-full bg-[linear-gradient(180deg,#ff9a3c,#ff7a1a)] font-bold uppercase tracking-[0.1em] text-ink">Buy $PCHAD</a>
               <div className="flex gap-3">
                 <a href={social.telegramUrl} target="_blank" rel="noopener noreferrer" className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-full bg-pump font-semibold uppercase tracking-wider text-ink">
                   <TelegramIcon className="h-4 w-4" /> Telegram
                 </a>
                 {xUrl && (
                   <a href={xUrl} target="_blank" rel="noopener noreferrer" className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-full border border-bone/20 font-semibold uppercase tracking-wider">
-                    <XIcon className="h-4 w-4" /> Follow
+                    <XIcon className="h-4 w-4" /> Follow on X
                   </a>
                 )}
               </div>
